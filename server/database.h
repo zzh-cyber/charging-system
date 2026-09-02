@@ -38,6 +38,9 @@ public:
     // 充电站列表（含总桩数/空闲数）
     QJsonArray stationList(int &code, QString &msg);
 
+    // 某站电桩列表
+    QJsonArray pileList(qint64 stationId, int &code, QString &msg);
+
 private:
     QSqlDatabase m_db;
     QString      m_connName;

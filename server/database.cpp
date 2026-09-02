@@ -161,3 +161,38 @@ QJsonArray Database::stationList(int &code, QString &msg)
     msg = "ok";
     return arr;
 }
+
+QJsonArray Database::pileList(qint64 stationId, int &code, QString &msg)
+{
+    QJsonArray arr;
+
+    if (stationId <= 0) {
+        code = Protocol::InvalidRequest;
+        msg = "station_id 参数不正确";
+        return arr;
+    }
+
+    QSqlQuery q(m_db);
+    q.prepare("SELECT id, code, type, power_kw, status "
+              "FROM pile WHERE station_id = ? ORDER BY id");
+    q.addBindValue(stationId);
+    if (!q.exec()) {
+        code = Protocol::DbError;
+        msg = q.lastError().text();
+        return arr;
+    }
+
+    while (q.next()) {
+        QJsonObject o;
+        o["id"]       = q.value("id").toLongLong();
+        o["code"]     = q.value("code").toString();
+        o["type"]     = q.value("type").toString();
+        o["power_kw"] = q.value("power_kw").toDouble();
+        o["status"]   = q.value("status").toString();
+        arr.append(o);
+    }
+
+    code = Protocol::Ok;
+    msg = "ok";
+    return arr;
+}

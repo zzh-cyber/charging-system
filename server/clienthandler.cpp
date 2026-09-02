@@ -98,6 +98,13 @@ void ClientHandler::dispatch(const QJsonObject &req)
         reply(makeResponse(type, code, msg, out));
         return;
     }
+    if (type == MsgType::PileList) {
+        QJsonObject out;
+        out["list"] = m_db->pileList(data.value("station_id").toVariant().toLongLong(),
+                                      code, msg);
+        reply(makeResponse(type, code, msg, out));
+        return;
+    }
 
     // ================= 其余接口：占位，待各模块负责人实现 =================
     // 实现步骤：① 在 Database 里加对应查询方法；② 在此加一个 if 分支分发。
