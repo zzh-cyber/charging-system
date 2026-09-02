@@ -55,11 +55,11 @@
 | 接口 (type) | 说明 | 请求 data | 响应 data | 负责人 | 状态 |
 |-------------|------|-----------|-----------|--------|------|
 | `admin_login` | 管理员登录 | `{username,password}` | `{id,username}` | 服务器A / 管理端C | ✅ 已实现（样板） |
-| `admin_user_list` | 用户列表（支持模糊搜索） | `{keyword?}` | `{list:[{id,phone,nickname,balance,status,created_at}]}` | 管理端C | ⬜ |
-| `admin_user_freeze` | 冻结/解冻用户 | `{user_id,frozen:bool}` | `{}` | 管理端C | ⬜ |
-| `admin_pile_list` | 电桩列表 | `{}` | `{list:[{id,code,station,type,power_kw,status,total_count,total_hours}]}` | 管理端C | ⬜ |
-| `admin_pile_restart` | 远程重启电桩 | `{pile_id}` | `{}` | 管理端C | ⬜ |
-| `admin_station_list` | 电站列表 | `{}` | `{list:[{id,name,address,longitude,latitude,total,online_rate}]}` | 管理端C | ⬜ |
+| `admin_user_list` | 用户列表（keyword 空=全部；否则按手机号/昵称模糊搜索） | `{keyword?}` | `{list:[{id,phone,nickname,balance,status,created_at}]}` | 服务器A(组长) / 管理端C | ✅ 已实现 |
+| `admin_user_freeze` | 冻结/解冻用户 | `{user_id,frozen:bool}` | `{id,status}` | 服务器A(组长) / 管理端C | ✅ 已实现 |
+| `admin_pile_list` | 电桩列表（含所属站名） | `{}` | `{list:[{id,code,station,type,power_kw,status,total_count,total_hours}]}` | 服务器A(组长) / 管理端C | ✅ 已实现 |
+| `admin_pile_restart` | 远程重启电桩（fault/busy→idle） | `{pile_id}` | `{id,status}` | 服务器A(组长) / 管理端C | ✅ 已实现 |
+| `admin_station_list` | 电站列表（含桩数、在线率） | `{}` | `{list:[{id,name,address,longitude,latitude,total,online_rate}]}` | 服务器A(组长) / 管理端C | ✅ 已实现 |
 | `admin_station_add` | 新增电站 | `{name,address,longitude,latitude,price}` | `{id}` | 管理端C | ⬜ |
 | `admin_order_list` | 订单列表 | `{keyword?,status?}` | `{list:[{order_no,user_phone,pile_code,status,...}]}` | 管理端C | ⬜ |
 

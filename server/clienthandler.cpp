@@ -106,6 +106,41 @@ void ClientHandler::dispatch(const QJsonObject &req)
         return;
     }
 
+    // ================= 管理端：用户管理 =================
+    if (type == MsgType::AdminUserList) {
+        QJsonObject out;
+        out["list"] = m_db->adminUserList(data.value("keyword").toString(), code, msg);
+        reply(makeResponse(type, code, msg, out));
+        return;
+    }
+    if (type == MsgType::AdminUserFreeze) {
+        const QJsonObject out = m_db->adminUserFreeze(
+            data.value("user_id").toVariant().toLongLong(),
+            data.value("frozen").toBool(), code, msg);
+        reply(makeResponse(type, code, msg, out));
+        return;
+    }
+
+    // ================= 管理端：电桩 / 电站管理 =================
+    if (type == MsgType::AdminPileList) {
+        QJsonObject out;
+        out["list"] = m_db->adminPileList(code, msg);
+        reply(makeResponse(type, code, msg, out));
+        return;
+    }
+    if (type == MsgType::AdminPileRestart) {
+        const QJsonObject out = m_db->adminPileRestart(
+            data.value("pile_id").toVariant().toLongLong(), code, msg);
+        reply(makeResponse(type, code, msg, out));
+        return;
+    }
+    if (type == MsgType::AdminStationList) {
+        QJsonObject out;
+        out["list"] = m_db->adminStationList(code, msg);
+        reply(makeResponse(type, code, msg, out));
+        return;
+    }
+
     // ================= 其余接口：占位，待各模块负责人实现 =================
     // 实现步骤：① 在 Database 里加对应查询方法；② 在此加一个 if 分支分发。
     reply(makeResponse(type, NotImplemented, "接口尚未实现: " + type));
