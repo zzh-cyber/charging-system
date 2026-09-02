@@ -121,6 +121,26 @@ void ClientHandler::dispatch(const QJsonObject &req)
         return;
     }
 
+    // ================= 管理端：电桩 / 电站管理 =================
+    if (type == MsgType::AdminPileList) {
+        QJsonObject out;
+        out["list"] = m_db->adminPileList(code, msg);
+        reply(makeResponse(type, code, msg, out));
+        return;
+    }
+    if (type == MsgType::AdminPileRestart) {
+        const QJsonObject out = m_db->adminPileRestart(
+            data.value("pile_id").toVariant().toLongLong(), code, msg);
+        reply(makeResponse(type, code, msg, out));
+        return;
+    }
+    if (type == MsgType::AdminStationList) {
+        QJsonObject out;
+        out["list"] = m_db->adminStationList(code, msg);
+        reply(makeResponse(type, code, msg, out));
+        return;
+    }
+
     // ================= 其余接口：占位，待各模块负责人实现 =================
     // 实现步骤：① 在 Database 里加对应查询方法；② 在此加一个 if 分支分发。
     reply(makeResponse(type, NotImplemented, "接口尚未实现: " + type));
