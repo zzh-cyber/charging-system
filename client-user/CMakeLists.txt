@@ -3,6 +3,10 @@ add_executable(charging-user
     main.cpp
     loginwindow.cpp
     loginwindow.h
+    chargepage.cpp
+    chargepage.h
+    profilepage.cpp
+    profilepage.h
 )
 
 set_target_properties(charging-user PROPERTIES
