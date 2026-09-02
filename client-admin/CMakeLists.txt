@@ -3,6 +3,14 @@ add_executable(charging-admin
     main.cpp
     adminloginwindow.cpp
     adminloginwindow.h
+    adminmainwindow.cpp
+    adminmainwindow.h
+    usermanagerwidget.cpp
+    usermanagerwidget.h
+    pilemanagerwidget.cpp
+    pilemanagerwidget.h
+    stationmanagerwidget.cpp
+    stationmanagerwidget.h
 )
 
 set_target_properties(charging-admin PROPERTIES
