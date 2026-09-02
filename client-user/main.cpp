@@ -2,11 +2,21 @@
 
 #include <QApplication>
 #include <QColor>
+#include <QFontDatabase>
 #include <QPalette>
 
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
+
+    // 加载随程序打包的中文字体，修复 Linux/WSL 下中文显示为空白方框的问题
+    const int fontId = QFontDatabase::addApplicationFont(
+        QStringLiteral(":/fonts/wqy-microhei.ttc"));
+    if (fontId != -1) {
+        const QStringList families = QFontDatabase::applicationFontFamilies(fontId);
+        if (!families.isEmpty())
+            app.setFont(QFont(families.first()));
+    }
 
     // 蓝色主题：页面背景浅蓝，按钮主色深蓝（带边框）
     QPalette pal = app.palette();

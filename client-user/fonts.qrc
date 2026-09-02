@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/fonts">
+        <file alias="wqy-microhei.ttc">fonts/wqy-microhei.ttc</file>
+    </qresource>
+</RCC>

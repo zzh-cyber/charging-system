@@ -13,6 +13,7 @@ add_executable(charging-user
     chargepage.h
     profilepage.cpp
     profilepage.h
+    fonts.qrc
 )
 
 set_target_properties(charging-user PROPERTIES
