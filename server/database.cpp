@@ -196,3 +196,72 @@ QJsonArray Database::pileList(qint64 stationId, int &code, QString &msg)
     msg = "ok";
     return arr;
 }
+
+QJsonArray Database::adminUserList(const QString &keyword, int &code, QString &msg)
+{
+    QJsonArray arr;
+
+    QSqlQuery q(m_db);
+    if (keyword.trimmed().isEmpty()) {
+        q.prepare("SELECT id, phone, nickname, balance, status, created_at "
+                  "FROM `user` ORDER BY id");
+    } else {
+        q.prepare("SELECT id, phone, nickname, balance, status, created_at "
+                  "FROM `user` WHERE phone LIKE ? OR nickname LIKE ? ORDER BY id");
+        const QString like = "%" + keyword.trimmed() + "%";
+        q.addBindValue(like);
+        q.addBindValue(like);
+    }
+    if (!q.exec()) {
+        code = Protocol::DbError;
+        msg = q.lastError().text();
+        return arr;
+    }
+
+    while (q.next()) {
+        QJsonObject o;
+        o["id"]         = q.value("id").toLongLong();
+        o["phone"]      = q.value("phone").toString();
+        o["nickname"]   = q.value("nickname").toString();
+        o["balance"]    = q.value("balance").toDouble();
+        o["status"]     = q.value("status").toString();
+        o["created_at"] = q.value("created_at").toString();
+        arr.append(o);
+    }
+
+    code = Protocol::Ok;
+    msg = "ok";
+    return arr;
+}
+
+QJsonObject Database::adminUserFreeze(qint64 userId, bool frozen, int &code, QString &msg)
+{
+    QJsonObject data;
+
+    if (userId <= 0) {
+        code = Protocol::InvalidRequest;
+        msg = "user_id 参数不正确";
+        return data;
+    }
+
+    QSqlQuery q(m_db);
+    q.prepare("UPDATE `user` SET status = ? WHERE id = ?");
+    q.addBindValue(frozen ? "frozen" : "normal");
+    q.addBindValue(userId);
+    if (!q.exec()) {
+        code = Protocol::DbError;
+        msg = q.lastError().text();
+        return data;
+    }
+    if (q.numRowsAffected() == 0) {
+        code = Protocol::NotFound;
+        msg = "用户不存在";
+        return data;
+    }
+
+    data["id"]     = userId;
+    data["status"] = frozen ? "frozen" : "normal";
+    code = Protocol::Ok;
+    msg = frozen ? "已冻结" : "已解冻";
+    return data;
+}
