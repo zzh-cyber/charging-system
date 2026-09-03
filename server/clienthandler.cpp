@@ -119,6 +119,26 @@ void ClientHandler::dispatch(const QJsonObject &req)
         reply(makeResponse(type, code, msg, out));
         return;
     }
+    if (type == MsgType::StartCharge) {
+        const QJsonObject out = m_db->startCharge(
+            data.value("order_no").toString(), code, msg);
+        reply(makeResponse(type, code, msg, out));
+        return;
+    }
+    if (type == MsgType::Settle) {
+        const QJsonObject out = m_db->settle(
+            data.value("order_no").toString(),
+            data.value("kwh").toDouble(), code, msg);
+        reply(makeResponse(type, code, msg, out));
+        return;
+    }
+    if (type == MsgType::Recharge) {
+        const QJsonObject out = m_db->recharge(
+            data.value("user_id").toVariant().toLongLong(),
+            data.value("amount").toDouble(), code, msg);
+        reply(makeResponse(type, code, msg, out));
+        return;
+    }
 
     // ================= 管理端：用户管理 =================
     if (type == MsgType::AdminUserList) {
