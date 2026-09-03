@@ -11,6 +11,10 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QVBoxLayout>
+#include <QDebug>
+#include <QRegularExpression>
+#include <QRegularExpressionValidator>
+
 
 // 服务器地址（本机联调用 127.0.0.1）
 static constexpr const char *kServerHost = "127.0.0.1";
@@ -31,14 +35,34 @@ LoginWindow::LoginWindow(QWidget *parent)
     subTitle->setAlignment(Qt::AlignCenter);
     subTitle->setStyleSheet("font-size:14px;color:#86909c;");
 
-    auto *tip = new QLabel(QStringLiteral("手机号免密登录 · 首次登录自动注册"), this);
+    auto *tip = new QLabel(QStringLiteral("手机号免密登录 · 不发送验证码"), this);
     tip->setAlignment(Qt::AlignCenter);
     tip->setStyleSheet("font-size:12px;color:#c0c4cc;");
 
     m_phoneEdit = new QLineEdit(this);
-    m_phoneEdit->setPlaceholderText(QStringLiteral("请输入11位手机号"));
+
+    m_phoneEdit->setPlaceholderText(
+        QStringLiteral("请输入11位手机号"));
+
     m_phoneEdit->setMaxLength(11);
-    m_phoneEdit->setAlignment(Qt::AlignCenter);
+
+    m_phoneEdit->setAlignment(
+        Qt::AlignCenter);
+
+    // 只允许数字输入
+    m_phoneEdit->setInputMethodHints(
+        Qt::ImhDigitsOnly);
+
+    // 输入阶段允许 1~11 位，提交时再做严格校验
+    auto *phoneValidator =
+        new QRegularExpressionValidator(
+            QRegularExpression(
+                QStringLiteral("^1\\d{0,10}$")),
+            m_phoneEdit);
+
+    m_phoneEdit->setValidator(
+        phoneValidator);
+
 
     m_loginBtn = new QPushButton(QStringLiteral("登 录"), this);
 
@@ -73,24 +97,71 @@ LoginWindow::LoginWindow(QWidget *parent)
 
 void LoginWindow::onLoginClicked()
 {
-    const QString phone = m_phoneEdit->text().trimmed();
-    if (phone.size() != 11) {
-        QMessageBox::warning(this, QStringLiteral("提示"),
-                             QStringLiteral("请输入11位手机号"));
+    const QString phone =
+        m_phoneEdit->text().trimmed();
+
+    const QRegularExpression phoneRegex(
+        QStringLiteral("^1\\d{10}$"));
+
+    if (!phoneRegex.match(phone).hasMatch()) {
+
+        QMessageBox::warning(
+            this,
+            QStringLiteral("手机号格式错误"),
+            QStringLiteral(
+                "请输入以 1 开头的 11 位手机号"));
+
+        return;
+    }
+    m_hint->setText(
+        QStringLiteral("正在登录，请稍候…"));
+
+    m_hint->setStyleSheet(
+        "color:#86909c;font-size:12px;");
+
+    m_loginBtn->setEnabled(false);
+
+    m_loginBtn->setText(
+        QStringLiteral("登录中…"));
+
+    const QString maskedPhone =
+        phone.left(3)
+        + QStringLiteral("****")
+        + phone.right(4);
+
+    qInfo()
+        << "login request phone:"
+        << maskedPhone;
+
+
+    if (!m_net->isConnected() &&
+        !m_net->connectToServer(
+            kServerHost,
+            kServerPort)) {
+
+        m_loginBtn->setEnabled(true);
+        m_loginBtn->setText(
+            QStringLiteral("登 录"));
+
+        m_hint->setText(
+            QStringLiteral("连接服务器失败"));
+
+        m_hint->setStyleSheet(
+            "color:#e5484d;font-size:12px;");
+
         return;
     }
 
-    if (!m_net->isConnected() && !m_net->connectToServer(kServerHost, kServerPort)) {
-        QMessageBox::critical(this, QStringLiteral("错误"),
-                              QStringLiteral("无法连接服务器，请确认服务器已启动"));
-        return;
-    }
 
     QJsonObject data;
     data["phone"] = phone;
     const QJsonObject resp =
         m_net->request(Protocol::makeRequest(Protocol::MsgType::Login, data));
 
+    m_loginBtn->setEnabled(true);
+
+    m_loginBtn->setText(
+        QStringLiteral("登 录"));
     const int code = resp.value("code").toInt();
     const QString msg = resp.value("msg").toString();
     if (code != Protocol::Ok) {
@@ -101,9 +172,11 @@ void LoginWindow::onLoginClicked()
     // 登录成功 → 进入主界面，并把用户信息传进去（供「我的」页显示）
     const QJsonObject u = resp.value("data").toObject();
     auto *mainWin = new MainWindow(
+        u.value("id").toVariant().toLongLong(),
         u.value("nickname").toString(),
         u.value("phone").toString(),
         u.value("balance").toDouble());
+
     mainWin->setAttribute(Qt::WA_DeleteOnClose);
     mainWin->show();
     close();

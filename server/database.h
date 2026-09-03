@@ -35,8 +35,12 @@ public:
     QJsonObject adminLogin(const QString &username, const QString &password,
                            int &code, QString &msg);
 
-    // 充电站列表（含总桩数/空闲数）
-    QJsonArray stationList(int &code, QString &msg);
+    // 附近充电站列表（根据用户经纬度计算距离并排序）
+    QJsonArray stationList(double userLat,
+                        double userLng,
+                        int &code,
+                        QString &msg);
+
 
     // 某站电桩列表
     QJsonArray pileList(qint64 stationId, int &code, QString &msg);

@@ -93,11 +93,63 @@ void ClientHandler::dispatch(const QJsonObject &req)
         return;
     }
     if (type == MsgType::StationList) {
+
+    // ------------------------------------------------------------------------
+    // 附近充电站查询要求客户端提供当前位置
+    // ------------------------------------------------------------------------
+        if (!data.contains("lat") ||
+            !data.contains("lng") ||
+            !data.value("lat").isDouble() ||
+            !data.value("lng").isDouble()) {
+
+            reply(
+                makeResponse(
+                    type,
+                    InvalidRequest,
+                    "缺少当前位置经纬度"));
+
+            return;
+        }
+
+        const double lat =
+            data.value("lat").toDouble();
+
+        const double lng =
+            data.value("lng").toDouble();
+
+        if (lat < -90.0 ||
+            lat > 90.0 ||
+            lng < -180.0 ||
+            lng > 180.0) {
+
+            reply(
+                makeResponse(
+                    type,
+                    InvalidRequest,
+                    "经纬度参数无效"));
+
+            return;
+        }
+
         QJsonObject out;
-        out["list"] = m_db->stationList(code, msg);
-        reply(makeResponse(type, code, msg, out));
+
+        out["list"] =
+            m_db->stationList(
+                lat,
+                lng,
+                code,
+                msg);
+
+        reply(
+            makeResponse(
+                type,
+                code,
+                msg,
+                out));
+
         return;
     }
+
     if (type == MsgType::PileList) {
         QJsonObject out;
         out["list"] = m_db->pileList(data.value("station_id").toVariant().toLongLong(),

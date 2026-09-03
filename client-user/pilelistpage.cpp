@@ -45,6 +45,11 @@ PileListPage::PileListPage(NetClient *net, QWidget *parent)
 
     connect(m_backBtn, &QPushButton::clicked, this, &PileListPage::back);
 }
+void PileListPage::setUserId(qint64 userId)
+{
+    m_userId = userId;
+}
+
 
 void PileListPage::loadStation(qint64 stationId, const QString &name)
 {
@@ -72,6 +77,11 @@ void PileListPage::loadStation(qint64 stationId, const QString &name)
 
     for (const QJsonValue &v : list) {
         const QJsonObject p = v.toObject();
+        const qint64 pileId =
+        p.value("id")
+            .toVariant()
+            .toLongLong();
+
         const QString code   = p.value("code").toString();
         const QString type   = p.value("type").toString();
         const double  power  = p.value("power_kw").toDouble();
@@ -131,11 +141,103 @@ void PileListPage::loadStation(qint64 stationId, const QString &name)
                 "color:#bbb;background:#f5f5f5;}");
             reserveBtn->setToolTip(QStringLiteral("该桩当前不可预约"));
         }
-        connect(reserveBtn, &QPushButton::clicked, this, [this, code]() {
-            // TODO(B)：接入 reserve 接口并跳转预约流程。当前为 UI 占位。
-            QMessageBox::information(this, QStringLiteral("预约"),
-                QStringLiteral("桩 %1 的预约功能即将接入，敬请期待").arg(code));
-        });
+        connect(
+            reserveBtn,
+            &QPushButton::clicked,
+            this,
+            [this, reserveBtn, pileId]() {
+
+                if (m_userId <= 0) {
+                    QMessageBox::warning(
+                        this,
+                        QStringLiteral("预约失败"),
+                        QStringLiteral("用户信息无效，请重新登录"));
+                    return;
+                }
+
+                if (pileId <= 0) {
+                    QMessageBox::warning(
+                        this,
+                        QStringLiteral("预约失败"),
+                        QStringLiteral("电桩信息无效"));
+                    return;
+                }
+
+                reserveBtn->setEnabled(false);
+                reserveBtn->setText(
+                    QStringLiteral("预约中…"));
+
+                // 使用已有 reserve 协议
+                QJsonObject data;
+
+                data["user_id"] =
+                    m_userId;
+
+                data["pile_id"] =
+                    pileId;
+
+                const QJsonObject resp =
+                    m_net->request(
+                        Protocol::makeRequest(
+                            Protocol::MsgType::Reserve,
+                            data));
+
+                const int resultCode =
+                    resp.value("code").toInt();
+
+                const QString message =
+                    resp.value("msg").toString();
+
+                if (resultCode != Protocol::Ok) {
+
+                    reserveBtn->setEnabled(true);
+
+                    reserveBtn->setText(
+                        QStringLiteral("预约"));
+
+                    QMessageBox::warning(
+                        this,
+                        QStringLiteral("预约失败"),
+                        message);
+
+                    return;
+                }
+
+                const QString orderNo =
+                    resp.value("data")
+                        .toObject()
+                        .value("order_no")
+                        .toString();
+
+                if (orderNo.isEmpty()) {
+
+                    reserveBtn->setEnabled(true);
+
+                    reserveBtn->setText(
+                        QStringLiteral("预约"));
+
+                    QMessageBox::warning(
+                        this,
+                        QStringLiteral("预约失败"),
+                        QStringLiteral(
+                            "服务器未返回订单号"));
+
+                    return;
+                }
+
+                reserveBtn->setText(
+                    QStringLiteral("已预约"));
+
+                QMessageBox::information(
+                    this,
+                    QStringLiteral("预约成功"),
+                    QStringLiteral(
+                        "预约成功，即将进入充电页面"));
+
+                emit reservationSucceeded(
+                    orderNo);
+            });
+
 
         rowLayout->addWidget(codeLabel);
         rowLayout->addWidget(infoLabel, 1);
@@ -145,6 +247,7 @@ void PileListPage::loadStation(qint64 stationId, const QString &name)
         m_listLayout->addWidget(row);
     }
 }
+
 
 void PileListPage::clearList()
 {

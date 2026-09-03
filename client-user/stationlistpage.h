@@ -18,24 +18,47 @@ class NetClient;
 class StationListPage : public QWidget
 {
     Q_OBJECT
+
 public:
-    explicit StationListPage(NetClient *net, QWidget *parent = nullptr);
+    explicit StationListPage(
+        NetClient *net,
+        QWidget *parent = nullptr);
+
+    // MainWindow 地址解析成功后传入用户经纬度
+    void setLocation(
+        double lat,
+        double lng);
 
 signals:
-    void stationSelected(qint64 stationId, const QString &name);
+    void stationSelected(
+        qint64 stationId,
+        const QString &name);
 
 protected:
-    void showEvent(QShowEvent *event) override;
+    void showEvent(
+        QShowEvent *event) override;
 
 private:
     void loadStations();
     void clearList();
-    void buildCards(const QJsonArray &list);
+
+    void buildCards(
+        const QJsonArray &list);
 
     NetClient      *m_net;
     QStackedWidget *m_stack;
     QVBoxLayout    *m_listLayout;
     QLabel         *m_tip;
+
     bool            m_loaded = false;
-    QJsonArray      m_cachedList;   // 最近一次成功列表缓存（NO.7）
+
+    // 最近一次成功列表缓存（NO.7）
+    QJsonArray      m_cachedList;
+
+    // ------------------------------------------------------------------------
+    // 用户当前位置
+    // ------------------------------------------------------------------------
+    double m_latitude = 0.0;
+    double m_longitude = 0.0;
+    bool m_hasLocation = false;
 };

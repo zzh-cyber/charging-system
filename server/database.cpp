@@ -10,6 +10,11 @@
 #include <QStringList>
 #include <QUuid>
 #include <QVariant>
+#include <QVector>
+
+#include <algorithm>
+#include <cmath>
+
 
 Database::Database(const QString &connectionName)
     : m_connName(connectionName)
@@ -160,39 +165,261 @@ QJsonObject Database::adminLogin(const QString &username, const QString &passwor
     return data;
 }
 
-QJsonArray Database::stationList(int &code, QString &msg)
+QJsonArray Database::stationList(
+    double userLat,
+    double userLng,
+    int &code,
+    QString &msg)
 {
     QJsonArray arr;
 
-    QSqlQuery q(m_db);
-    const QString sql =
-        "SELECT s.id, s.name, s.address, s.longitude, s.latitude, s.price, "
-        "  (SELECT COUNT(*) FROM pile p WHERE p.station_id = s.id) AS total, "
-        "  (SELECT COUNT(*) FROM pile p WHERE p.station_id = s.id AND p.status = 'idle') AS idle "
-        "FROM station s WHERE s.enabled = 1 ORDER BY s.id";
-    if (!q.exec(sql)) {
-        code = Protocol::DbError;
-        msg = q.lastError().text();
+    // ------------------------------------------------------------------------
+    // 用户坐标检查
+    // ------------------------------------------------------------------------
+    if (userLat < -90.0 ||
+        userLat > 90.0 ||
+        userLng < -180.0 ||
+        userLng > 180.0) {
+
+        code =
+            Protocol::InvalidRequest;
+
+        msg =
+            "用户经纬度参数无效";
+
         return arr;
     }
 
-    while (q.next()) {
-        QJsonObject o;
-        o["id"]        = q.value("id").toLongLong();
-        o["name"]      = q.value("name").toString();
-        o["address"]   = q.value("address").toString();
-        o["longitude"] = q.value("longitude").toDouble();
-        o["latitude"]  = q.value("latitude").toDouble();
-        o["price"]     = q.value("price").toDouble();
-        o["total"]     = q.value("total").toInt();
-        o["idle"]      = q.value("idle").toInt();
-        arr.append(o);
+    // ------------------------------------------------------------------------
+    // 查询充电站
+    // ------------------------------------------------------------------------
+    QSqlQuery q(m_db);
+
+    const QString sql =
+        "SELECT "
+        "s.id, "
+        "s.name, "
+        "s.address, "
+        "s.longitude, "
+        "s.latitude, "
+        "s.price, "
+
+        "(SELECT COUNT(*) "
+        " FROM pile p "
+        " WHERE p.station_id = s.id) AS total, "
+
+        "(SELECT COUNT(*) "
+        " FROM pile p "
+        " WHERE p.station_id = s.id "
+        " AND p.status = 'idle') AS idle "
+
+        "FROM station s "
+        "WHERE s.enabled = 1";
+
+    if (!q.exec(sql)) {
+
+        code =
+            Protocol::DbError;
+
+        msg =
+            q.lastError().text();
+
+        return arr;
     }
 
-    code = Protocol::Ok;
-    msg = "ok";
+    // ------------------------------------------------------------------------
+    // 临时保存：
+    // 站点数据 + 距离
+    // ------------------------------------------------------------------------
+    struct StationItem
+    {
+        QJsonObject data;
+        double distance = 0.0;
+    };
+
+    QVector<StationItem> stations;
+
+    constexpr double earthRadiusKm =
+        6371.0088;
+
+    auto toRadians =
+        [](double degree) {
+
+            constexpr double pi =
+                3.14159265358979323846;
+
+            return degree *
+                   pi /
+                   180.0;
+        };
+
+    const double userLatRad =
+        toRadians(userLat);
+
+    // ------------------------------------------------------------------------
+    // 计算每个站点与用户之间的距离
+    // ------------------------------------------------------------------------
+    while (q.next()) {
+
+        bool latOk = false;
+        bool lngOk = false;
+
+        const double stationLat =
+            q.value("latitude")
+                .toDouble(&latOk);
+
+        const double stationLng =
+            q.value("longitude")
+                .toDouble(&lngOk);
+
+        if (!latOk ||
+            !lngOk) {
+
+            continue;
+        }
+
+        if (stationLat < -90.0 ||
+            stationLat > 90.0 ||
+            stationLng < -180.0 ||
+            stationLng > 180.0) {
+
+            continue;
+        }
+
+        // --------------------------------------------------------------------
+        // Haversine 球面距离公式
+        // --------------------------------------------------------------------
+        const double stationLatRad =
+            toRadians(
+                stationLat);
+
+        const double deltaLat =
+            toRadians(
+                stationLat -
+                userLat);
+
+        const double deltaLng =
+            toRadians(
+                stationLng -
+                userLng);
+
+        const double sinLat =
+            std::sin(
+                deltaLat /
+                2.0);
+
+        const double sinLng =
+            std::sin(
+                deltaLng /
+                2.0);
+
+        double a =
+            sinLat * sinLat
+            +
+            std::cos(userLatRad)
+            *
+            std::cos(stationLatRad)
+            *
+            sinLng * sinLng;
+
+        // 防止浮点误差
+        if (a < 0.0)
+            a = 0.0;
+
+        if (a > 1.0)
+            a = 1.0;
+
+        const double c =
+            2.0 *
+            std::atan2(
+                std::sqrt(a),
+                std::sqrt(
+                    1.0 - a));
+
+        const double distance =
+            earthRadiusKm *
+            c;
+
+        // --------------------------------------------------------------------
+        // 返回数据
+        // --------------------------------------------------------------------
+        QJsonObject o;
+
+        o["id"] =
+            q.value("id")
+                .toLongLong();
+
+        o["name"] =
+            q.value("name")
+                .toString();
+
+        o["address"] =
+            q.value("address")
+                .toString();
+
+        o["longitude"] =
+            stationLng;
+
+        o["latitude"] =
+            stationLat;
+
+        o["price"] =
+            q.value("price")
+                .toDouble();
+
+        o["total"] =
+            q.value("total")
+                .toInt();
+
+        o["idle"] =
+            q.value("idle")
+                .toInt();
+
+        // 单位 km
+        o["distance"] =
+            distance;
+
+        StationItem item;
+
+        item.data =
+            o;
+
+        item.distance =
+            distance;
+
+        stations.append(
+            item);
+    }
+
+    // ------------------------------------------------------------------------
+    // 按距离从近到远
+    // ------------------------------------------------------------------------
+    std::sort(
+        stations.begin(),
+        stations.end(),
+        [](const StationItem &a,
+           const StationItem &b) {
+
+            return a.distance <
+                   b.distance;
+        });
+
+    for (const StationItem &item :
+         stations) {
+
+        arr.append(
+            item.data);
+    }
+
+    code =
+        Protocol::Ok;
+
+    msg =
+        "ok";
+
     return arr;
 }
+
 
 QJsonArray Database::pileList(qint64 stationId, int &code, QString &msg)
 {
