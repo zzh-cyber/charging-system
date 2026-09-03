@@ -9,7 +9,7 @@
 USE charging_system;
 
 SET FOREIGN_KEY_CHECKS = 0;
-DROP TABLE IF EXISTS recharge;
+DROP TABLE IF EXISTS wallet_transactions;
 DROP TABLE IF EXISTS charge_order;
 DROP TABLE IF EXISTS pile;
 DROP TABLE IF EXISTS station;
@@ -38,10 +38,15 @@ CREATE TABLE `user` (
 
 -- 管理员
 CREATE TABLE admin (
-    id          BIGINT       NOT NULL AUTO_INCREMENT,
-    username    VARCHAR(64)  NOT NULL,
-    password    VARCHAR(128) NOT NULL,
-    created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    id            BIGINT       NOT NULL AUTO_INCREMENT,
+    username      VARCHAR(64)  NOT NULL,
+    password_hash VARCHAR(128) NOT NULL,
+    salt          VARCHAR(64)  NOT NULL,
+    role          VARCHAR(32)  NOT NULL DEFAULT 'admin',
+    status        ENUM('active','disabled') NOT NULL DEFAULT 'active',
+    last_login_at DATETIME     NULL,
+    created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     UNIQUE KEY uk_admin_username (username)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -102,14 +107,22 @@ CREATE TABLE charge_order (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 充值流水
-CREATE TABLE recharge (
-    id          BIGINT      NOT NULL AUTO_INCREMENT,
-    user_id     BIGINT      NOT NULL,
-    amount      DECIMAL(10,2) NOT NULL,
-    created_at  DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+CREATE TABLE wallet_transactions (
+    id             BIGINT        NOT NULL AUTO_INCREMENT,
+    transaction_no VARCHAR(32)   NOT NULL,
+    user_id        BIGINT        NOT NULL,
+    type           ENUM('recharge','charge_pay','refund') NOT NULL,
+    amount         DECIMAL(10,2) NOT NULL,
+    balance_before DECIMAL(10,2) NOT NULL,
+    balance_after  DECIMAL(10,2) NOT NULL,
+    order_id       BIGINT        NULL,
+    created_at     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
-    KEY idx_recharge_user (user_id),
-    CONSTRAINT fk_recharge_user FOREIGN KEY (user_id) REFERENCES `user` (id)
+    UNIQUE KEY uk_txn_no (transaction_no),
+    KEY idx_txn_user (user_id),
+    KEY idx_txn_order (order_id),
+    CONSTRAINT fk_txn_user FOREIGN KEY (user_id) REFERENCES `user` (id),
+    CONSTRAINT fk_txn_order FOREIGN KEY (order_id) REFERENCES charge_order (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 数据库结构版本（启动时检测用）
@@ -123,7 +136,8 @@ INSERT INTO schema_version (version) VALUES (1);
 -- ===================== 初始 / 测试数据 =====================
 
 -- 默认管理员（注意：明文密码仅用于实训，正式环境应存哈希）
-INSERT INTO admin (username, password) VALUES ('admin', '123456');
+INSERT INTO admin (username, password_hash, salt, role, status) VALUES
+('admin', '9f2986ef2d5671e67d7d65439ecaef19a2e3c94f5b368e8eca9693cc27116474', '7f3a9c1e5b8d2f04', 'admin', 'active');
 
 -- 充电站
 INSERT INTO station (station_code, name, address, longitude, latitude, price, enabled) VALUES

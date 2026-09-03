@@ -2,6 +2,7 @@
 #include "config.h"
 #include "protocol.h"
 
+#include <QCryptographicHash>
 #include <QFile>
 #include <QSqlError>
 #include <QSqlQuery>
@@ -116,9 +117,8 @@ QJsonObject Database::adminLogin(const QString &username, const QString &passwor
     QJsonObject data;
 
     QSqlQuery q(m_db);
-    q.prepare("SELECT id, username FROM admin WHERE username = ? AND password = ?");
+    q.prepare("SELECT id, username, password_hash, salt, status FROM admin WHERE username = ?");
     q.addBindValue(username);
-    q.addBindValue(password);
     if (!q.exec()) {
         code = Protocol::DbError;
         msg = q.lastError().text();
@@ -130,6 +130,27 @@ QJsonObject Database::adminLogin(const QString &username, const QString &passwor
         msg = "账号或密码错误";
         return data;
     }
+    if (q.value("status").toString() == "disabled") {
+        code = Protocol::AuthFailed;
+        msg = "账号已停用";
+        return data;
+    }
+
+    // SHA256(salt + 密码) 比对，避免明文存储
+    const QByteArray hash = QCryptographicHash::hash(
+        (q.value("salt").toString() + password).toUtf8(),
+        QCryptographicHash::Sha256).toHex();
+    if (QString::fromLatin1(hash) != q.value("password_hash").toString()) {
+        code = Protocol::AuthFailed;
+        msg = "账号或密码错误";
+        return data;
+    }
+
+    // 记录最近登录时间
+    QSqlQuery touch(m_db);
+    touch.prepare("UPDATE admin SET last_login_at = NOW() WHERE id = ?");
+    touch.addBindValue(q.value("id").toLongLong());
+    touch.exec();
 
     data["id"]       = q.value("id").toLongLong();
     data["username"] = q.value("username").toString();
@@ -440,7 +461,7 @@ QJsonObject Database::settle(const QString &orderNo, double kwh, int &code, QStr
     };
 
     QSqlQuery query(m_db);
-    query.prepare("SELECT o.user_id, o.pile_id, o.status, o.start_time, "
+    query.prepare("SELECT o.id AS order_id, o.user_id, o.pile_id, o.status, o.start_time, "
                   "u.balance, p.status AS pile_status, s.price "
                   "FROM charge_order o "
                   "JOIN `user` u ON u.id = o.user_id "
@@ -469,6 +490,20 @@ QJsonObject Database::settle(const QString &orderNo, double kwh, int &code, QStr
     updateUser.addBindValue(query.value("user_id").toLongLong());
     if (!updateUser.exec() || updateUser.numRowsAffected() != 1)
         return fail(Protocol::DbError, updateUser.lastError().text());
+
+    // 写钱包流水（NO.52：扣款留痕）
+    QSqlQuery txn(m_db);
+    txn.prepare("INSERT INTO wallet_transactions "
+                "(transaction_no, user_id, type, amount, balance_before, balance_after, order_id) "
+                "VALUES (?, ?, 'charge_pay', ?, ?, ?, ?)");
+    txn.addBindValue(QUuid::createUuid().toString(QUuid::WithoutBraces));
+    txn.addBindValue(query.value("user_id").toLongLong());
+    txn.addBindValue(amount);
+    txn.addBindValue(balance);
+    txn.addBindValue(balance - amount);
+    txn.addBindValue(query.value("order_id").toLongLong());
+    if (!txn.exec())
+        return fail(Protocol::DbError, txn.lastError().text());
 
     QSqlQuery updateOrder(m_db);
     updateOrder.prepare("UPDATE charge_order SET status = 'settled', end_time = NOW(), "
@@ -536,7 +571,7 @@ QJsonObject Database::recharge(qint64 userId, double amount, int &code, QString 
     };
 
     QSqlQuery userQuery(m_db);
-    userQuery.prepare("SELECT status FROM `user` WHERE id = ? FOR UPDATE");
+    userQuery.prepare("SELECT status, balance FROM `user` WHERE id = ? FOR UPDATE");
     userQuery.addBindValue(userId);
     if (!userQuery.exec())
         return fail(Protocol::DbError, userQuery.lastError().text());
@@ -544,6 +579,7 @@ QJsonObject Database::recharge(qint64 userId, double amount, int &code, QString 
         return fail(Protocol::NotFound, "用户不存在");
     if (userQuery.value("status").toString() == "frozen")
         return fail(Protocol::Frozen, "账号已被冻结，无法充值");
+    const double balanceBefore = userQuery.value("balance").toDouble();
 
     QSqlQuery updateQuery(m_db);
     updateQuery.prepare("UPDATE `user` SET balance = balance + ? WHERE id = ?");
@@ -552,10 +588,16 @@ QJsonObject Database::recharge(qint64 userId, double amount, int &code, QString 
     if (!updateQuery.exec() || updateQuery.numRowsAffected() != 1)
         return fail(Protocol::DbError, updateQuery.lastError().text());
 
+    // 写钱包流水（NO.52：余额变化必须留痕）
     QSqlQuery insertQuery(m_db);
-    insertQuery.prepare("INSERT INTO recharge (user_id, amount) VALUES (?, ?)");
+    insertQuery.prepare("INSERT INTO wallet_transactions "
+                        "(transaction_no, user_id, type, amount, balance_before, balance_after) "
+                        "VALUES (?, ?, 'recharge', ?, ?, ?)");
+    insertQuery.addBindValue(QUuid::createUuid().toString(QUuid::WithoutBraces));
     insertQuery.addBindValue(userId);
     insertQuery.addBindValue(amount);
+    insertQuery.addBindValue(balanceBefore);
+    insertQuery.addBindValue(balanceBefore + amount);
     if (!insertQuery.exec())
         return fail(Protocol::DbError, insertQuery.lastError().text());
 
