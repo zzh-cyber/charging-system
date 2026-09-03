@@ -58,7 +58,28 @@ public:
     // 电站列表（含桩总数、在线率）
     QJsonArray adminStationList(int &code, QString &msg);
 
+    // ---- 事务 ----
+    bool beginTransaction();
+    bool commitTransaction();
+    bool rollbackTransaction();
+
+    // ---- 结构初始化 ----
+    int  schemaVersion();          // 返回当前结构版本（未初始化返回 0）
+    bool ensureSchema();           // 检测缺表并自动按脚本初始化
+
+    // ---- 用户资料维护（NO.51）----
+    bool updateNickname(qint64 userId, const QString &nickname);
+    bool updateAvatar(qint64 userId, const QString &avatarPath);
+
+    // ---- 充电站管理（NO.53）----
+    bool addStation(const QString &code, const QString &name, const QString &address,
+                    double lng, double lat, double price);
+    bool updateStation(qint64 stationId, const QString &name, const QString &address,
+                       double lng, double lat, double price);
+
 private:
+    bool executeScript(const QString &sql);  // 逐条执行 SQL 脚本
+
     QSqlDatabase m_db;
     QString      m_connName;
     QString      m_lastError;

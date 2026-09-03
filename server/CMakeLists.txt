@@ -8,9 +8,10 @@ add_executable(charging-server
     database.cpp
     database.h
     config.h
+    schema.qrc
 )
 
-set_target_properties(charging-server PROPERTIES AUTOMOC ON)
+set_target_properties(charging-server PROPERTIES AUTOMOC ON AUTORCC ON)
 
 target_link_libraries(charging-server
     PRIVATE
