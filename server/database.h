@@ -41,6 +41,21 @@ public:
     // 某站电桩列表
     QJsonArray pileList(qint64 stationId, int &code, QString &msg);
 
+    // 预约充电桩，成功时返回订单号
+    QJsonObject reserve(qint64 userId, qint64 pileId, int &code, QString &msg);
+
+    // 查询最近一条未完成订单
+    QJsonObject unfinishedOrder(qint64 userId, int &code, QString &msg);
+
+    // 开始充电
+    QJsonObject startCharge(const QString &orderNo,int &code, QString &msg);
+
+    // 结算订单
+    QJsonObject settle(const QString &orderNo, double kwh, int &code, QString &msg);
+
+    // 用户充值
+    QJsonObject recharge(qint64 userId, double amount,int &code, QString &msg);
+
     // ---- 管理端 ----
 
     // 用户列表（keyword 为空则全部；否则按手机号/昵称模糊搜索）
