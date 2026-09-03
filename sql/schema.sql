@@ -15,19 +15,25 @@ DROP TABLE IF EXISTS pile;
 DROP TABLE IF EXISTS station;
 DROP TABLE IF EXISTS admin;
 DROP TABLE IF EXISTS `user`;
+DROP TABLE IF EXISTS schema_version;
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- 充电用户
 CREATE TABLE `user` (
-    id          BIGINT       NOT NULL AUTO_INCREMENT,
-    phone       VARCHAR(11)  NOT NULL,
-    nickname    VARCHAR(64)  NOT NULL DEFAULT '',
-    avatar      VARCHAR(255) NOT NULL DEFAULT '',
-    balance     DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-    status      ENUM('normal','frozen') NOT NULL DEFAULT 'normal',
-    created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    id            BIGINT        NOT NULL AUTO_INCREMENT,
+    phone         VARCHAR(11)   NOT NULL,
+    nickname      VARCHAR(64)   NOT NULL DEFAULT '',
+    avatar        VARCHAR(255)  NOT NULL DEFAULT '',
+    balance       DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    status        ENUM('normal','frozen') NOT NULL DEFAULT 'normal',
+    created_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    last_login_at DATETIME      NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY uk_user_phone (phone)
+    UNIQUE KEY uk_user_phone (phone),
+    KEY idx_user_status (status),
+    KEY idx_user_created (created_at),
+    CONSTRAINT chk_user_balance CHECK (balance >= 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 管理员
@@ -42,14 +48,20 @@ CREATE TABLE admin (
 
 -- 充电站
 CREATE TABLE station (
-    id          BIGINT       NOT NULL AUTO_INCREMENT,
-    name        VARCHAR(128) NOT NULL,
-    address     VARCHAR(255) NOT NULL DEFAULT '',
-    longitude   DECIMAL(10,6) NOT NULL DEFAULT 0,
-    latitude    DECIMAL(10,6) NOT NULL DEFAULT 0,
-    price       DECIMAL(6,2) NOT NULL DEFAULT 1.00,   -- 元/度
-    created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (id)
+    id           BIGINT        NOT NULL AUTO_INCREMENT,
+    station_code VARCHAR(32)   NOT NULL,
+    name         VARCHAR(128)  NOT NULL,
+    address      VARCHAR(255)  NOT NULL DEFAULT '',
+    longitude    DECIMAL(10,6) NOT NULL DEFAULT 0,
+    latitude     DECIMAL(10,6) NOT NULL DEFAULT 0,
+    price        DECIMAL(6,2)  NOT NULL DEFAULT 1.00,   -- 元/度
+    enabled      TINYINT(1)    NOT NULL DEFAULT 1,
+    created_at   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_station_code (station_code),
+    KEY idx_station_enabled (enabled),
+    KEY idx_station_name (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 充电桩
@@ -100,16 +112,24 @@ CREATE TABLE recharge (
     CONSTRAINT fk_recharge_user FOREIGN KEY (user_id) REFERENCES `user` (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 数据库结构版本（启动时检测用）
+CREATE TABLE schema_version (
+    version    INT      NOT NULL,
+    applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (version)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+INSERT INTO schema_version (version) VALUES (1);
+
 -- ===================== 初始 / 测试数据 =====================
 
 -- 默认管理员（注意：明文密码仅用于实训，正式环境应存哈希）
 INSERT INTO admin (username, password) VALUES ('admin', '123456');
 
 -- 充电站
-INSERT INTO station (name, address, longitude, latitude, price) VALUES
-('深圳市民中心充电站', '深圳市福田区福中三路市民中心停车场', 114.061000, 22.546000, 1.20),
-('福田CBD充电站',     '深圳市福田区益田路卓越世纪中心',       114.058000, 22.532000, 1.60),
-('南山科技园充电站',   '深圳市南山区科技园南区高新南一道',     113.945000, 22.540000, 1.30);
+INSERT INTO station (station_code, name, address, longitude, latitude, price, enabled) VALUES
+('SZ001', '深圳市民中心充电站', '深圳市福田区福中三路市民中心停车场', 114.061000, 22.546000, 1.20, 1),
+('SZ002', '福田CBD充电站',     '深圳市福田区益田路卓越世纪中心',       114.058000, 22.532000, 1.60, 1),
+('SZ003', '南山科技园充电站',   '深圳市南山区科技园南区高新南一道',     113.945000, 22.540000, 1.30, 1);
 
 -- 充电桩（站1：6桩；站2：4桩；站3：4桩）
 INSERT INTO pile (station_id, code, type, power_kw, status, total_count, total_hours) VALUES

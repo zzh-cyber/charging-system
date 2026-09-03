@@ -2,8 +2,10 @@
 #include "config.h"
 #include "protocol.h"
 
+#include <QFile>
 #include <QSqlError>
 #include <QSqlQuery>
+#include <QStringList>
 #include <QVariant>
 
 Database::Database(const QString &connectionName)
@@ -72,6 +74,13 @@ QJsonObject Database::loginOrRegister(const QString &phone, int &code, QString &
         data["nickname"] = q.value("nickname").toString();
         data["avatar"]   = q.value("avatar").toString();
         data["balance"]  = q.value("balance").toDouble();
+
+        // 记录最近登录时间
+        QSqlQuery touch(m_db);
+        touch.prepare("UPDATE `user` SET last_login_at = NOW() WHERE id = ?");
+        touch.addBindValue(q.value("id").toLongLong());
+        touch.exec();
+
         code = Protocol::Ok;
         msg = "登录成功";
         return data;
@@ -80,8 +89,8 @@ QJsonObject Database::loginOrRegister(const QString &phone, int &code, QString &
     // 不存在 → 自动创建，默认昵称"用户+手机后4位"
     const QString nickname = "用户" + phone.right(4);
     QSqlQuery ins(m_db);
-    ins.prepare("INSERT INTO `user` (phone, nickname, balance, status) "
-                "VALUES (?, ?, 0.00, 'normal')");
+    ins.prepare("INSERT INTO `user` (phone, nickname, balance, status, last_login_at) "
+                "VALUES (?, ?, 0.00, 'normal', NOW())");
     ins.addBindValue(phone);
     ins.addBindValue(nickname);
     if (!ins.exec()) {
@@ -137,7 +146,7 @@ QJsonArray Database::stationList(int &code, QString &msg)
         "SELECT s.id, s.name, s.address, s.longitude, s.latitude, s.price, "
         "  (SELECT COUNT(*) FROM pile p WHERE p.station_id = s.id) AS total, "
         "  (SELECT COUNT(*) FROM pile p WHERE p.station_id = s.id AND p.status = 'idle') AS idle "
-        "FROM station s ORDER BY s.id";
+        "FROM station s WHERE s.enabled = 1 ORDER BY s.id";
     if (!q.exec(sql)) {
         code = Protocol::DbError;
         msg = q.lastError().text();
@@ -368,4 +377,156 @@ QJsonArray Database::adminStationList(int &code, QString &msg)
     code = Protocol::Ok;
     msg = "ok";
     return arr;
+}
+
+// ============================================================================
+// 事务
+// ============================================================================
+
+bool Database::beginTransaction()
+{
+    return m_db.transaction();
+}
+
+bool Database::commitTransaction()
+{
+    return m_db.commit();
+}
+
+bool Database::rollbackTransaction()
+{
+    return m_db.rollback();
+}
+
+// ============================================================================
+// 结构初始化：启动时检测 schema 并缺表自动初始化
+// ============================================================================
+
+int Database::schemaVersion()
+{
+    QSqlQuery q(m_db);
+    q.exec(QStringLiteral("SELECT MAX(version) FROM schema_version"));
+    if (q.next() && !q.value(0).isNull())
+        return q.value(0).toInt();
+    return 0;
+}
+
+bool Database::ensureSchema()
+{
+    // 核心表已存在 → 视为已初始化，直接返回
+    QSqlQuery q(m_db);
+    q.exec(QStringLiteral(
+        "SELECT COUNT(*) FROM information_schema.tables "
+        "WHERE table_schema = DATABASE() AND table_name = 'user'"));
+    if (q.next() && q.value(0).toInt() > 0)
+        return true;
+
+    // 缺表 → 读取打包进程序的 schema.sql 并执行
+    QFile file(QStringLiteral(":/sql/schema.sql"));
+    if (!file.open(QIODevice::ReadOnly)) {
+        m_lastError = QStringLiteral("无法读取 schema.sql");
+        return false;
+    }
+    return executeScript(QString::fromUtf8(file.readAll()));
+}
+
+bool Database::executeScript(const QString &sql)
+{
+    // 去掉 -- 注释行后按分号切分，逐条执行（脚本无存储过程/字符串内分号）
+    QStringList cleaned;
+    const QStringList lines = sql.split('\n');
+    cleaned.reserve(lines.size());
+    for (const QString &line : lines) {
+        const QString t = line.trimmed();
+        if (t.isEmpty() || t.startsWith(QLatin1String("--")))
+            continue;
+        cleaned << line;
+    }
+
+    const QStringList stmts = cleaned.join('\n').split(';', Qt::SkipEmptyParts);
+    for (const QString &raw : stmts) {
+        const QString s = raw.trimmed();
+        if (s.isEmpty() || s.startsWith(QLatin1String("USE ")))
+            continue;
+        QSqlQuery stmt(m_db);
+        if (!stmt.exec(s)) {
+            m_lastError = stmt.lastError().text()
+                          + QStringLiteral(" (语句: ") + s.left(60) + QStringLiteral(")");
+            return false;
+        }
+    }
+    return true;
+}
+
+// ============================================================================
+// 用户资料维护（NO.51）
+// ============================================================================
+
+bool Database::updateNickname(qint64 userId, const QString &nickname)
+{
+    QSqlQuery q(m_db);
+    q.prepare("UPDATE `user` SET nickname = ? WHERE id = ?");
+    q.addBindValue(nickname);
+    q.addBindValue(userId);
+    if (!q.exec()) {
+        m_lastError = q.lastError().text();
+        return false;
+    }
+    return q.numRowsAffected() > 0;
+}
+
+bool Database::updateAvatar(qint64 userId, const QString &avatarPath)
+{
+    QSqlQuery q(m_db);
+    q.prepare("UPDATE `user` SET avatar = ? WHERE id = ?");
+    q.addBindValue(avatarPath);
+    q.addBindValue(userId);
+    if (!q.exec()) {
+        m_lastError = q.lastError().text();
+        return false;
+    }
+    return q.numRowsAffected() > 0;
+}
+
+// ============================================================================
+// 充电站管理（NO.53）
+// ============================================================================
+
+bool Database::addStation(const QString &code, const QString &name, const QString &address,
+                          double lng, double lat, double price)
+{
+    QSqlQuery q(m_db);
+    q.prepare("INSERT INTO station (station_code, name, address, longitude, latitude, price, enabled) "
+              "VALUES (?, ?, ?, ?, ?, ?, 1)");
+    q.addBindValue(code);
+    q.addBindValue(name);
+    q.addBindValue(address);
+    q.addBindValue(lng);
+    q.addBindValue(lat);
+    q.addBindValue(price);
+    if (!q.exec()) {
+        m_lastError = q.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool Database::updateStation(qint64 stationId, const QString &name, const QString &address,
+                             double lng, double lat, double price)
+{
+    // updated_at 由 ON UPDATE CURRENT_TIMESTAMP 自动同步
+    QSqlQuery q(m_db);
+    q.prepare("UPDATE station SET name = ?, address = ?, longitude = ?, latitude = ?, price = ? "
+              "WHERE id = ?");
+    q.addBindValue(name);
+    q.addBindValue(address);
+    q.addBindValue(lng);
+    q.addBindValue(lat);
+    q.addBindValue(price);
+    q.addBindValue(stationId);
+    if (!q.exec()) {
+        m_lastError = q.lastError().text();
+        return false;
+    }
+    return q.numRowsAffected() > 0;
 }

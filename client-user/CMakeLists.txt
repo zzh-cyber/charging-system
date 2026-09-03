@@ -3,6 +3,17 @@ add_executable(charging-user
     main.cpp
     loginwindow.cpp
     loginwindow.h
+    mainwindow.cpp
+    mainwindow.h
+    stationlistpage.cpp
+    stationlistpage.h
+    pilelistpage.cpp
+    pilelistpage.h
+    chargepage.cpp
+    chargepage.h
+    profilepage.cpp
+    profilepage.h
+    fonts.qrc
 )
 
 set_target_properties(charging-user PROPERTIES
