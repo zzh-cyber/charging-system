@@ -87,8 +87,7 @@ void PileManagerWidget::loadPiles()
     }
 
     /*
-     * 组长接口格式：
-     *
+     * 接口格式：
      * data: {
      *     "list": [
      *         {
@@ -163,9 +162,8 @@ void PileManagerWidget::loadPiles()
             4,
             new QTableWidgetItem(status)
         );
-
         // 重启按钮
-            new QPushButton("重启", m_table);
+            QPushButton *restartBtn = new QPushButton("重启", m_table);
 
         restartBtn->setProperty(
             "pileId",
@@ -203,15 +201,6 @@ void PileManagerWidget::onRestartClicked()
     qint64 pileId =
         btn->property("pileId").toLongLong();
 
-    /*
-     *
-     * admin_pile_restart
-     *
-     * 请求：
-     * {
-     *     "pile_id": xxx
-     * }
-     */
     QJsonObject data;
     data["pile_id"] = pileId;
 

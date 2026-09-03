@@ -1,0 +1,939 @@
+#include "pilestatuswidget.h"
+
+#include "netclient.h"
+#include "protocol.h"
+
+#include <QTableView>
+#include <QHeaderView>
+#include <QComboBox>
+#include <QPushButton>
+#include <QLabel>
+#include <QTimer>
+
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+
+#include <QJsonObject>
+#include <QJsonArray>
+
+#include <QMessageBox>
+
+#include <QBrush>
+#include <QColor>
+
+#include <QRegularExpression>
+
+
+// ============================================================
+// PileStatusModel
+// ============================================================
+
+PileStatusModel::PileStatusModel(QObject *parent)
+    : QAbstractTableModel(parent)
+{
+}
+
+
+int PileStatusModel::rowCount(
+    const QModelIndex &parent
+) const
+{
+    if (parent.isValid())
+        return 0;
+
+    return m_items.size();
+}
+
+
+int PileStatusModel::columnCount(
+    const QModelIndex &parent
+) const
+{
+    if (parent.isValid())
+        return 0;
+
+    return ColumnCount;
+}
+
+
+QVariant PileStatusModel::data(
+    const QModelIndex &index,
+    int role
+) const
+{
+    if (!index.isValid())
+        return QVariant();
+
+    if (index.row() < 0 ||
+        index.row() >= m_items.size())
+    {
+        return QVariant();
+    }
+
+    const PileStatusItem &item =
+        m_items.at(index.row());
+
+
+    // ====================
+    // 显示内容
+    // ====================
+
+    if (role == Qt::DisplayRole)
+    {
+        switch (index.column())
+        {
+        case CodeColumn:
+            return item.code;
+
+        case StationColumn:
+            return item.station;
+
+        case TypeColumn:
+            return item.type;
+
+        case PowerColumn:
+            return QString::number(
+                item.powerKw,
+                'f',
+                1
+            );
+
+        case StatusColumn:
+            return statusText(item.status);
+
+        case UpdatedAtColumn:
+
+            if (!item.updatedAt.isValid())
+                return "-";
+
+            return item.updatedAt.toString(
+                "yyyy-MM-dd HH:mm:ss"
+            );
+
+        default:
+            return QVariant();
+        }
+    }
+
+
+    // ====================
+    // 电桩 ID
+    // ====================
+
+    if (role == PileIdRole)
+    {
+        return item.id;
+    }
+
+
+    // ====================
+    // 原始状态
+    // ====================
+
+    if (role == RawStatusRole)
+    {
+        return item.status;
+    }
+
+
+    // ====================
+    // 排序值
+    // ====================
+
+    if (role == SortRole)
+    {
+        switch (index.column())
+        {
+        case CodeColumn:
+            return item.code;
+
+        case StationColumn:
+            return item.station;
+
+        case TypeColumn:
+            return item.type;
+
+        case PowerColumn:
+            return item.powerKw;
+
+        case StatusColumn:
+            return item.status;
+
+        case UpdatedAtColumn:
+            return item.updatedAt;
+
+        default:
+            return QVariant();
+        }
+    }
+
+
+    // ====================
+    // 状态颜色
+    // ====================
+
+    if (role == Qt::ForegroundRole &&
+        index.column() == StatusColumn)
+    {
+        if (item.status == "idle")
+        {
+            return QBrush(
+                QColor("#2E7D32")
+            );
+        }
+
+        if (item.status == "busy")
+        {
+            return QBrush(
+                QColor("#EF6C00")
+            );
+        }
+
+        if (item.status == "fault")
+        {
+            return QBrush(
+                QColor("#C62828")
+            );
+        }
+    }
+
+
+    return QVariant();
+}
+
+
+QVariant PileStatusModel::headerData(
+    int section,
+    Qt::Orientation orientation,
+    int role
+) const
+{
+    if (role != Qt::DisplayRole)
+        return QVariant();
+
+    if (orientation != Qt::Horizontal)
+        return section + 1;
+
+    switch (section)
+    {
+    case CodeColumn:
+        return "电桩编号";
+
+    case StationColumn:
+        return "所属电站";
+
+    case TypeColumn:
+        return "类型";
+
+    case PowerColumn:
+        return "功率(kW)";
+
+    case StatusColumn:
+        return "状态";
+
+    case UpdatedAtColumn:
+        return "最近更新时间";
+
+    default:
+        return QVariant();
+    }
+}
+
+
+void PileStatusModel::setItems(
+    const QVector<PileStatusItem> &items
+)
+{
+    beginResetModel();
+
+    m_items = items;
+
+    endResetModel();
+}
+
+
+const PileStatusItem &
+PileStatusModel::itemAt(int row) const
+{
+    return m_items.at(row);
+}
+
+
+QString PileStatusModel::statusText(
+    const QString &status
+) const
+{
+    if (status == "idle")
+        return "闲置";
+
+    if (status == "busy")
+        return "在用";
+
+    if (status == "fault")
+        return "故障";
+
+    // 未知状态直接显示原值
+    return status;
+}
+
+
+// ============================================================
+// PileStatusProxyModel
+// ============================================================
+
+PileStatusProxyModel::PileStatusProxyModel(
+    QObject *parent
+)
+    : QSortFilterProxyModel(parent)
+{
+    setDynamicSortFilter(true);
+
+    // 使用模型自定义的 SortRole 排序
+    setSortRole(
+        PileStatusModel::SortRole
+    );
+}
+
+
+void PileStatusProxyModel::setStatusFilter(
+    const QString &status
+)
+{
+    m_statusFilter = status;
+
+    invalidateFilter();
+}
+
+
+bool PileStatusProxyModel::filterAcceptsRow(
+    int sourceRow,
+    const QModelIndex &sourceParent
+) const
+{
+    // 空字符串 = 全部
+    if (m_statusFilter.isEmpty())
+    {
+        return true;
+    }
+
+    QModelIndex index =
+        sourceModel()->index(
+            sourceRow,
+            PileStatusModel::StatusColumn,
+            sourceParent
+        );
+
+    QString status =
+        sourceModel()
+            ->data(
+                index,
+                PileStatusModel::RawStatusRole
+            )
+            .toString();
+
+    return status == m_statusFilter;
+}
+
+
+// ============================================================
+// PileStatusWidget
+// ============================================================
+
+PileStatusWidget::PileStatusWidget(
+    NetClient *netClient,
+    QWidget *parent
+)
+    : QWidget(parent),
+      m_net(netClient)
+{
+    initUI();
+
+    // 第一次进入立即加载
+    loadStatus();
+
+    // 10 秒自动刷新
+    m_timer = new QTimer(this);
+
+    m_timer->setInterval(10000);
+
+    connect(
+        m_timer,
+        &QTimer::timeout,
+        this,
+        &PileStatusWidget::loadStatus
+    );
+
+    m_timer->start();
+}
+
+
+void PileStatusWidget::initUI()
+{
+    auto *mainLayout =
+        new QVBoxLayout(this);
+
+
+    // ========================================================
+    // 顶部
+    // ========================================================
+
+    auto *topLayout =
+        new QHBoxLayout();
+
+
+    auto *titleLabel =
+        new QLabel(
+            "电桩状态",
+            this
+        );
+
+    QFont titleFont =
+        titleLabel->font();
+
+    titleFont.setPointSize(16);
+    titleFont.setBold(true);
+
+    titleLabel->setFont(titleFont);
+
+
+    topLayout->addWidget(
+        titleLabel
+    );
+
+
+    topLayout->addSpacing(25);
+
+
+    m_summaryLabel =
+        new QLabel(
+            "总数：0 | 闲置：0 | 在用：0 | 故障：0",
+            this
+        );
+
+    topLayout->addWidget(
+        m_summaryLabel
+    );
+
+
+    topLayout->addStretch();
+
+
+    auto *filterLabel =
+        new QLabel(
+            "状态筛选：",
+            this
+        );
+
+    topLayout->addWidget(
+        filterLabel
+    );
+
+
+    m_statusCombo =
+        new QComboBox(this);
+
+    m_statusCombo->addItem(
+        "全部"
+    );
+
+    m_statusCombo->addItem(
+        "闲置"
+    );
+
+    m_statusCombo->addItem(
+        "在用"
+    );
+
+    m_statusCombo->addItem(
+        "故障"
+    );
+
+    topLayout->addWidget(
+        m_statusCombo
+    );
+
+
+    m_refreshBtn =
+        new QPushButton(
+            "立即刷新",
+            this
+        );
+
+    topLayout->addWidget(
+        m_refreshBtn
+    );
+
+
+    mainLayout->addLayout(
+        topLayout
+    );
+
+
+    // ========================================================
+    // 最后更新时间
+    // ========================================================
+
+    m_lastUpdateLabel =
+        new QLabel(
+            "最后更新：-",
+            this
+        );
+
+    mainLayout->addWidget(
+        m_lastUpdateLabel
+    );
+
+
+    // ========================================================
+    // Model
+    // ========================================================
+
+    m_model =
+        new PileStatusModel(this);
+
+
+    m_proxyModel =
+        new PileStatusProxyModel(this);
+
+    m_proxyModel->setSourceModel(
+        m_model
+    );
+
+
+    // ========================================================
+    // TableView
+    // ========================================================
+
+    m_table =
+        new QTableView(this);
+
+    m_table->setModel(
+        m_proxyModel
+    );
+
+
+    m_table
+        ->horizontalHeader()
+        ->setSectionResizeMode(
+            QHeaderView::Stretch
+        );
+
+
+    m_table->setSelectionBehavior(
+        QAbstractItemView::SelectRows
+    );
+
+    m_table->setSelectionMode(
+        QAbstractItemView::SingleSelection
+    );
+
+    m_table->setEditTriggers(
+        QAbstractItemView::NoEditTriggers
+    );
+
+    // 允许点击表头排序
+    m_table->setSortingEnabled(true);
+
+    m_table->sortByColumn(
+        PileStatusModel::UpdatedAtColumn,
+        Qt::DescendingOrder
+    );
+
+
+    mainLayout->addWidget(
+        m_table
+    );
+
+
+    // ========================================================
+    // Signals
+    // ========================================================
+
+    connect(
+        m_refreshBtn,
+        &QPushButton::clicked,
+        this,
+        &PileStatusWidget::loadStatus
+    );
+
+
+    connect(
+        m_statusCombo,
+        QOverload<int>::of(
+            &QComboBox::currentIndexChanged
+        ),
+        this,
+        &PileStatusWidget::onFilterChanged
+    );
+
+
+    connect(
+        m_table,
+        &QTableView::doubleClicked,
+        this,
+        &PileStatusWidget::onTableDoubleClicked
+    );
+}
+
+
+void PileStatusWidget::loadStatus()
+{
+    if (!m_net)
+    {
+        return;
+    }
+
+
+    /*
+     * ========================================================
+     * 临时接口
+     * ========================================================
+     *
+     * pile_status_list 后端目前还没有实现。
+     *
+     * 所以开发阶段临时复用已经跑通的：
+     *
+     * AdminPileList / admin_pile_list
+     *
+     * 等组员完成 pile_status_list 后，
+     * 这里就是最主要的替换位置。
+     */
+
+    QJsonObject req =
+        Protocol::makeRequest(
+            Protocol::MsgType::AdminPileList,
+            QJsonObject()
+        );
+
+
+    QJsonObject resp =
+        m_net->request(req);
+
+
+    int code =
+        resp.value("code").toInt(-1);
+
+    QString msg =
+        resp.value("msg").toString();
+
+
+    if (code != Protocol::Ok)
+    {
+        // 自动刷新失败时避免每 10 秒弹窗
+        if (sender() == m_timer)
+        {
+            m_lastUpdateLabel->setText(
+                QString(
+                    "自动刷新失败：%1"
+                ).arg(msg)
+            );
+
+            return;
+        }
+
+
+        QMessageBox::warning(
+            this,
+            "获取电桩状态失败",
+            QString(
+                "code=%1\n%2"
+            )
+                .arg(code)
+                .arg(msg)
+        );
+
+        return;
+    }
+
+
+    /*
+     * 当前 AdminPileList 格式：
+     *
+     * data : {
+     *     "list" : [...]
+     * }
+     */
+
+    QJsonObject data =
+        resp.value("data").toObject();
+
+    QJsonArray list =
+        data.value("list").toArray();
+
+
+    QVector<PileStatusItem> items;
+
+    items.reserve(
+        list.size()
+    );
+
+
+    for (const QJsonValue &value : list)
+    {
+        QJsonObject p =
+            value.toObject();
+
+
+        PileStatusItem item;
+
+
+        item.id =
+            p.value("id").toInteger();
+
+
+        item.code =
+            p.value("code").toString();
+
+
+        /*
+         * 当前 admin_pile_list 字段叫 station。
+         *
+         * 新 pile_status_list 到位后如果字段不同，
+         * 在这里改即可。
+         */
+        item.station =
+            p.value("station").toString();
+
+
+        item.type =
+            p.value("type").toString();
+
+
+        item.powerKw =
+            p.value("power_kw").toDouble();
+
+
+        item.status =
+            p.value("status").toString();
+
+
+        /*
+         * 当前 admin_pile_list 没有最近更新时间，
+         * 所以先兼容几个可能字段。
+         *
+         * 如果都没有，表格显示 "-"
+         */
+
+        QString timeText =
+            p.value("updated_at").toString();
+
+        if (timeText.isEmpty())
+        {
+            timeText =
+                p.value("update_time").toString();
+        }
+
+        if (timeText.isEmpty())
+        {
+            timeText =
+                p.value("status_updated_at").toString();
+        }
+
+
+        item.updatedAt =
+            parseDateTime(timeText);
+
+
+        items.append(item);
+    }
+
+
+    m_model->setItems(
+        items
+    );
+
+
+    updateSummary(
+        items
+    );
+
+
+    m_lastUpdateLabel->setText(
+        QString(
+            "最后更新：%1"
+        ).arg(
+            QDateTime::currentDateTime()
+                .toString(
+                    "yyyy-MM-dd HH:mm:ss"
+                )
+        )
+    );
+}
+
+
+void PileStatusWidget::updateSummary(
+    const QVector<PileStatusItem> &items
+)
+{
+    int idleCount = 0;
+    int busyCount = 0;
+    int faultCount = 0;
+
+
+    for (const PileStatusItem &item : items)
+    {
+        if (item.status == "idle")
+        {
+            ++idleCount;
+        }
+        else if (item.status == "busy")
+        {
+            ++busyCount;
+        }
+        else if (item.status == "fault")
+        {
+            ++faultCount;
+        }
+    }
+
+
+    int total =
+        items.size();
+
+
+    auto percentage =
+        [total](int count) -> double
+    {
+        if (total <= 0)
+            return 0.0;
+
+        return
+            static_cast<double>(count)
+            * 100.0
+            / total;
+    };
+
+
+    m_summaryLabel->setText(
+        QString(
+            "总数：%1 | "
+            "闲置：%2 (%3%) | "
+            "在用：%4 (%5%) | "
+            "故障：%6 (%7%)"
+        )
+            .arg(total)
+            .arg(idleCount)
+            .arg(
+                QString::number(
+                    percentage(idleCount),
+                    'f',
+                    1
+                )
+            )
+            .arg(busyCount)
+            .arg(
+                QString::number(
+                    percentage(busyCount),
+                    'f',
+                    1
+                )
+            )
+            .arg(faultCount)
+            .arg(
+                QString::number(
+                    percentage(faultCount),
+                    'f',
+                    1
+                )
+            )
+    );
+}
+
+
+void PileStatusWidget::onFilterChanged(
+    int index
+)
+{
+    QString status;
+
+
+    switch (index)
+    {
+    case 1:
+        status = "idle";
+        break;
+
+    case 2:
+        status = "busy";
+        break;
+
+    case 3:
+        status = "fault";
+        break;
+
+    default:
+        status.clear();
+        break;
+    }
+
+
+    m_proxyModel->setStatusFilter(
+        status
+    );
+}
+
+
+void PileStatusWidget::onTableDoubleClicked(
+    const QModelIndex &index
+)
+{
+    if (!index.isValid())
+        return;
+
+
+    QModelIndex sourceIndex =
+        m_proxyModel->mapToSource(
+            index
+        );
+
+
+    if (!sourceIndex.isValid())
+        return;
+
+
+    const PileStatusItem &item =
+        m_model->itemAt(
+            sourceIndex.row()
+        );
+
+
+    emit openPileManageRequested(
+        item.id
+    );
+}
+
+
+QDateTime PileStatusWidget::parseDateTime(
+    const QString &text
+) const
+{
+    if (text.trimmed().isEmpty())
+    {
+        return QDateTime();
+    }
+
+
+    // ISO 格式
+    QDateTime dt =
+        QDateTime::fromString(
+            text,
+            Qt::ISODate
+        );
+
+
+    if (dt.isValid())
+    {
+        return dt;
+    }
+
+
+    // MySQL 常见格式
+    dt =
+        QDateTime::fromString(
+            text,
+            "yyyy-MM-dd HH:mm:ss"
+        );
+
+
+    return dt;
+}

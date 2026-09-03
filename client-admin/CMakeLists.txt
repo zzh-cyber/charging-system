@@ -1,6 +1,8 @@
 # PC 管理端（Qt Widgets GUI）
 add_executable(charging-admin
     main.cpp
+    pilestatuswidget.cpp
+    pilestatuswidget.h
     adminloginwindow.cpp
     adminloginwindow.h
     adminmainwindow.cpp
