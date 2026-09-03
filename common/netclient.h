@@ -6,6 +6,7 @@
 // 提供两种用法：
 //   1) 异步：send() 发送，responseReceived() 信号里处理返回；
 //   2) 同步：request() 发送并阻塞等待一条返回（适合顺序式界面逻辑，新手友好）。
+// 另外内置断线自动重连（NO.7）：断开后递增间隔持续重试，直到连上。
 // ============================================================================
 
 #include <QByteArray>
@@ -14,6 +15,7 @@
 #include <QString>
 
 class QTcpSocket;
+class QTimer;
 
 class NetClient : public QObject
 {
@@ -22,7 +24,7 @@ public:
     explicit NetClient(QObject *parent = nullptr);
     ~NetClient() override;
 
-    // 连接服务器，成功返回 true
+    // 连接服务器，成功返回 true（会记住 host/port 用于断线重连）
     bool connectToServer(const QString &host, quint16 port, int timeoutMs = 3000);
     bool isConnected() const;
 
@@ -35,11 +37,18 @@ public:
 signals:
     void responseReceived(const QJsonObject &resp);
     void disconnected();
+    void reconnected();      // 断线后自动重连成功
 
 private slots:
     void onReadyRead();
+    void onDisconnected();
+    void attemptReconnect();
 
 private:
     QTcpSocket *m_socket;
     QByteArray  m_buffer;
+    QTimer     *m_reconnectTimer;
+    QString     m_host;
+    quint16     m_port = 0;
+    int         m_reconnectAttempts = 0;
 };

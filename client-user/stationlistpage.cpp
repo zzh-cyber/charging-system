@@ -11,34 +11,103 @@
 #include <QPushButton>
 #include <QScrollArea>
 #include <QShowEvent>
+#include <QStackedWidget>
 #include <QVBoxLayout>
 
 StationListPage::StationListPage(NetClient *net, QWidget *parent)
     : QWidget(parent)
     , m_net(net)
 {
+    auto *header = new QHBoxLayout;
+    header->setContentsMargins(16, 12, 16, 4);
     auto *title = new QLabel(QStringLiteral("附近充电站"), this);
-    title->setStyleSheet("font-size:22px;font-weight:bold;padding:12px 16px 4px 16px;");
+    title->setStyleSheet("font-size:22px;font-weight:bold;");
+    auto *refreshBtn = new QPushButton(QStringLiteral("刷新"), this);
+    refreshBtn->setCursor(Qt::PointingHandCursor);
+    refreshBtn->setStyleSheet(
+        "QPushButton{background:#1d4ed8;color:#ffffff;border:none;"
+        "border-radius:6px;padding:6px 14px;font-size:13px;}"
+        "QPushButton:hover{background:#1e40af;}");
+    connect(refreshBtn, &QPushButton::clicked, this, &StationListPage::loadStations);
+    header->addWidget(title, 1);
+    header->addWidget(refreshBtn);
 
     m_tip = new QLabel(this);
     m_tip->setStyleSheet("color:#86909c;padding:0 16px 8px 16px;");
 
-    auto *scroll = new QScrollArea(this);
-    scroll->setWidgetResizable(true);
-    scroll->setFrameShape(QFrame::NoFrame);
+    m_stack = new QStackedWidget(this);
 
-    auto *container = new QWidget;
-    m_listLayout = new QVBoxLayout(container);
-    m_listLayout->setContentsMargins(12, 4, 12, 12);
-    m_listLayout->setSpacing(12);
-    scroll->setWidget(container);
+    // ---- 页0：加载中 ----
+    auto *loadingPage = new QWidget;
+    {
+        auto *l = new QVBoxLayout(loadingPage);
+        l->setAlignment(Qt::AlignCenter);
+        auto *lab = new QLabel(QStringLiteral("加载中…"), loadingPage);
+        lab->setStyleSheet("color:#86909c;font-size:15px;");
+        l->addWidget(lab);
+    }
+    m_stack->addWidget(loadingPage);
+
+    // ---- 页1：内容（充电站列表）----
+    auto *contentPage = new QWidget;
+    {
+        auto *l = new QVBoxLayout(contentPage);
+        l->setContentsMargins(0, 0, 0, 0);
+        auto *scroll = new QScrollArea(contentPage);
+        scroll->setWidgetResizable(true);
+        scroll->setFrameShape(QFrame::NoFrame);
+        auto *container = new QWidget;
+        m_listLayout = new QVBoxLayout(container);
+        m_listLayout->setContentsMargins(12, 4, 12, 12);
+        m_listLayout->setSpacing(12);
+        scroll->setWidget(container);
+        l->addWidget(scroll);
+    }
+    m_stack->addWidget(contentPage);
+
+    // ---- 页2：空数据 ----
+    auto *emptyPage = new QWidget;
+    {
+        auto *l = new QVBoxLayout(emptyPage);
+        l->setAlignment(Qt::AlignCenter);
+        l->setSpacing(12);
+        auto *lab = new QLabel(QStringLiteral("暂无充电站"), emptyPage);
+        lab->setStyleSheet("color:#86909c;font-size:15px;");
+        auto *btn = new QPushButton(QStringLiteral("刷新"), emptyPage);
+        btn->setCursor(Qt::PointingHandCursor);
+        connect(btn, &QPushButton::clicked, this, &StationListPage::loadStations);
+        l->addWidget(lab);
+        l->addWidget(btn, 0, Qt::AlignHCenter);
+    }
+    m_stack->addWidget(emptyPage);
+
+    // ---- 页3：错误 ----
+    auto *errorPage = new QWidget;
+    {
+        auto *l = new QVBoxLayout(errorPage);
+        l->setAlignment(Qt::AlignCenter);
+        l->setSpacing(12);
+        auto *lab = new QLabel(QStringLiteral("加载失败，请检查网络后重试"), errorPage);
+        lab->setStyleSheet("color:#e5484d;font-size:15px;");
+        auto *btn = new QPushButton(QStringLiteral("重试"), errorPage);
+        btn->setCursor(Qt::PointingHandCursor);
+        connect(btn, &QPushButton::clicked, this, &StationListPage::loadStations);
+        l->addWidget(lab);
+        l->addWidget(btn, 0, Qt::AlignHCenter);
+    }
+    m_stack->addWidget(errorPage);
 
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
-    layout->addWidget(title);
+    layout->addLayout(header);
     layout->addWidget(m_tip);
-    layout->addWidget(scroll, 1);
+    layout->addWidget(m_stack, 1);
+
+    m_stack->setCurrentIndex(0);
+
+    // 断线重连成功后自动刷新列表（NO.7）
+    connect(m_net, &NetClient::reconnected, this, &StationListPage::loadStations);
 }
 
 void StationListPage::showEvent(QShowEvent *event)
@@ -61,24 +130,43 @@ void StationListPage::clearList()
 
 void StationListPage::loadStations()
 {
-    clearList();
-    m_tip->setText(QStringLiteral("加载中…"));
+    m_stack->setCurrentIndex(0);   // loading
+    m_tip->clear();
 
     const QJsonObject resp = m_net->request(
         Protocol::makeRequest(Protocol::MsgType::StationList));
 
     const int code = resp.value("code").toInt();
+    const QJsonArray list = resp.value("data").toObject().value("list").toArray();
+
+    // 失败：有缓存则展示缓存（标注"缓存数据"），否则进错误态
     if (code != Protocol::Ok) {
-        m_tip->setText(QStringLiteral("加载失败：%1").arg(resp.value("msg").toString()));
+        if (!m_cachedList.isEmpty()) {
+            buildCards(m_cachedList);
+            m_tip->setText(QStringLiteral("网络异常，当前为缓存数据"));
+            m_stack->setCurrentIndex(1);
+            return;
+        }
+        m_stack->setCurrentIndex(3);   // error
         return;
     }
 
-    const QJsonArray list = resp.value("data").toObject().value("list").toArray();
+    // 空数据
     if (list.isEmpty()) {
-        m_tip->setText(QStringLiteral("暂无充电站"));
+        m_stack->setCurrentIndex(2);   // empty
         return;
     }
+
+    // 成功：更新缓存并展示
+    m_cachedList = list;
+    buildCards(list);
     m_tip->setText(QStringLiteral("共 %1 个充电站").arg(list.size()));
+    m_stack->setCurrentIndex(1);       // content
+}
+
+void StationListPage::buildCards(const QJsonArray &list)
+{
+    clearList();
 
     for (const QJsonValue &v : list) {
         const QJsonObject s = v.toObject();
@@ -97,7 +185,6 @@ void StationListPage::loadStations()
             "border-radius:10px;background:#ffffff;}"
             "QPushButton:hover{border-color:#1d4ed8;background:#eef4ff;}");
 
-        // 卡片内容：名称+价格 / 地址 / 空闲
         auto *body = new QVBoxLayout(card);
         body->setContentsMargins(2, 2, 2, 2);
         body->setSpacing(4);

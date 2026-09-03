@@ -87,23 +87,31 @@ CREATE TABLE pile (
 
 -- 充电订单（预约-充电-计费-结算）
 CREATE TABLE charge_order (
-    id            BIGINT      NOT NULL AUTO_INCREMENT,
-    order_no      VARCHAR(32) NOT NULL,
-    user_id       BIGINT      NOT NULL,
-    pile_id       BIGINT      NOT NULL,
-    status        ENUM('reserved','charging','settled','cancelled') NOT NULL DEFAULT 'reserved',
-    reserve_time  DATETIME    NULL,
-    start_time    DATETIME    NULL,
-    end_time      DATETIME    NULL,
-    kwh           DECIMAL(10,2) NOT NULL DEFAULT 0,    -- 充电电量（度）
-    amount        DECIMAL(10,2) NOT NULL DEFAULT 0,    -- 结算金额（元）
-    created_at    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    id               BIGINT        NOT NULL AUTO_INCREMENT,
+    order_no         VARCHAR(32)   NOT NULL,
+    user_id          BIGINT        NOT NULL,
+    station_id       BIGINT        NOT NULL,
+    pile_id          BIGINT        NOT NULL,
+    status           ENUM('reserved','charging','settled','cancelled') NOT NULL DEFAULT 'reserved',
+    unit_price       DECIMAL(6,2)  NOT NULL DEFAULT 0.00,   -- 下单时固化的单价（元/度）
+    reserve_time     DATETIME      NULL,
+    start_time       DATETIME      NULL,
+    end_time         DATETIME      NULL,
+    duration_seconds INT           NOT NULL DEFAULT 0,
+    kwh              DECIMAL(10,2) NOT NULL DEFAULT 0,      -- 充电电量（度）
+    amount           DECIMAL(10,2) NOT NULL DEFAULT 0,      -- 结算金额（元）
+    pay_request_id   VARCHAR(64)   NULL,                    -- 结算幂等键
+    created_at       DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at       DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     UNIQUE KEY uk_order_no (order_no),
+    UNIQUE KEY uk_pay_request (pay_request_id),
     KEY idx_order_user (user_id),
     KEY idx_order_pile (pile_id),
+    KEY idx_order_station (station_id),
     CONSTRAINT fk_order_user FOREIGN KEY (user_id) REFERENCES `user` (id),
-    CONSTRAINT fk_order_pile FOREIGN KEY (pile_id) REFERENCES pile (id)
+    CONSTRAINT fk_order_pile FOREIGN KEY (pile_id) REFERENCES pile (id),
+    CONSTRAINT fk_order_station FOREIGN KEY (station_id) REFERENCES station (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 充值流水
@@ -169,5 +177,5 @@ INSERT INTO `user` (phone, nickname, balance, status) VALUES
 ('13800138006', '用户8006', 5.00, 'frozen');
 
 -- 一条已结算订单示例
-INSERT INTO charge_order (order_no, user_id, pile_id, status, reserve_time, start_time, end_time, kwh, amount)
-VALUES ('CD20260828001', 1, 1, 'settled', '2026-08-28 11:20:00', '2026-08-28 11:29:00', '2026-08-28 12:05:00', 30.00, 36.00);
+INSERT INTO charge_order (order_no, user_id, station_id, pile_id, status, unit_price, reserve_time, start_time, end_time, duration_seconds, kwh, amount, pay_request_id)
+VALUES ('CD20260828001', 1, 1, 1, 'settled', 1.20, '2026-08-28 11:20:00', '2026-08-28 11:29:00', '2026-08-28 12:05:00', 2160, 30.00, 36.00, 'PAY20260828001');
