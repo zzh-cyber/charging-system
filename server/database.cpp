@@ -272,10 +272,12 @@ QJsonArray Database::adminPileList(int &code, QString &msg)
 
     QSqlQuery q(m_db);
     const QString sql =
-        "SELECT p.id, p.code, s.name AS station, p.type, p.power_kw, p.status, "
-        "  p.total_count, p.total_hours "
-        "FROM pile p LEFT JOIN station s ON p.station_id = s.id "
+        "SELECT p.id, p.code, s.name AS station, "
+        "p.type, p.power_kw, p.status "
+        "FROM pile p "
+        "LEFT JOIN station s ON p.station_id = s.id "
         "ORDER BY p.id";
+
     if (!q.exec(sql)) {
         code = Protocol::DbError;
         msg = q.lastError().text();
@@ -284,14 +286,13 @@ QJsonArray Database::adminPileList(int &code, QString &msg)
 
     while (q.next()) {
         QJsonObject o;
-        o["id"]          = q.value("id").toLongLong();
-        o["code"]        = q.value("code").toString();
-        o["station"]     = q.value("station").toString();
-        o["type"]        = q.value("type").toString();
-        o["power_kw"]    = q.value("power_kw").toDouble();
-        o["status"]      = q.value("status").toString();
-        o["total_count"] = q.value("total_count").toInt();
-        o["total_hours"] = q.value("total_hours").toDouble();
+        o["id"]       = q.value("id").toLongLong();
+        o["code"]     = q.value("code").toString();
+        o["station"]  = q.value("station").toString();
+        o["type"]     = q.value("type").toString();
+        o["power_kw"] = q.value("power_kw").toDouble();
+        o["status"]   = q.value("status").toString();
+
         arr.append(o);
     }
 
@@ -299,6 +300,7 @@ QJsonArray Database::adminPileList(int &code, QString &msg)
     msg = "ok";
     return arr;
 }
+
 
 QJsonObject Database::adminPileRestart(qint64 pileId, int &code, QString &msg)
 {

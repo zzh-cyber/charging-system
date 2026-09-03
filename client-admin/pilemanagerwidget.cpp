@@ -165,7 +165,6 @@ void PileManagerWidget::loadPiles()
         );
 
         // 重启按钮
-        QPushButton *restartBtn =
             new QPushButton("重启", m_table);
 
         restartBtn->setProperty(
