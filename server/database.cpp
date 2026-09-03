@@ -973,7 +973,23 @@ QJsonObject Database::adminPileRestart(qint64 pileId, int &code, QString &msg)
         return data;
     }
 
-    // 模拟向电桩下发重启指令：将 fault/busy 复位为 idle
+    // 先确认电桩存在。不能用 UPDATE 的 numRowsAffected() 判断是否存在：
+    // MySQL 在字段原本就是 idle 时会返回 0，容易把“值未变化”误判为不存在。
+    QSqlQuery existsQuery(m_db);
+    existsQuery.prepare("SELECT 1 FROM pile WHERE id = ? LIMIT 1");
+    existsQuery.addBindValue(pileId);
+    if (!existsQuery.exec()) {
+        code = Protocol::DbError;
+        msg = existsQuery.lastError().text();
+        return data;
+    }
+    if (!existsQuery.next()) {
+        code = Protocol::NotFound;
+        msg = "电桩不存在";
+        return data;
+    }
+
+    // 模拟向电桩下发重启指令：重启完成后恢复为 idle。
     QSqlQuery q(m_db);
     q.prepare("UPDATE pile SET status = 'idle' WHERE id = ?");
     q.addBindValue(pileId);
@@ -982,12 +998,6 @@ QJsonObject Database::adminPileRestart(qint64 pileId, int &code, QString &msg)
         msg = q.lastError().text();
         return data;
     }
-    if (q.numRowsAffected() == 0) {
-        code = Protocol::NotFound;
-        msg = "电桩不存在";
-        return data;
-    }
-
     data["id"]     = pileId;
     data["status"] = "idle";
     code = Protocol::Ok;

@@ -1,4 +1,5 @@
 #include "adminmainwindow.h"
+#include "dashboardwidget.h"
 #include "usermanagerwidget.h"
 #include "pilemanagerwidget.h"
 #include "stationmanagerwidget.h"
@@ -52,14 +53,8 @@ void AdminMainWindow::initUI()
     // 2. 右侧内容区
     contentStack = new QStackedWidget(this);
 
-    // 索引 0: 数据总览 
-    QWidget *pageOverview = new QWidget();
-    QVBoxLayout *layoutOverview = new QVBoxLayout(pageOverview);
-    QLabel *labelOverview = new QLabel("数据总览 界面内容区（开发中）", pageOverview);
-    labelOverview->setAlignment(Qt::AlignCenter);
-    labelOverview->setStyleSheet("font-size: 20px; color: #888888;");
-    layoutOverview->addWidget(labelOverview);
-    contentStack->addWidget(pageOverview);
+    // 索引 0: 数据总览
+    contentStack->addWidget(new DashboardWidget(m_net, this));
 
     // 索引 1: 电站管理 
     contentStack->addWidget(new StationManagerWidget(m_net, this));
