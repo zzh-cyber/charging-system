@@ -1,4 +1,5 @@
 #include "config.h"
+#include "database.h"
 #include "tcpserver.h"
 
 #include <QCoreApplication>
@@ -14,6 +15,20 @@ int main(int argc, char *argv[])
     if (!QSqlDatabase::isDriverAvailable("QMYSQL")) {
         qCritical() << "QMYSQL 驱动不可用，请先安装 libqt6sql6-mysql";
         return 1;
+    }
+
+    // 启动时检测数据库结构，缺表则自动初始化
+    {
+        Database db(QStringLiteral("schema_init"));
+        if (!db.open()) {
+            qCritical() << "数据库连接失败:" << db.lastError();
+            return 1;
+        }
+        if (!db.ensureSchema()) {
+            qCritical() << "数据库结构初始化失败:" << db.lastError();
+            return 1;
+        }
+        qInfo() << "数据库结构版本:" << db.schemaVersion();
     }
 
     TcpServer server;

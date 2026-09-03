@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/sql">
+        <file alias="schema.sql">../sql/schema.sql</file>
+    </qresource>
+</RCC>
