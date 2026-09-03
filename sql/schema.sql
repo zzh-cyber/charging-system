@@ -3,13 +3,18 @@
 -- 执行方式：mysql -u charging_user -p charging_system < sql/schema.sql
 --
 -- 说明：
---   本期只覆盖功能前三项（用户端 / PC 管理端 / 数据库端）所需的核心表。
+--   以 PR #11 为基线（user/admin/station/pile/charge_order/wallet_transactions/schema_version）。
+--   本脚本补齐 device_commands、operation_logs，以及 pile/charge_order 缺字段。
+--   钱包表沿用 PR #11 定义，不再引入第二份 wallet_transactions。
 --   状态类字段统一用 ENUM，便于在数据库里直接阅读。
 
 USE charging_system;
 
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS wallet_transactions;
+DROP TABLE IF EXISTS device_commands;
+DROP TABLE IF EXISTS operation_logs;
+DROP TABLE IF EXISTS recharge;
 DROP TABLE IF EXISTS charge_order;
 DROP TABLE IF EXISTS pile;
 DROP TABLE IF EXISTS station;
@@ -71,18 +76,23 @@ CREATE TABLE station (
 
 -- 充电桩
 CREATE TABLE pile (
-    id           BIGINT      NOT NULL AUTO_INCREMENT,
-    station_id   BIGINT      NOT NULL,
-    code         VARCHAR(32) NOT NULL,                 -- 电桩编号，如 SZ001-01
-    type         ENUM('fast','slow') NOT NULL DEFAULT 'fast',   -- 快充/慢充
-    power_kw     DECIMAL(6,1) NOT NULL DEFAULT 120.0,           -- 功率 kW
-    status       ENUM('idle','busy','fault') NOT NULL DEFAULT 'idle', -- 闲置/在用/故障
-    total_count  INT         NOT NULL DEFAULT 0,       -- 累计充电次数
-    total_hours  DECIMAL(10,1) NOT NULL DEFAULT 0,     -- 累计充电时长
+    id              BIGINT      NOT NULL AUTO_INCREMENT,
+    station_id      BIGINT      NOT NULL,
+    code            VARCHAR(32) NOT NULL,                 -- 电桩编号，如 SZ001-01
+    type            ENUM('fast','slow') NOT NULL DEFAULT 'fast',   -- 快充/慢充
+    power_kw        DECIMAL(6,1) NOT NULL DEFAULT 120.0,           -- 功率 kW
+    status          ENUM('idle','busy','fault') NOT NULL DEFAULT 'idle', -- 闲置/在用/故障
+    current_user_id BIGINT      NULL,                     -- 当前占用用户（预约/充电中）
+    last_online_at  DATETIME    NULL,                     -- 最近一次心跳时间
+    enabled         TINYINT(1)  NOT NULL DEFAULT 1,
+    total_count     INT         NOT NULL DEFAULT 0,       -- 累计充电次数
+    total_hours     DECIMAL(10,1) NOT NULL DEFAULT 0,     -- 累计充电时长
     PRIMARY KEY (id),
     UNIQUE KEY uk_pile_code (code),
     KEY idx_pile_station (station_id),
-    CONSTRAINT fk_pile_station FOREIGN KEY (station_id) REFERENCES station (id)
+    KEY idx_pile_station_status (station_id, status),
+    CONSTRAINT fk_pile_station FOREIGN KEY (station_id) REFERENCES station (id),
+    CONSTRAINT fk_pile_user FOREIGN KEY (current_user_id) REFERENCES `user` (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 充电订单（预约-充电-计费-结算）
@@ -92,7 +102,7 @@ CREATE TABLE charge_order (
     user_id          BIGINT        NOT NULL,
     station_id       BIGINT        NOT NULL,
     pile_id          BIGINT        NOT NULL,
-    status           ENUM('reserved','charging','settled','cancelled') NOT NULL DEFAULT 'reserved',
+    status           ENUM('reserved','charging','pending_payment','settled','cancelled') NOT NULL DEFAULT 'reserved',
     unit_price       DECIMAL(6,2)  NOT NULL DEFAULT 0.00,   -- 下单时固化的单价（元/度）
     reserve_time     DATETIME      NULL,
     start_time       DATETIME      NULL,
@@ -109,6 +119,8 @@ CREATE TABLE charge_order (
     KEY idx_order_user (user_id),
     KEY idx_order_pile (pile_id),
     KEY idx_order_station (station_id),
+    KEY idx_order_user_status (user_id, status),
+    KEY idx_order_end_status (end_time, status),
     CONSTRAINT fk_order_user FOREIGN KEY (user_id) REFERENCES `user` (id),
     CONSTRAINT fk_order_pile FOREIGN KEY (pile_id) REFERENCES pile (id),
     CONSTRAINT fk_order_station FOREIGN KEY (station_id) REFERENCES station (id)
@@ -135,15 +147,52 @@ CREATE TABLE wallet_transactions (
 
 -- 数据库结构版本（启动时检测用）
 CREATE TABLE schema_version (
-    version    INT      NOT NULL,
-    applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    version     INT          NOT NULL,
+    description VARCHAR(255) NOT NULL DEFAULT '',
+    applied_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (version)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-INSERT INTO schema_version (version) VALUES (1);
+
+-- 设备指令（远程重启等，记录下发与执行结果）
+CREATE TABLE device_commands (
+    id          BIGINT      NOT NULL AUTO_INCREMENT,
+    command_no  VARCHAR(64) NOT NULL,
+    pile_id     BIGINT      NOT NULL,
+    command     VARCHAR(32) NOT NULL,                    -- 如 restart
+    status      ENUM('pending','success','failed') NOT NULL DEFAULT 'pending',
+    request_at  DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    response_at DATETIME    NULL,
+    error_code  VARCHAR(32) NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_device_command_no (command_no),
+    KEY idx_device_pile_status (pile_id, status),
+    CONSTRAINT fk_device_pile FOREIGN KEY (pile_id) REFERENCES pile (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 运维操作日志（远程重启 / 冻结用户 / 新增电站等关键写操作审计）
+CREATE TABLE operation_logs (
+    id           BIGINT      NOT NULL AUTO_INCREMENT,
+    admin_id     BIGINT      NOT NULL,
+    action       VARCHAR(64) NOT NULL,                   -- 如 pile_restart / user_freeze
+    target_type  VARCHAR(32) NOT NULL DEFAULT '',        -- 如 pile / user / station
+    target_id    BIGINT      NULL,
+    before_value VARCHAR(255) NOT NULL DEFAULT '',
+    after_value  VARCHAR(255) NOT NULL DEFAULT '',
+    result       ENUM('success','failed') NOT NULL DEFAULT 'success',
+    reason       VARCHAR(255) NOT NULL DEFAULT '',
+    created_at   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_oplog_admin_time (admin_id, created_at),
+    CONSTRAINT fk_oplog_admin FOREIGN KEY (admin_id) REFERENCES admin (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO schema_version (version, description) VALUES
+(1, 'PR#11 基线：核心表 + wallet_transactions + 管理员加盐哈希'),
+(2, '补齐 device_commands / operation_logs，pile 占用与心跳字段，charge_order pending_payment');
 
 -- ===================== 初始 / 测试数据 =====================
 
--- 默认管理员（注意：明文密码仅用于实训，正式环境应存哈希）
+-- 默认管理员（密码 123456 以 SHA256(salt+密码) 入库，非明文）
 INSERT INTO admin (username, password_hash, salt, role, status) VALUES
 ('admin', '9f2986ef2d5671e67d7d65439ecaef19a2e3c94f5b368e8eca9693cc27116474', '7f3a9c1e5b8d2f04', 'admin', 'active');
 
