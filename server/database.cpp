@@ -161,3 +161,209 @@ QJsonArray Database::stationList(int &code, QString &msg)
     msg = "ok";
     return arr;
 }
+
+QJsonArray Database::pileList(qint64 stationId, int &code, QString &msg)
+{
+    QJsonArray arr;
+
+    if (stationId <= 0) {
+        code = Protocol::InvalidRequest;
+        msg = "station_id 参数不正确";
+        return arr;
+    }
+
+    QSqlQuery q(m_db);
+    q.prepare("SELECT id, code, type, power_kw, status "
+              "FROM pile WHERE station_id = ? ORDER BY id");
+    q.addBindValue(stationId);
+    if (!q.exec()) {
+        code = Protocol::DbError;
+        msg = q.lastError().text();
+        return arr;
+    }
+
+    while (q.next()) {
+        QJsonObject o;
+        o["id"]       = q.value("id").toLongLong();
+        o["code"]     = q.value("code").toString();
+        o["type"]     = q.value("type").toString();
+        o["power_kw"] = q.value("power_kw").toDouble();
+        o["status"]   = q.value("status").toString();
+        arr.append(o);
+    }
+
+    code = Protocol::Ok;
+    msg = "ok";
+    return arr;
+}
+
+QJsonArray Database::adminUserList(const QString &keyword, int &code, QString &msg)
+{
+    QJsonArray arr;
+
+    QSqlQuery q(m_db);
+    if (keyword.trimmed().isEmpty()) {
+        q.prepare("SELECT id, phone, nickname, balance, status, created_at "
+                  "FROM `user` ORDER BY id");
+    } else {
+        q.prepare("SELECT id, phone, nickname, balance, status, created_at "
+                  "FROM `user` WHERE phone LIKE ? OR nickname LIKE ? ORDER BY id");
+        const QString like = "%" + keyword.trimmed() + "%";
+        q.addBindValue(like);
+        q.addBindValue(like);
+    }
+    if (!q.exec()) {
+        code = Protocol::DbError;
+        msg = q.lastError().text();
+        return arr;
+    }
+
+    while (q.next()) {
+        QJsonObject o;
+        o["id"]         = q.value("id").toLongLong();
+        o["phone"]      = q.value("phone").toString();
+        o["nickname"]   = q.value("nickname").toString();
+        o["balance"]    = q.value("balance").toDouble();
+        o["status"]     = q.value("status").toString();
+        o["created_at"] = q.value("created_at").toString();
+        arr.append(o);
+    }
+
+    code = Protocol::Ok;
+    msg = "ok";
+    return arr;
+}
+
+QJsonObject Database::adminUserFreeze(qint64 userId, bool frozen, int &code, QString &msg)
+{
+    QJsonObject data;
+
+    if (userId <= 0) {
+        code = Protocol::InvalidRequest;
+        msg = "user_id 参数不正确";
+        return data;
+    }
+
+    QSqlQuery q(m_db);
+    q.prepare("UPDATE `user` SET status = ? WHERE id = ?");
+    q.addBindValue(frozen ? "frozen" : "normal");
+    q.addBindValue(userId);
+    if (!q.exec()) {
+        code = Protocol::DbError;
+        msg = q.lastError().text();
+        return data;
+    }
+    if (q.numRowsAffected() == 0) {
+        code = Protocol::NotFound;
+        msg = "用户不存在";
+        return data;
+    }
+
+    data["id"]     = userId;
+    data["status"] = frozen ? "frozen" : "normal";
+    code = Protocol::Ok;
+    msg = frozen ? "已冻结" : "已解冻";
+    return data;
+}
+
+QJsonArray Database::adminPileList(int &code, QString &msg)
+{
+    QJsonArray arr;
+
+    QSqlQuery q(m_db);
+    const QString sql =
+        "SELECT p.id, p.code, s.name AS station, p.type, p.power_kw, p.status, "
+        "  p.total_count, p.total_hours "
+        "FROM pile p LEFT JOIN station s ON p.station_id = s.id "
+        "ORDER BY p.id";
+    if (!q.exec(sql)) {
+        code = Protocol::DbError;
+        msg = q.lastError().text();
+        return arr;
+    }
+
+    while (q.next()) {
+        QJsonObject o;
+        o["id"]          = q.value("id").toLongLong();
+        o["code"]        = q.value("code").toString();
+        o["station"]     = q.value("station").toString();
+        o["type"]        = q.value("type").toString();
+        o["power_kw"]    = q.value("power_kw").toDouble();
+        o["status"]      = q.value("status").toString();
+        o["total_count"] = q.value("total_count").toInt();
+        o["total_hours"] = q.value("total_hours").toDouble();
+        arr.append(o);
+    }
+
+    code = Protocol::Ok;
+    msg = "ok";
+    return arr;
+}
+
+QJsonObject Database::adminPileRestart(qint64 pileId, int &code, QString &msg)
+{
+    QJsonObject data;
+
+    if (pileId <= 0) {
+        code = Protocol::InvalidRequest;
+        msg = "pile_id 参数不正确";
+        return data;
+    }
+
+    // 模拟向电桩下发重启指令：将 fault/busy 复位为 idle
+    QSqlQuery q(m_db);
+    q.prepare("UPDATE pile SET status = 'idle' WHERE id = ?");
+    q.addBindValue(pileId);
+    if (!q.exec()) {
+        code = Protocol::DbError;
+        msg = q.lastError().text();
+        return data;
+    }
+    if (q.numRowsAffected() == 0) {
+        code = Protocol::NotFound;
+        msg = "电桩不存在";
+        return data;
+    }
+
+    data["id"]     = pileId;
+    data["status"] = "idle";
+    code = Protocol::Ok;
+    msg = "重启成功";
+    return data;
+}
+
+QJsonArray Database::adminStationList(int &code, QString &msg)
+{
+    QJsonArray arr;
+
+    QSqlQuery q(m_db);
+    const QString sql =
+        "SELECT s.id, s.name, s.address, s.longitude, s.latitude, "
+        "  (SELECT COUNT(*) FROM pile p WHERE p.station_id = s.id) AS total, "
+        "  (SELECT COUNT(*) FROM pile p WHERE p.station_id = s.id AND p.status <> 'fault') AS online "
+        "FROM station s ORDER BY s.id";
+    if (!q.exec(sql)) {
+        code = Protocol::DbError;
+        msg = q.lastError().text();
+        return arr;
+    }
+
+    while (q.next()) {
+        const int total  = q.value("total").toInt();
+        const int online = q.value("online").toInt();
+
+        QJsonObject o;
+        o["id"]          = q.value("id").toLongLong();
+        o["name"]        = q.value("name").toString();
+        o["address"]     = q.value("address").toString();
+        o["longitude"]   = q.value("longitude").toDouble();
+        o["latitude"]    = q.value("latitude").toDouble();
+        o["total"]       = total;
+        o["online_rate"] = total > 0 ? static_cast<double>(online) / total : 0.0;
+        arr.append(o);
+    }
+
+    code = Protocol::Ok;
+    msg = "ok";
+    return arr;
+}

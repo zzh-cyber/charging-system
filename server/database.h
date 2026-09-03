@@ -38,6 +38,26 @@ public:
     // 充电站列表（含总桩数/空闲数）
     QJsonArray stationList(int &code, QString &msg);
 
+    // 某站电桩列表
+    QJsonArray pileList(qint64 stationId, int &code, QString &msg);
+
+    // ---- 管理端 ----
+
+    // 用户列表（keyword 为空则全部；否则按手机号/昵称模糊搜索）
+    QJsonArray adminUserList(const QString &keyword, int &code, QString &msg);
+
+    // 冻结/解冻用户（frozen = true 冻结，false 解冻）
+    QJsonObject adminUserFreeze(qint64 userId, bool frozen, int &code, QString &msg);
+
+    // 全部电桩列表（含所属电站名、累计次数/时长）
+    QJsonArray adminPileList(int &code, QString &msg);
+
+    // 远程重启电桩：fault/busy → idle，返回新状态
+    QJsonObject adminPileRestart(qint64 pileId, int &code, QString &msg);
+
+    // 电站列表（含桩总数、在线率）
+    QJsonArray adminStationList(int &code, QString &msg);
+
 private:
     QSqlDatabase m_db;
     QString      m_connName;

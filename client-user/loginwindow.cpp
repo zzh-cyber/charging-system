@@ -1,8 +1,10 @@
 #include "loginwindow.h"
 
+#include "mainwindow.h"
 #include "netclient.h"
 #include "protocol.h"
 
+#include <QFrame>
 #include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
@@ -19,35 +21,52 @@ LoginWindow::LoginWindow(QWidget *parent)
     , m_net(new NetClient(this))
 {
     setWindowTitle(QStringLiteral("充电用户端 - 登录"));
-    resize(360, 260);
+    setFixedSize(400, 460);
 
-    auto *title = new QLabel(QStringLiteral("新能源汽车充电"), this);
-    title->setAlignment(Qt::AlignCenter);
-    title->setStyleSheet("font-size:20px;font-weight:bold;");
+    auto *brand = new QLabel(QStringLiteral("新能源充电"), this);
+    brand->setAlignment(Qt::AlignCenter);
+    brand->setStyleSheet("font-size:26px;font-weight:bold;color:#1d4ed8;");
+
+    auto *subTitle = new QLabel(QStringLiteral("让绿色出行更便捷"), this);
+    subTitle->setAlignment(Qt::AlignCenter);
+    subTitle->setStyleSheet("font-size:14px;color:#86909c;");
 
     auto *tip = new QLabel(QStringLiteral("手机号免密登录 · 首次登录自动注册"), this);
     tip->setAlignment(Qt::AlignCenter);
-    tip->setStyleSheet("color:gray;");
+    tip->setStyleSheet("font-size:12px;color:#c0c4cc;");
 
     m_phoneEdit = new QLineEdit(this);
     m_phoneEdit->setPlaceholderText(QStringLiteral("请输入11位手机号"));
     m_phoneEdit->setMaxLength(11);
+    m_phoneEdit->setAlignment(Qt::AlignCenter);
 
-    m_loginBtn = new QPushButton(QStringLiteral("登录"), this);
+    m_loginBtn = new QPushButton(QStringLiteral("登 录"), this);
 
     m_hint = new QLabel(QStringLiteral("演示账号：13800138001 / 13800138002"), this);
     m_hint->setAlignment(Qt::AlignCenter);
-    m_hint->setStyleSheet("color:gray;font-size:12px;");
+    m_hint->setStyleSheet("color:#c0c4cc;font-size:12px;");
+
+    auto *card = new QFrame(this);
+    card->setObjectName("loginCard");
+    card->setStyleSheet(
+        "#loginCard{background:#ffffff;border:1px solid #d6e4ff;border-radius:16px;}");
+
+    auto *cardLayout = new QVBoxLayout(card);
+    cardLayout->setContentsMargins(36, 40, 36, 36);
+    cardLayout->setSpacing(14);
+    cardLayout->addWidget(brand);
+    cardLayout->addWidget(subTitle);
+    cardLayout->addSpacing(8);
+    cardLayout->addWidget(tip);
+    cardLayout->addSpacing(10);
+    cardLayout->addWidget(m_phoneEdit);
+    cardLayout->addWidget(m_loginBtn);
+    cardLayout->addSpacing(6);
+    cardLayout->addWidget(m_hint);
 
     auto *layout = new QVBoxLayout(this);
-    layout->addStretch();
-    layout->addWidget(title);
-    layout->addWidget(tip);
-    layout->addSpacing(10);
-    layout->addWidget(m_phoneEdit);
-    layout->addWidget(m_loginBtn);
-    layout->addWidget(m_hint);
-    layout->addStretch();
+    layout->setContentsMargins(20, 20, 20, 20);
+    layout->addWidget(card);
 
     connect(m_loginBtn, &QPushButton::clicked, this, &LoginWindow::onLoginClicked);
 }
@@ -79,13 +98,13 @@ void LoginWindow::onLoginClicked()
         return;
     }
 
+    // 登录成功 → 进入主界面，并把用户信息传进去（供「我的」页显示）
     const QJsonObject u = resp.value("data").toObject();
-    QMessageBox::information(
-        this, QStringLiteral("登录成功"),
-        QStringLiteral("欢迎，%1\n手机号：%2\n钱包余额：￥%3")
-            .arg(u.value("nickname").toString())
-            .arg(u.value("phone").toString())
-            .arg(u.value("balance").toDouble()));
-
-    // TODO(用户端负责人)：登录成功后进入主界面（充电站列表 / 充电流程 / 我的）
+    auto *mainWin = new MainWindow(
+        u.value("nickname").toString(),
+        u.value("phone").toString(),
+        u.value("balance").toDouble());
+    mainWin->setAttribute(Qt::WA_DeleteOnClose);
+    mainWin->show();
+    close();
 }
