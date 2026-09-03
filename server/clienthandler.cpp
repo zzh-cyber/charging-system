@@ -105,6 +105,20 @@ void ClientHandler::dispatch(const QJsonObject &req)
         reply(makeResponse(type, code, msg, out));
         return;
     }
+    if (type == MsgType::Reserve) {
+        const QJsonObject out = m_db->reserve(
+            data.value("user_id").toVariant().toLongLong(),
+            data.value("pile_id").toVariant().toLongLong(), code, msg);
+        reply(makeResponse(type, code, msg, out));
+        return;
+    }
+    if (type == MsgType::UnfinishedOrder) {
+        QJsonObject out;
+        out["order"] = m_db->unfinishedOrder(
+            data.value("user_id").toVariant().toLongLong(), code, msg);
+        reply(makeResponse(type, code, msg, out));
+        return;
+    }
 
     // ================= 管理端：用户管理 =================
     if (type == MsgType::AdminUserList) {

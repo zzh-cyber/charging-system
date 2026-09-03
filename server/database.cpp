@@ -4,6 +4,7 @@
 
 #include <QSqlError>
 #include <QSqlQuery>
+#include <QUuid>
 #include <QVariant>
 
 Database::Database(const QString &connectionName)
@@ -195,6 +196,131 @@ QJsonArray Database::pileList(qint64 stationId, int &code, QString &msg)
     code = Protocol::Ok;
     msg = "ok";
     return arr;
+}
+
+QJsonObject Database::reserve(qint64 userId, qint64 pileId, int &code, QString &msg)
+{
+    QJsonObject data;
+
+    if (userId <= 0 || pileId <= 0) {
+        code = Protocol::InvalidRequest;
+        msg = "user_id 或 pile_id 参数不正确";
+        return data;
+    }
+
+    if (!m_db.transaction()) {
+        code = Protocol::DbError;
+        msg = m_db.lastError().text();
+        return data;
+    }
+
+    const auto fail = [this, &code, &msg, &data](int errorCode,
+                                                 const QString &errorMessage) {
+        m_db.rollback();
+        code = errorCode;
+        msg = errorMessage;
+        return data;
+    };
+
+    QSqlQuery userQuery(m_db);
+    userQuery.prepare("SELECT status FROM `user` WHERE id = ? FOR UPDATE");
+    userQuery.addBindValue(userId);
+    if (!userQuery.exec())
+        return fail(Protocol::DbError, userQuery.lastError().text());
+    if (!userQuery.next())
+        return fail(Protocol::NotFound, "用户不存在");
+    if (userQuery.value("status").toString() == "frozen")
+        return fail(Protocol::Frozen, "账号已被冻结");
+
+    QSqlQuery orderQuery(m_db);
+    orderQuery.prepare("SELECT id FROM charge_order "
+                       "WHERE user_id = ? AND status IN ('reserved','charging') "
+                       "LIMIT 1 FOR UPDATE");
+    orderQuery.addBindValue(userId);
+    if (!orderQuery.exec())
+        return fail(Protocol::DbError, orderQuery.lastError().text());
+    if (orderQuery.next())
+        return fail(Protocol::HasUnfinishedOrder, "存在未完成订单");
+
+    QSqlQuery pileQuery(m_db);
+    pileQuery.prepare("SELECT status FROM pile WHERE id = ? FOR UPDATE");
+    pileQuery.addBindValue(pileId);
+    if (!pileQuery.exec())
+        return fail(Protocol::DbError, pileQuery.lastError().text());
+    if (!pileQuery.next())
+        return fail(Protocol::NotFound, "电桩不存在");
+    if (pileQuery.value("status").toString() != "idle")
+        return fail(Protocol::InvalidRequest, "电桩当前不可预约");
+
+    const QString orderNo = QUuid::createUuid().toString(QUuid::Id128);
+    QSqlQuery insertQuery(m_db);
+    insertQuery.prepare("INSERT INTO charge_order "
+                        "(order_no, user_id, pile_id, status, reserve_time) "
+                        "VALUES (?, ?, ?, 'reserved', NOW())");
+    insertQuery.addBindValue(orderNo);
+    insertQuery.addBindValue(userId);
+    insertQuery.addBindValue(pileId);
+    if (!insertQuery.exec())
+        return fail(Protocol::DbError, insertQuery.lastError().text());
+
+    QSqlQuery updateQuery(m_db);
+    updateQuery.prepare("UPDATE pile SET status = 'busy' WHERE id = ? AND status = 'idle'");
+    updateQuery.addBindValue(pileId);
+    if (!updateQuery.exec())
+        return fail(Protocol::DbError, updateQuery.lastError().text());
+    if (updateQuery.numRowsAffected() != 1)
+        return fail(Protocol::DbError, "更新电桩状态失败");
+
+    if (!m_db.commit()) {
+        const QString errorMessage = m_db.lastError().text();
+        m_db.rollback();
+        code = Protocol::DbError;
+        msg = errorMessage;
+        return data;
+    }
+
+    data["order_no"] = orderNo;
+    code = Protocol::Ok;
+    msg = "预约成功";
+    return data;
+}
+
+QJsonObject Database::unfinishedOrder(qint64 userId, int &code, QString &msg)
+{
+    QJsonObject data;
+
+    if (userId <= 0) {
+        code = Protocol::InvalidRequest;
+        msg = "user_id 参数不正确";
+        return data;
+    }
+
+    QSqlQuery q(m_db);
+    q.prepare("SELECT order_no, pile_id, status, reserve_time, start_time "
+              "FROM charge_order "
+              "WHERE user_id = ? AND status IN ('reserved','charging') "
+              "ORDER BY id DESC LIMIT 1");
+    q.addBindValue(userId);
+    if (!q.exec()) {
+        code = Protocol::DbError;
+        msg = q.lastError().text();
+        return data;
+    }
+
+    if (!q.next()) {
+        code = Protocol::Ok;
+        msg = "ok";
+        return data;
+    }
+
+    data["order_no"]    = q.value("order_no").toString();
+    data["pile_id"]     = q.value("pile_id").toLongLong();
+    data["status"]      = q.value("status").toString();
+    data["reserve_time"] = q.value("reserve_time").toString();
+    data["start_time"]   = q.value("start_time").toString();
+    code = Protocol::Ok;
+    msg = "ok";
+    return data;
 }
 
 QJsonArray Database::adminUserList(const QString &keyword, int &code, QString &msg)
