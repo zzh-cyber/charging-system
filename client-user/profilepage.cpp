@@ -4,7 +4,10 @@
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
+#include <QInputDialog>
 #include <QLabel>
+#include <QLineEdit>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QVBoxLayout>
 #include <QPainter>
@@ -151,6 +154,32 @@ avatar->setPixmap(avatarPixmap);
     infoLayout->addWidget(
         m_phoneLabel);
 
+    // ------------------------------------------------------------------------
+    // 编辑昵称按钮（NO.18）
+    // ------------------------------------------------------------------------
+    m_editNickButton =
+        new QPushButton(
+            QStringLiteral("编辑"),
+            userCard);
+
+    m_editNickButton->setCursor(
+        Qt::PointingHandCursor);
+
+    m_editNickButton->setStyleSheet(
+        "QPushButton{"
+        "background:#f5f8ff;"
+        "color:#1d4ed8;"
+        "border:1px solid #d6e4ff;"
+        "border-radius:8px;"
+        "padding:6px 14px;"
+        "font-size:13px;"
+        "font-weight:600;"
+        "}"
+        "QPushButton:hover{"
+        "background:#e8f0ff;"
+        "border-color:#1d4ed8;"
+        "}");
+
     userLayout->addWidget(
         avatar);
 
@@ -158,8 +187,57 @@ avatar->setPixmap(avatarPixmap);
         infoLayout,
         1);
 
+    userLayout->addWidget(
+        m_editNickButton,
+        0,
+        Qt::AlignVCenter);
+
     layout->addWidget(
         userCard);
+
+    // ------------------------------------------------------------------------
+    // 点击编辑昵称：弹输入框 → 本地校验 2~20 → 发信号交 MainWindow 处理
+    // ------------------------------------------------------------------------
+    connect(
+        m_editNickButton,
+        &QPushButton::clicked,
+        this,
+        [this]() {
+
+            bool ok = false;
+
+            const QString input =
+                QInputDialog::getText(
+                    this,
+                    QStringLiteral("修改昵称"),
+                    QStringLiteral("请输入新的昵称（2～20 个字符）："),
+                    QLineEdit::Normal,
+                    m_nickname,
+                    &ok);
+
+            if (!ok)
+                return;
+
+            const QString nickname =
+                input.trimmed();
+
+            if (nickname.size() < 2 ||
+                nickname.size() > 20) {
+
+                QMessageBox::warning(
+                    this,
+                    QStringLiteral("昵称无效"),
+                    QStringLiteral("昵称长度需为 2～20 个字符"));
+
+                return;
+            }
+
+            if (nickname == m_nickname)
+                return;
+
+            emit nicknameChangeRequested(
+                nickname);
+        });
 
     // ========================================================================
     // 钱包卡片
@@ -406,10 +484,7 @@ void ProfilePage::setUserInfo(
     const QString &phone,
     double balance)
 {
-    m_nicknameLabel->setText(
-        nickname.isEmpty()
-            ? QStringLiteral("用户")
-            : nickname);
+    setNickname(nickname);
 
     m_phoneLabel->setText(
         QStringLiteral(
@@ -417,6 +492,17 @@ void ProfilePage::setUserInfo(
             .arg(phone));
 
     setBalance(balance);
+}
+
+void ProfilePage::setNickname(
+    const QString &nickname)
+{
+    m_nickname = nickname;
+
+    m_nicknameLabel->setText(
+        nickname.isEmpty()
+            ? QStringLiteral("用户")
+            : nickname);
 }
 
 void ProfilePage::setBalance(

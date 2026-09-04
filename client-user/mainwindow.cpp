@@ -522,6 +522,62 @@ MainWindow::MainWindow(qint64 userId,
                     2));
     });
 
+    // =========================================================================
+    // 修改昵称 → update_profile（NO.18）
+    // =========================================================================
+    connect(
+        m_profilePage,
+        &ProfilePage::nicknameChangeRequested,
+        this,
+        [this](const QString &nickname) {
+
+            QJsonObject data;
+            data["nickname"] = nickname;
+
+            const QJsonObject resp =
+                m_net->request(
+                    Protocol::makeRequest(
+                        Protocol::MsgType::UpdateProfile,
+                        data));
+
+            const int code =
+                resp.value("code").toInt();
+
+            const QString msg =
+                resp.value("msg").toString();
+
+            if (code != Protocol::Ok) {
+
+                // code=9 由全局 onSessionInvalid 统一回登录页，这里只提示其它错误
+                if (code != Protocol::SessionInvalid) {
+
+                    QMessageBox::warning(
+                        this,
+                        QStringLiteral("修改昵称失败"),
+                        msg);
+                }
+
+                return;
+            }
+
+            const QString newNick =
+                resp.value("data")
+                    .toObject()
+                    .value("nickname")
+                    .toString(nickname);
+
+            m_nickname = newNick;
+
+            m_profilePage->setNickname(
+                newNick);
+
+            QMessageBox::information(
+                this,
+                QStringLiteral("修改成功"),
+                QStringLiteral("昵称已更新为：%1")
+                    .arg(newNick));
+        });
+
     connect(
         m_profilePage,
         &ProfilePage::rechargeRequested,
