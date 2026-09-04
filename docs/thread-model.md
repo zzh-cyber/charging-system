@@ -57,6 +57,33 @@
 
 ---
 
+## 服务器 - reserve 按 token 认人 - 2026-09-04 - 组长
+
+### 线程职责
+
+| 线程 | 职责 |
+|------|------|
+| **ClientHandler 线程** | `dispatch` 在处理 `reserve` 时调用 `SessionManager::validate`，用返回的 `sess.userId` 调 `Database::reserve` |
+
+### 跨线程通信
+
+- 无新增跨线程对象；仍通过已有单例访问会话表
+- 未改 `TcpServer` 派生线程、未改 `NetClient` socket 收发
+
+### 共享资源与锁
+
+| 资源 | 保护方式 | 访问线程 |
+|------|----------|----------|
+| `m_sessions` | 仍由 `SessionManager` 内部 `QMutex` 覆盖 `validate` | 发起预约的 Handler 线程 |
+
+### 验证
+
+- 无 token 或 token 无效：`reserve` 返回 `code=9`
+- 报文里伪造 `data.user_id`：订单仍记在 token 对应用户上
+- `station_list` 等其它接口本步不校验 token
+
+---
+
 ## 客户端 - NetClient - 2026-09-01 - 组长（地基）
 
 ### 线程职责
