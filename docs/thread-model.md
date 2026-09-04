@@ -162,6 +162,32 @@
 
 ---
 
+## 服务器 - 冻结踢下线 - 2026-09-04 - 组长
+
+### 线程职责
+
+| 线程 | 职责 |
+|------|------|
+| **ClientHandler 线程** | `admin_user_freeze` 成功且 `frozen=true` 时调用 `revokeByUser(targetUserId, "user")` |
+
+### 跨线程通信
+
+- 无新增对象；踢人写的是全局会话表，其它连接上的 Handler 下次 `validate` 会失败
+- 未改 `TcpServer` / `NetClient`
+
+### 共享资源与锁
+
+| 资源 | 保护方式 | 访问线程 |
+|------|----------|----------|
+| `m_sessions` | `revokeByUser` 内部 `QMutex` | 执行冻结的 Handler 线程 |
+
+### 验证
+
+- 用户登录拿到 token 后被冻结：原 token 再调 `unfinished_order`/`recharge` 返回 `code=9`
+- 解冻不恢复旧 token，需重新登录
+
+---
+
 ## 客户端 - NetClient - 2026-09-01 - 组长（地基）
 
 ### 线程职责

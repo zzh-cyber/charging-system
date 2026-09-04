@@ -244,9 +244,11 @@ void ClientHandler::dispatch(const QJsonObject &req)
         return;
     }
     if (type == MsgType::AdminUserFreeze) {
-        const QJsonObject out = m_db->adminUserFreeze(
-            data.value("user_id").toVariant().toLongLong(),
-            data.value("frozen").toBool(), code, msg);
+        const qint64 targetUserId = data.value("user_id").toVariant().toLongLong();
+        const bool frozen = data.value("frozen").toBool();
+        const QJsonObject out = m_db->adminUserFreeze(targetUserId, frozen, code, msg);
+        if (code == Ok && frozen)
+            SessionManager::instance().revokeByUser(targetUserId, QStringLiteral("user"));
         reply(makeResponse(type, code, msg, out));
         return;
     }
