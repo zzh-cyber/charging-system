@@ -24,7 +24,7 @@
 | 6 | 账号被冻结 |
 | 7 | 余额不足 |
 | 8 | 存在未完成订单 |
-| 9 | 会话无效（未带 token / token 无效 / 已过期）。**目前仅 `reserve` 强制校验**；其余接口尚未打开 |
+| 9 | 会话无效（未带 token / token 无效 / 已过期）。**目前 `reserve`、`unfinished_order` 强制校验**；其余接口尚未打开 |
 | 99 | 接口尚未实现（骨架占位） |
 
 ## 状态字段取值
@@ -47,7 +47,7 @@
 | `station_list` | 充电站列表 | `{}` | `{list:[{id,name,address,longitude,latitude,price,total,idle}]}` | 服务器A / 成员D | ✅ 已实现（样板） |
 | `pile_list` | 某站电桩列表 | `{station_id}` | `{list:[{id,code,type,power_kw,status}]}` | 服务器A / 成员D | ⬜ |
 | `pile_detail` | 电桩详情 | `{pile_id}` | `{id,code,type,power_kw,status,total_count,total_hours}` | 成员D | ⬜ |
-| `unfinished_order` | 查询未完成订单 | `{user_id}` | `{order?:{...}}` | 用户端B | ⬜ |
+| `unfinished_order` | 查询未完成订单 | 顶层必须带 `token`；`data` 可为空。身份取自会话，忽略 `data.user_id` | `{order?:{order_no,pile_id,status,...}}` | 用户端B | ✅ 已实现 |
 | `reserve` | 预约 | 顶层必须带 `token`；`data` 仅 `{pile_id}`。身份取自会话，忽略 `data.user_id` | `{order_no}` | 用户端B | ✅ 已实现 |
 | `start_charge` | 开始充电 | `{order_no}` | `{start_time}` | 用户端B | ⬜ |
 | `settle` | 计费结算 | `{order_no,kwh}` | `{amount,balance}` | 用户端B | ⬜ |
