@@ -1138,7 +1138,9 @@ bool Database::updateNickname(qint64 userId, const QString &nickname)
         m_lastError = q.lastError().text();
         return false;
     }
-    return q.numRowsAffected() > 0;
+    // exec 成功即算成功：昵称与原值相同时 numRowsAffected() 为 0，不应视为失败。
+    // userId 来自已校验的会话，必然存在，无需再用行数判断存在性。
+    return true;
 }
 
 bool Database::updateAvatar(qint64 userId, const QString &avatarPath)

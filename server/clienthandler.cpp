@@ -221,6 +221,30 @@ void ClientHandler::dispatch(const QJsonObject &req)
         return;
     }
 
+    // ------------------------------------------------------------------------
+    // 资料维护：改昵称（NO.18/76）。身份取自会话，忽略报文里的 user_id。
+    // 头像（NO.17/75）后续在本分支追加 avatar 字段处理。
+    // ------------------------------------------------------------------------
+    if (type == MsgType::UpdateProfile) {
+        const QString nickname = data.value("nickname").toString().trimmed();
+        if (nickname.isEmpty()) {
+            reply(makeResponse(type, InvalidRequest, "昵称不能为空"));
+            return;
+        }
+        if (nickname.size() < 2 || nickname.size() > 20) {
+            reply(makeResponse(type, InvalidRequest, "昵称长度需为 2~20 个字符"));
+            return;
+        }
+        if (!m_db->updateNickname(sess.userId, nickname)) {
+            reply(makeResponse(type, DbError, "昵称更新失败: " + m_db->lastError()));
+            return;
+        }
+        QJsonObject out;
+        out["nickname"] = nickname;
+        reply(makeResponse(type, Ok, "更新成功", out));
+        return;
+    }
+
     // ================= 管理端：用户管理 =================
     if (type == MsgType::AdminUserList) {
         QJsonObject out;
