@@ -22,6 +22,7 @@ public:
 
 private slots:
     void onLoginClicked();
+    void onSessionInvalid(const QString &msg);
 
 private:
     QLineEdit *m_userEdit;
