@@ -832,7 +832,7 @@ QJsonObject Database::recharge(qint64 userId, double amount, int &code, QString 
     insertQuery.prepare("INSERT INTO wallet_transactions "
                         "(transaction_no, user_id, type, amount, balance_before, balance_after) "
                         "VALUES (?, ?, 'recharge', ?, ?, ?)");
-    insertQuery.addBindValue(QUuid::createUuid().toString(QUuid::WithoutBraces));
+    insertQuery.addBindValue(QUuid::createUuid().toString(QUuid::Id128));
     insertQuery.addBindValue(userId);
     insertQuery.addBindValue(amount);
     insertQuery.addBindValue(balanceBefore);

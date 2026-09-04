@@ -111,6 +111,31 @@
 
 ---
 
+## 服务器 - recharge 按 token 认人 - 2026-09-04 - 组长
+
+### 线程职责
+
+| 线程 | 职责 |
+|------|------|
+| **ClientHandler 线程** | `dispatch` 处理 `recharge` 时 `validate` token，用 `sess.userId` 入账 |
+
+### 跨线程通信
+
+- 无新增跨线程对象；未改 `TcpServer` / `NetClient`
+
+### 共享资源与锁
+
+| 资源 | 保护方式 | 访问线程 |
+|------|----------|----------|
+| `m_sessions` | `SessionManager::validate` 内部加锁 | 发起充值的 Handler 线程 |
+
+### 验证
+
+- 无 token：`recharge` 返回 `code=9`
+- 伪造 `data.user_id`：余额加在 token 对应用户上，不给报文里的 id 入账
+
+---
+
 ## 客户端 - NetClient - 2026-09-01 - 组长（地基）
 
 ### 线程职责
