@@ -30,7 +30,7 @@
 | 身份来源 | 服务器 `SessionManager` 用 token 得到 `userId` + `role`；业务里的“当前用户”一律取自会话，**不读客户端伪造的 `data.user_id`** |
 | `data.user_id` 何时可出现 | 仅管理端操作**目标用户**时（如冻结某用户）作为操作对象字段，不是登录身份 |
 | 失效 | token 无效/过期返回 `code=9`（SessionInvalid），客户端清空 token 并回登录页 |
-| 落地进度 | 第 1～3 步已合入 main：登录下发 token、业务按会话认人、分发层全局鉴权门已开闸。下一步：客户端收到 `code=9` 清 token 并回登录页 |
+| 落地进度 | 第 1～4 步已合入 main：登录下发 token、按会话认人、分发层鉴权门、客户端 `code=9` 清 token 并回登录页 |
 
 ---
 
@@ -68,7 +68,7 @@
 | 26 |  |  | 完成扣款、订单结算和电桩释放，并处理余额不足。 | 客户端发送 {type:'settle', token, data:{order_no,kwh}}。服务器事务内按会话用户扣款、写流水、释放电桩；余额不足置 pending_payment。禁止仅凭 order_no 操作他人订单。 | 朱雅琪 | 2026-09-07 | △ |  |
 | 27 | PC服务器端 | 管理员登录 | 管理员在登录界面输入账号和密码并提交验证。 | 账号密码输入；发送 {type:'admin_login', data:{username,password}}（**不带 token**）。成功后 NetClient::setToken(data.token)，进入管理后台；退出 clearToken。密码不写客户端日志。 | 牛昀轶 | 2026-09-02 | ○ |  |
 | 28 |  |  | 服务器校验数据库管理员账号并兼容默认账号 admin/123456。 | admin 表存 password_hash+salt；登录校验成功后更新 last_login_at，返回 id、username，并由 SessionManager 创建 role=admin 的 token 写入 data.token。账号停用或密码错误统一 AUTH_FAILED。默认 admin/123456 仅作初始化哈希入库，库中不保留明文。 | 朱雅琪 | 2026-09-03 | ○ |  |
-| 29 |  |  | 登录成功后建立管理员会话并控制后台操作权限。 | SessionManager 保存 token→(adminId, role=admin, lastActive)；**除 admin_login 外，所有 admin_* 请求必须带 token**，分发层校验 token 且 role 为 admin 后才进业务。30 分钟无操作滑动过期，客户端收到 code=9 回登录页。写操作（重启、冻结、新增电站）须鉴权通过并写 operation_logs。当前：服务器鉴权门已开闸；客户端 code=9 回登录页待做。 | 朱雅琪 | 2026-09-03 | △ |  |
+| 29 |  |  | 登录成功后建立管理员会话并控制后台操作权限。 | SessionManager 保存 token→(adminId, role=admin, lastActive)；**除 admin_login 外，所有 admin_* 请求必须带 token**，分发层校验 token 且 role 为 admin 后才进业务。30 分钟无操作滑动过期。写操作（重启、冻结、新增电站）须鉴权通过并写 operation_logs。服务器鉴权门已开闸；管理端收到 code=9 会清 token 并回到登录窗。 | 朱雅琪 | 2026-09-03 | ○ |  |
 | 30 |  | 销售业绩 | 管理端可切换查看近 7 日和近 30 日营收数据。 | 切换 7/30 日后发送 {type:'revenue_trend_query', token, data:{days:7\|30}}（须管理员 token）。横轴按自然日补 0；切换模块返回时保持原时间维度。 | 牛昀轶 | × |  |  |
 | 31 |  |  | 服务器汇总已结算订单生成趋势和营收指标。 | 须管理员 token；只统计已结算订单按日汇总营收，返回趋势序列及今日/本月/历史总营收，金额保留 2 位。 | 朱雅琪 | 2026-09-05 | × |  |
 | 32 |  |  | 页面展示今日营收、本月营收和总营收三项核心指标。 | 使用三个统一样式的 KPI 卡片绑定 todayRevenue、monthRevenue、totalRevenue，按人民币格式显示并使用千分位；无数据时显示 ¥0.00。刷新趋势时三项指标同步更新，响应 requestId 不匹配时丢弃旧数据；点击刷新按钮可重新请求，失败时保留旧值并标注最后成功更新时间。 | 牛昀轶 | 2026-09-05 | × |  |

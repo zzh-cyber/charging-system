@@ -99,8 +99,19 @@ void NetClient::onReadyRead()
 {
     m_buffer.append(m_socket->readAll());
     QJsonObject obj;
-    while (Protocol::tryDecode(m_buffer, obj))
+    while (Protocol::tryDecode(m_buffer, obj)) {
+        const int code = obj.value(QStringLiteral("code")).toInt(-1);
+        if (code == Protocol::SessionInvalid)
+            clearToken();
         emit responseReceived(obj);
+        if (code == Protocol::SessionInvalid) {
+            const QString msg = obj.value(QStringLiteral("msg")).toString();
+            // 延后到当前 request() 的嵌套 QEventLoop 退出之后，避免关窗口时栈上还在用页面对象
+            QTimer::singleShot(0, this, [this, msg]() {
+                emit sessionInvalid(msg);
+            });
+        }
+    }
 }
 
 void NetClient::onDisconnected()
