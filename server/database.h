@@ -52,10 +52,10 @@ public:
     QJsonObject unfinishedOrder(qint64 userId, int &code, QString &msg);
 
     // 开始充电
-    QJsonObject startCharge(const QString &orderNo,int &code, QString &msg);
+    QJsonObject startCharge(const QString &orderNo, qint64 userId, int &code, QString &msg);
 
     // 结算订单
-    QJsonObject settle(const QString &orderNo, double kwh, int &code, QString &msg);
+    QJsonObject settle(const QString &orderNo, qint64 userId, double kwh, int &code, QString &msg);
 
     // 用户充值
     QJsonObject recharge(qint64 userId, double amount,int &code, QString &msg);
