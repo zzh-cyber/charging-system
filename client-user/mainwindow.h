@@ -22,17 +22,22 @@ class PileListPage;
 class ChargePage;
 class ProfilePage;
 class LocationManager;
+class NavigationPage;
+
 
 class MainWindow : public QWidget
 {
     Q_OBJECT
 
 public:
-    explicit MainWindow(qint64 userId,
-                    const QString &nickname,
-                    const QString &phone,
-                    double balance,
-                    QWidget *parent = nullptr);
+    explicit MainWindow(
+        qint64 userId,
+        const QString &nickname,
+        const QString &phone,
+        double balance,
+        const QString &token,
+        QWidget *parent = nullptr);
+
 
     // 登录成功后写入会话 token；主窗口自建 NetClient，后续请求会自动附带
     void setSessionToken(const QString &token);
@@ -49,6 +54,7 @@ private:
 
     StationListPage  *m_stationPage;
     PileListPage     *m_pilePage;
+    NavigationPage   *m_navigationPage;
     ChargePage       *m_chargePage;
     ProfilePage      *m_profilePage;
 

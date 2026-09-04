@@ -14,6 +14,8 @@ class QLabel;
 class QVBoxLayout;
 class QStackedWidget;
 class NetClient;
+class StationCardWidget;
+
 
 class StationListPage : public QWidget
 {
@@ -33,6 +35,15 @@ signals:
     void stationSelected(
         qint64 stationId,
         const QString &name);
+    
+    void navigationRequested(
+        qint64 stationId,
+        const QString &name,
+        double startLatitude,
+        double startLongitude,
+        double targetLatitude,
+        double targetLongitude,
+        double distance);
 
 protected:
     void showEvent(

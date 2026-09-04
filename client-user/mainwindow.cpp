@@ -8,6 +8,8 @@
 #include "profilepage.h"
 #include "stationlistpage.h"
 #include "protocol.h"
+#include "navigationpage.h"
+
 
 
 #include <QButtonGroup>
@@ -26,19 +28,22 @@
 static constexpr const char *kServerHost = "127.0.0.1";
 static constexpr quint16     kServerPort = 9000;
 
-MainWindow::MainWindow(qint64 userId,
-                       const QString &nickname,
-                       const QString &phone,
-                       double balance,
-                       QWidget *parent)
-
+MainWindow::MainWindow(
+    qint64 userId,
+    const QString &nickname,
+    const QString &phone,
+    double balance,
+    const QString &token,
+    QWidget *parent)
     : QWidget(parent)
     , m_net(new NetClient(this))
+
     , m_contentStack(new QStackedWidget)
     , m_homeStack(new QStackedWidget)
     , m_navGroup(new QButtonGroup(this))
     , m_stationPage(new StationListPage(m_net))
     , m_pilePage(new PileListPage(m_net))
+    , m_navigationPage(new NavigationPage)
     , m_chargePage(new ChargePage)
     , m_profilePage(new ProfilePage)
     , m_locationManager(new LocationManager(this))
@@ -51,19 +56,22 @@ MainWindow::MainWindow(qint64 userId,
     , m_userId(userId)
     , m_balance(balance)
 {
-    setWindowTitle(
-        QStringLiteral("充电用户端"));
+    
+        // 必须先保存登录 token，
+        // 后面的 unfinished_order 等业务请求才能正常鉴权
+        m_net->setToken(token);
 
-    resize(420, 680);
+        setWindowTitle(
+            QStringLiteral("充电用户端"));
 
-    // ------------------------------------------------------------------------
-    // 连接业务服务器
-    // ------------------------------------------------------------------------
-    if (!m_net->isConnected()) {
-        m_net->connectToServer(
-            kServerHost,
-            kServerPort);
-    }
+        resize(420, 680);
+
+        if (!m_net->isConnected()) {
+            m_net->connectToServer(
+                kServerHost,
+                kServerPort);
+        }
+
 
     connect(m_net, &NetClient::sessionInvalid,
             this, &MainWindow::onSessionInvalid);
@@ -77,6 +85,9 @@ MainWindow::MainWindow(qint64 userId,
 
     m_homeStack->addWidget(
         m_pilePage);
+    m_homeStack->addWidget(
+        m_navigationPage);
+
         // 把当前登录用户 ID 交给桩列表页
         // 预约 reserve 时需要 user_id
     m_pilePage->setUserId(m_userId);
@@ -343,6 +354,53 @@ MainWindow::MainWindow(qint64 userId,
             // 桩列表页面暂时隐藏定位栏
             locationPanel->hide();
         });
+    
+    // =========================================================================
+    // 一键导航
+    // =========================================================================
+    connect(
+        m_stationPage,
+        &StationListPage::navigationRequested,
+        this,
+        [this, locationPanel](
+            qint64 stationId,
+            const QString &name,
+            double startLat,
+            double startLng,
+            double targetLat,
+            double targetLng,
+            double distance) {
+
+            Q_UNUSED(stationId);
+
+            m_navigationPage
+                ->setNavigationData(
+                    name,
+                    startLat,
+                    startLng,
+                    targetLat,
+                    targetLng,
+                    distance);
+
+            m_homeStack->setCurrentWidget(
+                m_navigationPage);
+
+            // 导航页隐藏上方定位栏
+            locationPanel->hide();
+        });
+    connect(
+        m_navigationPage,
+        &NavigationPage::back,
+        this,
+        [this, locationPanel]() {
+
+            m_homeStack->setCurrentWidget(
+                m_stationPage);
+
+            locationPanel->show();
+        });
+
+
 
     // =========================================================================
     // 桩列表返回
@@ -716,6 +774,7 @@ MainWindow::MainWindow(qint64 userId,
                 message);
         });
 }
+
 
 void MainWindow::setSessionToken(const QString &token)
 {

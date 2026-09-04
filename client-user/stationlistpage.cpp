@@ -2,6 +2,8 @@
 
 #include "netclient.h"
 #include "protocol.h"
+#include "stationcardwidget.h"
+
 
 #include <QFrame>
 #include <QHBoxLayout>
@@ -362,15 +364,16 @@ void StationListPage::clearList()
     while (QLayoutItem *item =
                m_listLayout->takeAt(0)) {
 
-        if (QWidget *w =
+        if (QWidget *widget =
                 item->widget()) {
 
-            w->deleteLater();
+            delete widget;
         }
 
         delete item;
     }
 }
+
 
 // =============================================================================
 // 加载附近充电站
@@ -501,235 +504,90 @@ void StationListPage::buildCards(
 {
     clearList();
 
-    for (const QJsonValue &v : list) {
+    for (const QJsonValue &value :
+         list) {
 
-        const QJsonObject s =
-            v.toObject();
+        if (!value.isObject())
+            continue;
 
-        const qint64 id =
-            s.value(
-                 QStringLiteral("id"))
-                .toVariant()
-                .toLongLong();
-
-        const QString name =
-            s.value(
-                 QStringLiteral("name"))
-                .toString();
-
-        const QString address =
-            s.value(
-                 QStringLiteral("address"))
-                .toString();
-
-        const double price =
-            s.value(
-                 QStringLiteral("price"))
-                .toDouble();
-
-        const int total =
-            s.value(
-                 QStringLiteral("total"))
-                .toInt();
-
-        const int idle =
-            s.value(
-                 QStringLiteral("idle"))
-                .toInt();
-
-        const bool hasDistance =
-            s.contains(
-                QStringLiteral("distance"));
-
-        const double distance =
-            s.value(
-                 QStringLiteral("distance"))
-                .toDouble();
-
-        // ---------------------------------------------------------------------
-        // 卡片
-        // ---------------------------------------------------------------------
         auto *card =
-            new QPushButton(this);
+            new StationCardWidget(
+                value.toObject(),
+                this);
 
-        card->setCursor(
-            Qt::PointingHandCursor);
-
-        card->setMinimumHeight(
-            hasDistance
-                ? 128
-                : 112);
-
-        card->setStyleSheet(
-            "QPushButton{"
-            "text-align:left;"
-            "padding:14px;"
-            "border:1px solid #d6e4ff;"
-            "border-radius:10px;"
-            "background:#ffffff;"
-            "}"
-            "QPushButton:hover{"
-            "border-color:#1d4ed8;"
-            "background:#eef4ff;"
-            "}");
-
-        auto *body =
-            new QVBoxLayout(card);
-
-        body->setContentsMargins(
-            2, 2, 2, 2);
-
-        body->setSpacing(4);
-
-        // 第一行
-        auto *row1 =
-            new QHBoxLayout;
-
-        auto *nameLabel =
-            new QLabel(
-                name,
-                card);
-
-        nameLabel->setStyleSheet(
-            "font-size:17px;"
-            "font-weight:bold;"
-            "border:none;"
-            "background:transparent;");
-
-        nameLabel->setAttribute(
-            Qt::WA_TransparentForMouseEvents);
-
-        auto *priceLabel =
-            new QLabel(
-                QStringLiteral(
-                    "￥%1/度")
-                    .arg(
-                        price,
-                        0,
-                        'f',
-                        2),
-                card);
-
-        priceLabel->setStyleSheet(
-            "color:#ff6a00;"
-            "font-size:15px;"
-            "font-weight:bold;"
-            "border:none;"
-            "background:transparent;");
-
-        priceLabel->setAttribute(
-            Qt::WA_TransparentForMouseEvents);
-
-        row1->addWidget(
-            nameLabel,
-            1);
-
-        row1->addWidget(
-            priceLabel);
-
-        // ---------------------------------------------------------------------
-        // 地址
-        // ---------------------------------------------------------------------
-        auto *addrLabel =
-            new QLabel(
-                address,
-                card);
-
-        addrLabel->setWordWrap(
-            true);
-
-        addrLabel->setStyleSheet(
-            "color:#86909c;"
-            "font-size:12px;"
-            "border:none;"
-            "background:transparent;");
-
-        addrLabel->setAttribute(
-            Qt::WA_TransparentForMouseEvents);
-
-        // ---------------------------------------------------------------------
-        // 距离
-        // ---------------------------------------------------------------------
-        QLabel *distanceLabel =
-            nullptr;
-
-        if (hasDistance) {
-
-            distanceLabel =
-                new QLabel(
-                    QStringLiteral(
-                        "距您 %1 km")
-                        .arg(
-                            distance,
-                            0,
-                            'f',
-                            1),
-                    card);
-
-            distanceLabel->setStyleSheet(
-                "color:#4e5969;"
-                "font-size:12px;"
-                "border:none;"
-                "background:transparent;");
-
-            distanceLabel->setAttribute(
-                Qt::WA_TransparentForMouseEvents);
-        }
-
-        // ---------------------------------------------------------------------
-        // 空闲桩
-        // ---------------------------------------------------------------------
-        auto *idleLabel =
-            new QLabel(
-                QStringLiteral(
-                    "空闲 %1/%2")
-                    .arg(idle)
-                    .arg(total),
-                card);
-
-        const QString idleColor =
-            idle > 0
-                ? QStringLiteral("#16a34a")
-                : QStringLiteral("#999999");
-
-        idleLabel->setStyleSheet(
-            QStringLiteral(
-                "color:%1;"
-                "font-size:13px;"
-                "font-weight:bold;"
-                "border:none;"
-                "background:transparent;")
-                .arg(idleColor));
-
-        idleLabel->setAttribute(
-            Qt::WA_TransparentForMouseEvents);
-
-        body->addLayout(
-            row1);
-
-        body->addWidget(
-            addrLabel);
-
-        if (distanceLabel) {
-            body->addWidget(
-                distanceLabel);
-        }
-
-        body->addWidget(
-            idleLabel);
-
+        // -------------------------------------------------------------
+        // 查看该站充电桩
+        // -------------------------------------------------------------
         connect(
             card,
-            &QPushButton::clicked,
+            &StationCardWidget::stationSelected,
             this,
-            [this, id, name]() {
+            [this](
+                qint64 stationId,
+                const QString &name) {
+
+                if (stationId <= 0)
+                    return;
 
                 emit stationSelected(
-                    id,
+                    stationId,
                     name);
+            });
+
+        // -------------------------------------------------------------
+        // 一键导航
+        // -------------------------------------------------------------
+        connect(
+            card,
+            &StationCardWidget::navigationRequested,
+            this,
+            [this](
+                qint64 stationId,
+                const QString &name,
+                double targetLat,
+                double targetLng,
+                double distance) {
+
+                // 起点必须完整
+                if (!m_hasLocation ||
+                    m_latitude < -90.0 ||
+                    m_latitude > 90.0 ||
+                    m_longitude < -180.0 ||
+                    m_longitude > 180.0) {
+
+                    m_tip->setText(
+                        QStringLiteral(
+                            "当前位置无效，请重新定位"));
+
+                    return;
+                }
+
+                // 终点必须完整
+                if (targetLat < -90.0 ||
+                    targetLat > 90.0 ||
+                    targetLng < -180.0 ||
+                    targetLng > 180.0) {
+
+                    m_tip->setText(
+                        QStringLiteral(
+                            "该充电站缺少有效坐标"));
+
+                    return;
+                }
+
+                emit navigationRequested(
+                    stationId,
+                    name,
+                    m_latitude,
+                    m_longitude,
+                    targetLat,
+                    targetLng,
+                    distance);
             });
 
         m_listLayout->addWidget(
             card);
     }
+
+    m_listLayout->addStretch();
 }
