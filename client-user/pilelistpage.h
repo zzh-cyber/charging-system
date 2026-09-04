@@ -21,9 +21,13 @@ public:
 
     // 加载指定充电站的桩列表
     void loadStation(qint64 stationId, const QString &name);
+    void setUserId(qint64 userId);
+
 
 signals:
     void back();
+    void reservationSucceeded(const QString &orderNo);
+
 
 private:
     void clearList();
@@ -33,4 +37,7 @@ private:
     QLabel        *m_tip;
     QPushButton   *m_backBtn;
     QVBoxLayout   *m_listLayout;
+
+    qint64 m_userId = 0;
+
 };

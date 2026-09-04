@@ -8,15 +8,20 @@
 NetClient::NetClient(QObject *parent)
     : QObject(parent)
     , m_socket(new QTcpSocket(this))
+    , m_reconnectTimer(new QTimer(this))
 {
     connect(m_socket, &QTcpSocket::readyRead, this, &NetClient::onReadyRead);
-    connect(m_socket, &QTcpSocket::disconnected, this, &NetClient::disconnected);
+    connect(m_socket, &QTcpSocket::disconnected, this, &NetClient::onDisconnected);
+    m_reconnectTimer->setSingleShot(true);
+    connect(m_reconnectTimer, &QTimer::timeout, this, &NetClient::attemptReconnect);
 }
 
 NetClient::~NetClient() = default;
 
 bool NetClient::connectToServer(const QString &host, quint16 port, int timeoutMs)
 {
+    m_host = host;
+    m_port = port;
     if (isConnected())
         return true;
     m_socket->connectToHost(host, port);
@@ -28,9 +33,33 @@ bool NetClient::isConnected() const
     return m_socket->state() == QAbstractSocket::ConnectedState;
 }
 
+void NetClient::setToken(const QString &token)
+{
+    m_token = token;
+}
+
+void NetClient::clearToken()
+{
+    m_token.clear();
+}
+
+QString NetClient::token() const
+{
+    return m_token;
+}
+
+QJsonObject NetClient::withToken(const QJsonObject &request) const
+{
+    if (m_token.isEmpty() || request.contains(QStringLiteral("token")))
+        return request;
+    QJsonObject o = request;
+    o[QStringLiteral("token")] = m_token;
+    return o;
+}
+
 void NetClient::send(const QJsonObject &request)
 {
-    m_socket->write(Protocol::encode(request));
+    m_socket->write(Protocol::encode(withToken(request)));
     m_socket->flush();
 }
 
@@ -72,4 +101,38 @@ void NetClient::onReadyRead()
     QJsonObject obj;
     while (Protocol::tryDecode(m_buffer, obj))
         emit responseReceived(obj);
+}
+
+void NetClient::onDisconnected()
+{
+    emit disconnected();
+    // NO.7：断线自动重连，最多 3 次，间隔递增
+    if (m_host.isEmpty())
+        return;
+    m_reconnectAttempts = 0;
+    m_reconnectTimer->start(1000);   // 首次 1 秒后重试
+}
+
+void NetClient::attemptReconnect()
+{
+    if (isConnected()) {
+        m_reconnectAttempts = 0;
+        emit reconnected();
+        return;
+    }
+    m_socket->abort();
+    m_socket->connectToHost(m_host, m_port);
+    if (m_socket->waitForConnected(2000)) {
+        m_reconnectAttempts = 0;
+        emit reconnected();
+        return;
+    }
+    ++m_reconnectAttempts;
+    // 递增间隔 1s→2s→4s，之后保持 4s 持续重试，直到连上
+    int intervalMs = 4000;
+    if (m_reconnectAttempts == 1)
+        intervalMs = 1000;
+    else if (m_reconnectAttempts == 2)
+        intervalMs = 2000;
+    m_reconnectTimer->start(intervalMs);
 }

@@ -1,4 +1,6 @@
 #include "adminmainwindow.h"
+#include "dashboardwidget.h"
+#include "pilestatuswidget.h"
 #include "usermanagerwidget.h"
 #include "pilemanagerwidget.h"
 #include "stationmanagerwidget.h"
@@ -37,6 +39,7 @@ void AdminMainWindow::initUI()
 
     QStringList menuItems = {
         "数据总览",
+        "电桩状态",
         "电站管理",
         "电桩管理",
         "订单管理",
@@ -52,22 +55,19 @@ void AdminMainWindow::initUI()
     // 2. 右侧内容区
     contentStack = new QStackedWidget(this);
 
-    // 索引 0: 数据总览 
-    QWidget *pageOverview = new QWidget();
-    QVBoxLayout *layoutOverview = new QVBoxLayout(pageOverview);
-    QLabel *labelOverview = new QLabel("数据总览 界面内容区（开发中）", pageOverview);
-    labelOverview->setAlignment(Qt::AlignCenter);
-    labelOverview->setStyleSheet("font-size: 20px; color: #888888;");
-    layoutOverview->addWidget(labelOverview);
-    contentStack->addWidget(pageOverview);
+    // 索引 0: 数据总览
+    contentStack->addWidget(new DashboardWidget(m_net, this));
 
-    // 索引 1: 电站管理 
+    // 索引 1: 电桩状态
+    contentStack->addWidget(new PileStatusWidget(m_net, this));
+
+    // 索引 2: 电站管理
     contentStack->addWidget(new StationManagerWidget(m_net, this));
 
-    // 索引 2: 电桩管理 
+    // 索引 3: 电桩管理
     contentStack->addWidget(new PileManagerWidget(m_net, this));
 
-    // 索引 3: 订单管理 
+    // 索引 4: 订单管理
     QWidget *pageOrder = new QWidget();
     QVBoxLayout *layoutOrder = new QVBoxLayout(pageOrder);
     QLabel *labelOrder = new QLabel("订单管理 界面内容区（开发中）", pageOrder);
@@ -76,7 +76,7 @@ void AdminMainWindow::initUI()
     layoutOrder->addWidget(labelOrder);
     contentStack->addWidget(pageOrder);
 
-    // 索引 4: 用户管理 
+    // 索引 5: 用户管理
     contentStack->addWidget(new UserManagerWidget(m_net, this));
 
     mainLayout->addWidget(sidebarList);

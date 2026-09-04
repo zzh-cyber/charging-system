@@ -5,6 +5,7 @@
 #include <QSortFilterProxyModel>
 #include <QVector>
 #include <QDateTime>
+#include <QHash>
 
 class NetClient;
 class QTableView;
@@ -168,4 +169,5 @@ private:
     QLabel *m_lastUpdateLabel = nullptr;
 
     QTimer *m_timer = nullptr;
+    bool m_requestInFlight = false;
 };

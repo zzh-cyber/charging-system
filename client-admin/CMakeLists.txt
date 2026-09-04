@@ -1,4 +1,6 @@
 # PC 管理端（Qt Widgets GUI）
+find_package(Qt6 REQUIRED COMPONENTS Charts)
+
 add_executable(charging-admin
     main.cpp
     pilestatuswidget.cpp
@@ -7,6 +9,8 @@ add_executable(charging-admin
     adminloginwindow.h
     adminmainwindow.cpp
     adminmainwindow.h
+    dashboardwidget.cpp
+    dashboardwidget.h
     usermanagerwidget.cpp
     usermanagerwidget.h
     pilemanagerwidget.cpp
@@ -28,4 +32,5 @@ target_link_libraries(charging-admin
         Qt6::Gui
         Qt6::Widgets
         Qt6::Network
+        Qt6::Charts
 )

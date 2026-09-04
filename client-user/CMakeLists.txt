@@ -14,6 +14,9 @@ add_executable(charging-user
     profilepage.cpp
     profilepage.h
     fonts.qrc
+    locationmanager.cpp
+    locationmanager.h
+
 )
 
 set_target_properties(charging-user PROPERTIES

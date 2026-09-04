@@ -178,21 +178,21 @@ QVariant PileStatusModel::data(
         if (item.status == "idle")
         {
             return QBrush(
-                QColor("#2E7D32")
+                QColor("#2ecc71")
             );
         }
 
         if (item.status == "busy")
         {
             return QBrush(
-                QColor("#EF6C00")
+                QColor("#3498db")
             );
         }
 
         if (item.status == "fault")
         {
             return QBrush(
-                QColor("#C62828")
+                QColor("#e74c3c")
             );
         }
     }
@@ -244,8 +244,18 @@ void PileStatusModel::setItems(
     const QVector<PileStatusItem> &items
 )
 {
+    if (m_items.size() == items.size()) {
+        bool sameIds = true;
+        for (int i = 0; i < items.size(); ++i)
+            sameIds = sameIds && m_items.at(i).id == items.at(i).id;
+        if (sameIds) {
+            m_items = items;
+            if (!m_items.isEmpty())
+                emit dataChanged(index(0, 0), index(m_items.size() - 1, ColumnCount - 1));
+            return;
+        }
+    }
     beginResetModel();
-
     m_items = items;
 
     endResetModel();
@@ -578,26 +588,11 @@ void PileStatusWidget::initUI()
 
 void PileStatusWidget::loadStatus()
 {
-    if (!m_net)
+    if (!m_net || m_requestInFlight)
     {
         return;
     }
 
-
-    /*
-     * ========================================================
-     * 临时接口
-     * ========================================================
-     *
-     * pile_status_list 后端目前还没有实现。
-     *
-     * 所以开发阶段临时复用已经跑通的：
-     *
-     * AdminPileList / admin_pile_list
-     *
-     * 等组员完成 pile_status_list 后，
-     * 这里就是最主要的替换位置。
-     */
 
     QJsonObject req =
         Protocol::makeRequest(
@@ -606,8 +601,9 @@ void PileStatusWidget::loadStatus()
         );
 
 
-    QJsonObject resp =
-        m_net->request(req);
+    m_requestInFlight = true;
+    QJsonObject resp = m_net->request(req);
+    m_requestInFlight = false;
 
 
     int code =
@@ -622,6 +618,7 @@ void PileStatusWidget::loadStatus()
         // 自动刷新失败时避免每 10 秒弹窗
         if (sender() == m_timer)
         {
+            m_timer->stop();
             m_lastUpdateLabel->setText(
                 QString(
                     "自动刷新失败：%1"
@@ -685,12 +682,6 @@ void PileStatusWidget::loadStatus()
             p.value("code").toString();
 
 
-        /*
-         * 当前 admin_pile_list 字段叫 station。
-         *
-         * 新 pile_status_list 到位后如果字段不同，
-         * 在这里改即可。
-         */
         item.station =
             p.value("station").toString();
 

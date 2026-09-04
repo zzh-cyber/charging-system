@@ -10,6 +10,12 @@
 #include <QPushButton>
 #include <QTableWidgetItem>
 #include <QMessageBox>
+#include <QDialog>
+#include <QFormLayout>
+#include <QLineEdit>
+#include <QDialogButtonBox>
+#include <QDoubleValidator>
+#include <QIntValidator>
 
 StationManagerWidget::StationManagerWidget(NetClient *netClient, QWidget *parent)
     : QWidget(parent), m_net(netClient)
@@ -28,6 +34,8 @@ void StationManagerWidget::initUI()
         new QPushButton("刷新电站列表", this);
 
     topLayout->addWidget(m_refreshBtn);
+    auto *addBtn = new QPushButton("新增电站", this);
+    topLayout->addWidget(addBtn);
     topLayout->addStretch();
 
     mainLayout->addLayout(topLayout);
@@ -63,6 +71,27 @@ void StationManagerWidget::initUI()
         this,
         &StationManagerWidget::loadStations
     );
+    connect(addBtn, &QPushButton::clicked, this, [this] {
+        QDialog dialog(this); dialog.setWindowTitle("新增电站");
+        auto *form = new QFormLayout(&dialog);
+        auto *name = new QLineEdit(&dialog), *address = new QLineEdit(&dialog);
+        auto *lng = new QLineEdit(&dialog), *lat = new QLineEdit(&dialog);
+        auto *price = new QLineEdit("1.00", &dialog), *count = new QLineEdit("0", &dialog);
+        lng->setValidator(new QDoubleValidator(-180, 180, 6, lng)); lat->setValidator(new QDoubleValidator(-90, 90, 6, lat));
+        price->setValidator(new QDoubleValidator(0.01, 9999, 2, price)); count->setValidator(new QIntValidator(0, 1000, count));
+        form->addRow("站名", name); form->addRow("地址", address); form->addRow("经度", lng); form->addRow("纬度", lat); form->addRow("电价", price); form->addRow("电桩数量", count);
+        auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog); form->addWidget(buttons);
+        connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+        connect(buttons, &QDialogButtonBox::accepted, &dialog, [&] {
+            if (name->text().trimmed().isEmpty() || address->text().trimmed().isEmpty() || lng->text().isEmpty() || lat->text().isEmpty()) { QMessageBox::warning(&dialog, "提示", "请完整填写站名、地址和经纬度"); return; }
+            if (!m_net) return;
+            QJsonObject d{{"name",name->text().trimmed()},{"address",address->text().trimmed()},{"longitude",lng->text().toDouble()},{"latitude",lat->text().toDouble()},{"price",price->text().toDouble()},{"pile_count",count->text().toInt()}};
+            auto resp = m_net->request(Protocol::makeRequest(Protocol::MsgType::AdminStationAdd, d));
+            if (resp.value("code").toInt() != Protocol::Ok) { QMessageBox::warning(&dialog, "新增失败", resp.value("msg").toString()); return; }
+            dialog.accept(); loadStations();
+        });
+        dialog.exec();
+    });
 }
 
 void StationManagerWidget::loadStations()
