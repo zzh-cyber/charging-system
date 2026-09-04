@@ -4,9 +4,11 @@
 // 充电管理系统 - 通信协议（公共层）
 // ----------------------------------------------------------------------------
 // 传输：TCP。每条消息 = 4 字节大端长度头 + JSON 载荷。
-// 请求：{ "type": "<接口名>", "data": { ... } }
+// 请求：{ "type": "<接口名>", "token": "<登录后下发，可选>", "data": { ... } }
 // 响应：{ "type": "<接口名>", "code": <错误码>, "msg": "<提示>", "data": { ... } }
 // code == 0 表示成功，非 0 见 ErrorCode。
+// token 由登录接口写入 data.token；后续请求放在 JSON 顶层。
+// 当前阶段服务器只下发、不强制校验；强制鉴权另一步打开。
 // 服务器与客户端都复用本文件，保证两端"说同一种话"。
 // ============================================================================
 
@@ -30,6 +32,7 @@ enum ErrorCode {
     Frozen             = 6,   // 账号被冻结
     InsufficientBalance= 7,   // 余额不足
     HasUnfinishedOrder = 8,   // 存在未完成订单
+    SessionInvalid     = 9,   // 未带 token / token 无效 / 已过期 → 客户端应回登录页
     NotImplemented     = 99   // 接口尚未实现（骨架占位）
 };
 
@@ -60,11 +63,15 @@ inline constexpr const char *AdminOrderList    = "admin_order_list";
 } // namespace MsgType
 
 // ------- 构造请求/响应 -------
-inline QJsonObject makeRequest(const QString &type, const QJsonObject &data = {})
+inline QJsonObject makeRequest(const QString &type,
+                               const QJsonObject &data = {},
+                               const QString &token = {})
 {
     QJsonObject o;
     o["type"] = type;
     o["data"] = data;
+    if (!token.isEmpty())
+        o["token"] = token;
     return o;
 }
 

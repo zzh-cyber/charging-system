@@ -1,6 +1,7 @@
 #include "clienthandler.h"
 #include "database.h"
 #include "protocol.h"
+#include "sessionmanager.h"
 
 #include <QDebug>
 #include <QJsonObject>
@@ -82,13 +83,21 @@ void ClientHandler::dispatch(const QJsonObject &req)
 
     // ================= 登录链路样板（已实现，供其他接口照抄） =================
     if (type == MsgType::Login) {
-        const QJsonObject out = m_db->loginOrRegister(data.value("phone").toString(), code, msg);
+        QJsonObject out = m_db->loginOrRegister(data.value("phone").toString(), code, msg);
+        if (code == Ok) {
+            const qint64 uid = out.value("id").toVariant().toLongLong();
+            out["token"] = SessionManager::instance().create(uid, QStringLiteral("user"));
+        }
         reply(makeResponse(type, code, msg, out));
         return;
     }
     if (type == MsgType::AdminLogin) {
-        const QJsonObject out = m_db->adminLogin(data.value("username").toString(),
-                                                 data.value("password").toString(), code, msg);
+        QJsonObject out = m_db->adminLogin(data.value("username").toString(),
+                                           data.value("password").toString(), code, msg);
+        if (code == Ok) {
+            const qint64 uid = out.value("id").toVariant().toLongLong();
+            out["token"] = SessionManager::instance().create(uid, QStringLiteral("admin"));
+        }
         reply(makeResponse(type, code, msg, out));
         return;
     }

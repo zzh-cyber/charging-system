@@ -6,9 +6,10 @@
 
 - 传输：TCP，端口 **9000**。
 - 帧格式：`4 字节大端长度头 + JSON 载荷`（`common/protocol.h` 已封装 `encode/tryDecode`）。
-- 请求：`{ "type": "<接口名>", "data": { ... } }`
+- 请求：`{ "type": "<接口名>", "token": "<登录后下发，可选>", "data": { ... } }`
 - 响应：`{ "type": "<接口名>", "code": <int>, "msg": "<string>", "data": { ... } }`
 - `code == 0` 成功；非 0 见错误码表。
+- **token 阶段说明（第 1 步）**：`login` / `admin_login` 成功时在 `data.token` 下发 UUID。客户端登录后 `NetClient::setToken`，后续请求自动带到 JSON 顶层。**当前服务器不强制校验**，旧客户端不带 token 仍可联调。强制鉴权另一步打开。
 
 ## 错误码（`Protocol::ErrorCode`）
 
@@ -23,6 +24,7 @@
 | 6 | 账号被冻结 |
 | 7 | 余额不足 |
 | 8 | 存在未完成订单 |
+| 9 | 会话无效（未带 token / token 无效 / 已过期）。**已定义，强制鉴权未打开** |
 | 99 | 接口尚未实现（骨架占位） |
 
 ## 状态字段取值
@@ -38,7 +40,7 @@
 
 | 接口 (type) | 说明 | 请求 data | 响应 data | 负责人 | 状态 |
 |-------------|------|-----------|-----------|--------|------|
-| `login` | 手机号免密登录/注册 | `{phone}` | `{id,phone,nickname,avatar,balance}` | 服务器A / 用户端B | ✅ 已实现（样板） |
+| `login` | 手机号免密登录/注册 | `{phone}` | `{id,phone,nickname,avatar,balance,token}` | 服务器A / 用户端B | ✅ 已实现（样板，已下发 token） |
 | `user_info` | 获取用户信息 | `{user_id}` | `{id,phone,nickname,avatar,balance}` | 服务器A | ⬜ 待实现 |
 | `update_profile` | 修改昵称/头像 | `{user_id,nickname?,avatar?}` | `{}` | 服务器A / 用户端B | ⬜ |
 | `recharge` | 余额充值 | `{user_id,amount}` | `{balance}` | 服务器A / 用户端B | ⬜ |
@@ -54,7 +56,7 @@
 
 | 接口 (type) | 说明 | 请求 data | 响应 data | 负责人 | 状态 |
 |-------------|------|-----------|-----------|--------|------|
-| `admin_login` | 管理员登录 | `{username,password}` | `{id,username}` | 服务器A / 管理端C | ✅ 已实现（样板） |
+| `admin_login` | 管理员登录 | `{username,password}` | `{id,username,token}` | 服务器A / 管理端C | ✅ 已实现（样板，已下发 token） |
 | `admin_user_list` | 用户列表（keyword 空=全部；否则按手机号/昵称模糊搜索） | `{keyword?}` | `{list:[{id,phone,nickname,balance,status,created_at}]}` | 服务器A(组长) / 管理端C | ✅ 已实现 |
 | `admin_user_freeze` | 冻结/解冻用户 | `{user_id,frozen:bool}` | `{id,status}` | 服务器A(组长) / 管理端C | ✅ 已实现 |
 | `admin_pile_list` | 电桩列表（含所属站名） | `{}` | `{list:[{id,code,station,type,power_kw,status,total_count,total_hours}]}` | 服务器A(组长) / 管理端C | ✅ 已实现 |

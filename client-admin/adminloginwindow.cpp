@@ -131,6 +131,10 @@ void AdminLoginWindow::onLoginClicked()
         return;
     }
 
+    m_net->setToken(
+        resp.value("data").toObject().value("token").toString()
+    );
+
     QMessageBox::information(
         this,
         QStringLiteral("登录成功"),

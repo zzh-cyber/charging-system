@@ -28,6 +28,12 @@ public:
     bool connectToServer(const QString &host, quint16 port, int timeoutMs = 3000);
     bool isConnected() const;
 
+    // 登录成功后把服务器下发的 token 存下来；send/request 会自动附到 JSON 顶层。
+    // 未 setToken 时行为与原来完全一致（请求不带 token）。
+    void setToken(const QString &token);
+    void clearToken();
+    QString token() const;
+
     // 异步发送
     void send(const QJsonObject &request);
 
@@ -45,10 +51,13 @@ private slots:
     void attemptReconnect();
 
 private:
+    QJsonObject withToken(const QJsonObject &request) const;
+
     QTcpSocket *m_socket;
     QByteArray  m_buffer;
     QTimer     *m_reconnectTimer;
     QString     m_host;
+    QString     m_token;
     quint16     m_port = 0;
     int         m_reconnectAttempts = 0;
 };

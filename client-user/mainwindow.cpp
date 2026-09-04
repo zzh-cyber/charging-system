@@ -722,3 +722,9 @@ MainWindow::MainWindow(qint64 userId,
                 message);
         });
 }
+
+void MainWindow::setSessionToken(const QString &token)
+{
+    if (m_net)
+        m_net->setToken(token);
+}

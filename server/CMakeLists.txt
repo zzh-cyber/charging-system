@@ -7,6 +7,8 @@ add_executable(charging-server
     clienthandler.h
     database.cpp
     database.h
+    sessionmanager.cpp
+    sessionmanager.h
     config.h
     schema.qrc
 )

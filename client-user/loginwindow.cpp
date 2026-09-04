@@ -177,6 +177,7 @@ void LoginWindow::onLoginClicked()
         u.value("phone").toString(),
         u.value("balance").toDouble());
 
+    mainWin->setSessionToken(u.value("token").toString());
     mainWin->setAttribute(Qt::WA_DeleteOnClose);
     mainWin->show();
     close();

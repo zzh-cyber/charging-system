@@ -33,9 +33,33 @@ bool NetClient::isConnected() const
     return m_socket->state() == QAbstractSocket::ConnectedState;
 }
 
+void NetClient::setToken(const QString &token)
+{
+    m_token = token;
+}
+
+void NetClient::clearToken()
+{
+    m_token.clear();
+}
+
+QString NetClient::token() const
+{
+    return m_token;
+}
+
+QJsonObject NetClient::withToken(const QJsonObject &request) const
+{
+    if (m_token.isEmpty() || request.contains(QStringLiteral("token")))
+        return request;
+    QJsonObject o = request;
+    o[QStringLiteral("token")] = m_token;
+    return o;
+}
+
 void NetClient::send(const QJsonObject &request)
 {
-    m_socket->write(Protocol::encode(request));
+    m_socket->write(Protocol::encode(withToken(request)));
     m_socket->flush();
 }
 
