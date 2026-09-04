@@ -73,6 +73,26 @@ void ClientHandler::dispatch(const QJsonObject &req)
         reply(makeResponse(type, InvalidRequest, "缺少 type 字段"));
         return;
     }
+
+    Session sess;
+    const bool isLogin = (type == MsgType::Login || type == MsgType::AdminLogin);
+    if (!isLogin) {
+        const QString token = req.value("token").toString();
+        if (!SessionManager::instance().validate(token, sess)) {
+            reply(makeResponse(type, SessionInvalid, "登录已失效，请重新登录"));
+            return;
+        }
+        const bool adminApi = type.startsWith(QLatin1String("admin_"));
+        if (adminApi && sess.role != QLatin1String("admin")) {
+            reply(makeResponse(type, SessionInvalid, "需要管理员权限"));
+            return;
+        }
+        if (!adminApi && sess.role != QLatin1String("user")) {
+            reply(makeResponse(type, SessionInvalid, "登录已失效，请重新登录"));
+            return;
+        }
+    }
+
     if (!m_db || !m_db->isOpen()) {
         reply(makeResponse(type, DbError, "数据库未连接"));
         return;
@@ -167,13 +187,6 @@ void ClientHandler::dispatch(const QJsonObject &req)
         return;
     }
     if (type == MsgType::Reserve) {
-        Session sess;
-        const QString token = req.value("token").toString();
-        if (!SessionManager::instance().validate(token, sess)
-            || sess.role != QLatin1String("user")) {
-            reply(makeResponse(type, SessionInvalid, "登录已失效，请重新登录"));
-            return;
-        }
         const QJsonObject out = m_db->reserve(
             sess.userId,
             data.value("pile_id").toVariant().toLongLong(), code, msg);
@@ -181,39 +194,18 @@ void ClientHandler::dispatch(const QJsonObject &req)
         return;
     }
     if (type == MsgType::UnfinishedOrder) {
-        Session sess;
-        const QString token = req.value("token").toString();
-        if (!SessionManager::instance().validate(token, sess)
-            || sess.role != QLatin1String("user")) {
-            reply(makeResponse(type, SessionInvalid, "登录已失效，请重新登录"));
-            return;
-        }
         QJsonObject out;
         out["order"] = m_db->unfinishedOrder(sess.userId, code, msg);
         reply(makeResponse(type, code, msg, out));
         return;
     }
     if (type == MsgType::StartCharge) {
-        Session sess;
-        const QString token = req.value("token").toString();
-        if (!SessionManager::instance().validate(token, sess)
-            || sess.role != QLatin1String("user")) {
-            reply(makeResponse(type, SessionInvalid, "登录已失效，请重新登录"));
-            return;
-        }
         const QJsonObject out = m_db->startCharge(
             data.value("order_no").toString(), sess.userId, code, msg);
         reply(makeResponse(type, code, msg, out));
         return;
     }
     if (type == MsgType::Settle) {
-        Session sess;
-        const QString token = req.value("token").toString();
-        if (!SessionManager::instance().validate(token, sess)
-            || sess.role != QLatin1String("user")) {
-            reply(makeResponse(type, SessionInvalid, "登录已失效，请重新登录"));
-            return;
-        }
         const QJsonObject out = m_db->settle(
             data.value("order_no").toString(),
             sess.userId,
@@ -222,17 +214,34 @@ void ClientHandler::dispatch(const QJsonObject &req)
         return;
     }
     if (type == MsgType::Recharge) {
-        Session sess;
-        const QString token = req.value("token").toString();
-        if (!SessionManager::instance().validate(token, sess)
-            || sess.role != QLatin1String("user")) {
-            reply(makeResponse(type, SessionInvalid, "登录已失效，请重新登录"));
-            return;
-        }
         const QJsonObject out = m_db->recharge(
             sess.userId,
             data.value("amount").toDouble(), code, msg);
         reply(makeResponse(type, code, msg, out));
+        return;
+    }
+
+    // ------------------------------------------------------------------------
+    // 资料维护：改昵称（NO.18/76）。身份取自会话，忽略报文里的 user_id。
+    // 头像（NO.17/75）后续在本分支追加 avatar 字段处理。
+    // ------------------------------------------------------------------------
+    if (type == MsgType::UpdateProfile) {
+        const QString nickname = data.value("nickname").toString().trimmed();
+        if (nickname.isEmpty()) {
+            reply(makeResponse(type, InvalidRequest, "昵称不能为空"));
+            return;
+        }
+        if (nickname.size() < 2 || nickname.size() > 20) {
+            reply(makeResponse(type, InvalidRequest, "昵称长度需为 2~20 个字符"));
+            return;
+        }
+        if (!m_db->updateNickname(sess.userId, nickname)) {
+            reply(makeResponse(type, DbError, "昵称更新失败: " + m_db->lastError()));
+            return;
+        }
+        QJsonObject out;
+        out["nickname"] = nickname;
+        reply(makeResponse(type, Ok, "更新成功", out));
         return;
     }
 

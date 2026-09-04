@@ -78,6 +78,13 @@ AdminLoginWindow::AdminLoginWindow(QWidget *parent)
         this,
         &AdminLoginWindow::onLoginClicked
     );
+
+    connect(
+        m_net,
+        &NetClient::sessionInvalid,
+        this,
+        &AdminLoginWindow::onSessionInvalid
+    );
 }
 
 AdminLoginWindow::~AdminLoginWindow()
@@ -154,4 +161,23 @@ void AdminLoginWindow::onLoginClicked()
     m_mainWindow->activateWindow();
 
     this->hide();
+}
+
+void AdminLoginWindow::onSessionInvalid(const QString &msg)
+{
+    if (!m_mainWindow || !m_mainWindow->isVisible())
+        return;
+
+    QMessageBox::warning(
+        m_mainWindow,
+        QStringLiteral("登录已失效"),
+        msg.isEmpty() ? QStringLiteral("请重新登录") : msg);
+
+    m_mainWindow->close();
+    m_mainWindow->deleteLater();
+    m_mainWindow = nullptr;
+
+    this->show();
+    this->raise();
+    this->activateWindow();
 }

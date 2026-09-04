@@ -188,6 +188,59 @@
 
 ---
 
+## 服务器 - dispatch 全局鉴权门 - 2026-09-04 - 组长
+
+### 线程职责
+
+| 线程 | 职责 |
+|------|------|
+| **ClientHandler 线程** | 每个非登录请求在 `dispatch` 入口 `validate` token，并按 `admin_*` / 用户接口检查 `sess.role` |
+
+### 跨线程通信
+
+- 无新增跨线程对象；登录豁免，其余接口共用同一扇门
+- 未改 `TcpServer` 派生线程、未改 `NetClient` 收发
+
+### 共享资源与锁
+
+| 资源 | 保护方式 | 访问线程 |
+|------|----------|----------|
+| `m_sessions` | `validate` 内部 `QMutex` | 每个业务请求所在的 Handler 线程 |
+
+### 验证
+
+- 不带 token 的 `station_list` / `admin_user_list` 返回 `code=9`
+- 用户 token 调 `admin_*`、管理员 token 调 `reserve` 返回 `code=9`
+- `login` / `admin_login` 仍不需要 token
+
+---
+
+## 客户端 - code=9 回登录页 - 2026-09-04 - 组长
+
+### 线程职责
+
+| 线程 | 职责 |
+|------|------|
+| **UI 线程** | `NetClient` 收包、`clearToken`、延后发出 `sessionInvalid`；主窗口弹窗并回到登录页 |
+
+### 跨线程通信
+
+- 未改 `TcpServer` 派生线程，未改 socket 读写路径；只在解码后增加 `code==9` 处理
+- `sessionInvalid` 用 `QTimer::singleShot(0)` 抛出，让 `request()` 的嵌套 `QEventLoop` 先退出，再关窗口
+
+### 共享资源与锁
+
+| 资源 | 保护方式 | 访问线程 |
+|------|----------|----------|
+| `m_token` | 仅 UI 线程读写 | UI 线程 |
+
+### 验证
+
+- 编译用户端、管理端
+- 登录后把本地 token 清掉再发业务请求，或服务端冻结用户后继续操作：弹「登录已失效」并回到登录页
+
+---
+
 ## 客户端 - NetClient - 2026-09-01 - 组长（地基）
 
 ### 线程职责

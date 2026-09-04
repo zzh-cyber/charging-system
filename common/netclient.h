@@ -29,7 +29,6 @@ public:
     bool isConnected() const;
 
     // 登录成功后把服务器下发的 token 存下来；send/request 会自动附到 JSON 顶层。
-    // 未 setToken 时行为与原来完全一致（请求不带 token）。
     void setToken(const QString &token);
     void clearToken();
     QString token() const;
@@ -42,6 +41,9 @@ public:
 
 signals:
     void responseReceived(const QJsonObject &resp);
+    // code==9：已 clearToken。经 0ms 定时器抛出，避开 request() 内嵌套事件循环，
+    // 调用方可安全关窗口、回登录页。
+    void sessionInvalid(const QString &msg);
     void disconnected();
     void reconnected();      // 断线后自动重连成功
 

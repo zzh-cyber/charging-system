@@ -37,6 +37,8 @@ public:
     // 登录成功后写入会话 token；主窗口自建 NetClient，后续请求会自动附带
     void setSessionToken(const QString &token);
 
+private slots:
+    void onSessionInvalid(const QString &msg);
 
 private:
     NetClient        *m_net;
@@ -64,5 +66,6 @@ private:
     QString           m_phone;
     double            m_balance;
     qint64 m_userId = 0;
+    bool m_kickedToLogin = false;
 
 };

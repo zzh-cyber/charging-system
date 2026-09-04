@@ -16,6 +16,7 @@
 | Git | 2.x | 2.34.1 |
 | Ninja | 1.x | 1.10.1 |
 | Qt | **6.2.4**（不升级） | 6.2.4 |
+| Qt Charts | 6.2.4（`libqt6charts6-dev`，管理端营收折线图 NO.33 依赖） | 6.2.4 |
 | MySQL Server | 8.0.x | 8.0.46 |
 | 开发方式 | WSL2 + Cursor / Qt Creator | WSLg GUI 可用 |
 
@@ -36,6 +37,7 @@ sudo apt install -y \
   qt6-tools-dev qt6-tools-dev-tools \
   qt6-declarative-dev \
   libqt6serialport6-dev \
+  libqt6charts6-dev \
   libgl1-mesa-dev libglu1-mesa-dev \
   designer-qt6 \
   libqt6sql6-mysql
@@ -231,6 +233,7 @@ charging-system/
 | 问题 | 原因 | 解决 |
 |------|------|------|
 | CMake 报 `WrapOpenGL not found` | 缺 OpenGL 开发头文件 | `sudo apt install libgl1-mesa-dev` |
+| CMake 报 `Failed to find Qt component "Charts"` | 缺 Qt Charts 开发包（`client-admin` 依赖） | `sudo apt install libqt6charts6-dev`，再 `rm -rf build` 重新 cmake |
 | `QMYSQL` 驱动不可用 | 缺 MySQL 驱动包 | `sudo apt install libqt6sql6-mysql` |
 | `designer: could not find Qt installation` | 用了 qtchooser 软链 | 改用 `/usr/lib/qt6/bin/designer` |
 | 客户端连不上服务器 | 服务器未启动 | 先运行 `./build/server/charging-server` |
@@ -239,13 +242,16 @@ charging-system/
 
 ---
 
-## 9. 后续可选模块（本期不做，二期再装）
+## 9. 后续可选模块
+
+> 注意：**Qt Charts 已改为必装**（管理端营收折线图 NO.33 已使用），见第 2 节安装清单里的
+> `libqt6charts6-dev`。缺它会导致 `client-admin` 配置失败并连累整个项目 CMake 重配。
+> 仓库里的包名是 `libqt6charts6-dev`，不是 `qt6-charts-dev`（后者在 22.04 仓库不存在）。
+
+本期仍可选、二期再装：
 
 ```bash
-# 销售业绩图表 QChart
-sudo apt install -y qt6-charts-dev
-
-# 腾讯地图导航 QWebEngineView
+# 腾讯地图导航 QWebEngineView（NO.8~12，界面待补时再装）
 sudo apt install -y qt6-webengine-dev
 ```
 

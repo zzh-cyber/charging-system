@@ -2,6 +2,7 @@
 
 #include "chargepage.h"
 #include "locationmanager.h"
+#include "loginwindow.h"
 #include "netclient.h"
 #include "pilelistpage.h"
 #include "profilepage.h"
@@ -63,6 +64,9 @@ MainWindow::MainWindow(qint64 userId,
             kServerHost,
             kServerPort);
     }
+
+    connect(m_net, &NetClient::sessionInvalid,
+            this, &MainWindow::onSessionInvalid);
 
     // ------------------------------------------------------------------------
     // 首页子栈：
@@ -717,4 +721,21 @@ void MainWindow::setSessionToken(const QString &token)
 {
     if (m_net)
         m_net->setToken(token);
+}
+
+void MainWindow::onSessionInvalid(const QString &msg)
+{
+    if (m_kickedToLogin)
+        return;
+    m_kickedToLogin = true;
+
+    QMessageBox::warning(
+        this,
+        QStringLiteral("登录已失效"),
+        msg.isEmpty() ? QStringLiteral("请重新登录") : msg);
+
+    auto *login = new LoginWindow;
+    login->setAttribute(Qt::WA_DeleteOnClose);
+    login->show();
+    close();
 }
