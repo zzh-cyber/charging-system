@@ -24,7 +24,7 @@
 | 6 | 账号被冻结 |
 | 7 | 余额不足 |
 | 8 | 存在未完成订单 |
-| 9 | 会话无效（未带 token / token 无效 / 已过期）。**目前 `reserve`、`unfinished_order` 强制校验**；其余接口尚未打开 |
+| 9 | 会话无效（未带 token / token 无效 / 已过期）。**目前 `reserve`、`unfinished_order`、`recharge` 强制校验**；其余接口尚未打开 |
 | 99 | 接口尚未实现（骨架占位） |
 
 ## 状态字段取值
@@ -43,7 +43,7 @@
 | `login` | 手机号免密登录/注册 | `{phone}` | `{id,phone,nickname,avatar,balance,token}` | 服务器A / 用户端B | ✅ 已实现（样板，已下发 token） |
 | `user_info` | 获取用户信息 | `{user_id}` | `{id,phone,nickname,avatar,balance}` | 服务器A | ⬜ 待实现 |
 | `update_profile` | 修改昵称/头像 | `{user_id,nickname?,avatar?}` | `{}` | 服务器A / 用户端B | ⬜ |
-| `recharge` | 余额充值 | `{user_id,amount}` | `{balance}` | 服务器A / 用户端B | ⬜ |
+| `recharge` | 余额充值 | 顶层必须带 `token`；`data` 仅 `{amount}`。入账用户取自会话，忽略 `data.user_id` | `{balance}` | 服务器A / 用户端B | ✅ 已实现 |
 | `station_list` | 充电站列表 | `{}` | `{list:[{id,name,address,longitude,latitude,price,total,idle}]}` | 服务器A / 成员D | ✅ 已实现（样板） |
 | `pile_list` | 某站电桩列表 | `{station_id}` | `{list:[{id,code,type,power_kw,status}]}` | 服务器A / 成员D | ⬜ |
 | `pile_detail` | 电桩详情 | `{pile_id}` | `{id,code,type,power_kw,status,total_count,total_hours}` | 成员D | ⬜ |
