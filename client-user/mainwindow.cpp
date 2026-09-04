@@ -537,10 +537,6 @@ MainWindow::MainWindow(qint64 userId,
             }
 
             QJsonObject data;
-
-            data["user_id"] =
-                m_userId;
-
             data["amount"] =
                 amount;
 
@@ -592,16 +588,10 @@ MainWindow::MainWindow(qint64 userId,
 
         if (m_userId > 0) {
 
-        QJsonObject data;
-
-        data["user_id"] =
-            m_userId;
-
         const QJsonObject resp =
             m_net->request(
                 Protocol::makeRequest(
-                    Protocol::MsgType::UnfinishedOrder,
-                    data));
+                    Protocol::MsgType::UnfinishedOrder));
 
         if (resp.value("code").toInt()
             == Protocol::Ok) {

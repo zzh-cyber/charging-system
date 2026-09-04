@@ -169,10 +169,6 @@ void PileListPage::loadStation(qint64 stationId, const QString &name)
 
                 // 使用已有 reserve 协议
                 QJsonObject data;
-
-                data["user_id"] =
-                    m_userId;
-
                 data["pile_id"] =
                     pileId;
 
