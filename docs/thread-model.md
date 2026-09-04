@@ -84,6 +84,33 @@
 
 ---
 
+## 服务器 - unfinished_order 按 token 认人 - 2026-09-04 - 组长
+
+### 线程职责
+
+| 线程 | 职责 |
+|------|------|
+| **ClientHandler 线程** | `dispatch` 处理 `unfinished_order` 时 `validate` token，用 `sess.userId` 查未完成订单 |
+
+### 跨线程通信
+
+- 无新增跨线程对象；会话表仍由 `SessionManager` 单例 + `QMutex` 保护
+- 未改 `TcpServer` / `NetClient` 收发
+
+### 共享资源与锁
+
+| 资源 | 保护方式 | 访问线程 |
+|------|----------|----------|
+| `m_sessions` | `SessionManager::validate` 内部加锁 | 发起查询的 Handler 线程 |
+
+### 验证
+
+- 无 token：`unfinished_order` 返回 `code=9`
+- 伪造 `data.user_id`：返回的仍是 token 对应用户的订单
+- `reserve` 行为不变；其它未改接口仍不强制 token
+
+---
+
 ## 客户端 - NetClient - 2026-09-01 - 组长（地基）
 
 ### 线程职责

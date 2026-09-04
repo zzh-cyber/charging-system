@@ -181,9 +181,15 @@ void ClientHandler::dispatch(const QJsonObject &req)
         return;
     }
     if (type == MsgType::UnfinishedOrder) {
+        Session sess;
+        const QString token = req.value("token").toString();
+        if (!SessionManager::instance().validate(token, sess)
+            || sess.role != QLatin1String("user")) {
+            reply(makeResponse(type, SessionInvalid, "登录已失效，请重新登录"));
+            return;
+        }
         QJsonObject out;
-        out["order"] = m_db->unfinishedOrder(
-            data.value("user_id").toVariant().toLongLong(), code, msg);
+        out["order"] = m_db->unfinishedOrder(sess.userId, code, msg);
         reply(makeResponse(type, code, msg, out));
         return;
     }
