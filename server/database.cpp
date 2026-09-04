@@ -160,6 +160,43 @@ QJsonObject Database::adminLogin(const QString &username, const QString &passwor
     return data;
 }
 
+Database::AdminRoleQueryResult Database::getAdminRole(qint64 adminId) const
+{
+    AdminRoleQueryResult result{Protocol::Unknown, QString(), QString()};
+
+    if (adminId <= 0) {
+        result.code = Protocol::InvalidRequest;
+        result.msg = "admin_id 参数不正确";
+        return result;
+    }
+
+    QSqlQuery q(m_db);
+    q.prepare("SELECT role, status FROM admin WHERE id = ?");
+    q.addBindValue(adminId);
+    if (!q.exec()) {
+        result.code = Protocol::DbError;
+        result.msg = q.lastError().text();
+        return result;
+    }
+
+    if (!q.next()) {
+        result.code = Protocol::NotFound;
+        result.msg = "管理员不存在";
+        return result;
+    }
+
+    if (q.value("status").toString() == "disabled") {
+        result.code = Protocol::AuthFailed;
+        result.msg = "管理员账号已停用";
+        return result;
+    }
+
+    result.code = Protocol::Ok;
+    result.role = q.value("role").toString();
+    result.msg = "ok";
+    return result;
+}
+
 QJsonArray Database::stationList(int &code, QString &msg)
 {
     QJsonArray arr;

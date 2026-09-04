@@ -35,9 +35,15 @@ private slots:
 private:
     void dispatch(const QJsonObject &req);   // 按 type 分发
     void reply(const QJsonObject &resp);     // 发送响应
-
+    // 辅助函数：验证当前连接的管理员会话是否有效（仅声明，未实现）
+    bool validateAdminSession() ;
     qintptr     m_descriptor;
     QTcpSocket *m_socket = nullptr;
     Database   *m_db = nullptr;
     QByteArray  m_buffer;
+    // 连接级管理员会话状态（仅属于当前 ClientHandler 线程，无需加锁）
+    bool authenticated = false;       // 是否已认证为管理员
+    qint64 adminId = 0;               // 管理员 ID
+    QString role;                     // 管理员角色
+    QDateTime lastActivity;           // 最近活动时间
 };

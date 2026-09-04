@@ -35,6 +35,15 @@ public:
     QJsonObject adminLogin(const QString &username, const QString &password,
                            int &code, QString &msg);
 
+    // 仅供服务器内部使用的管理员角色查询结果
+    struct AdminRoleQueryResult {
+        int code;          // 0 表示成功，非 0 表示失败
+        QString role;      // 查询到的角色，失败时为空
+        QString msg;       // 错误信息或成功提示
+    };
+
+    AdminRoleQueryResult getAdminRole(qint64 adminId) const;
+
     // 充电站列表（含总桩数/空闲数）
     QJsonArray stationList(int &code, QString &msg);
 

@@ -2,6 +2,7 @@
 #include "database.h"
 #include "protocol.h"
 
+#include <QDateTime>
 #include <QDebug>
 #include <QJsonObject>
 #include <QTcpSocket>
@@ -16,6 +17,27 @@ ClientHandler::ClientHandler(qintptr socketDescriptor, QObject *parent)
 ClientHandler::~ClientHandler()
 {
     delete m_db;
+}
+
+bool ClientHandler::validateAdminSession()
+{
+    if (!authenticated)
+        return false;
+
+    const QDateTime now = QDateTime::currentDateTimeUtc();
+    if (!lastActivity.isValid() || lastActivity.secsTo(now) >= 30 * 60) {
+        authenticated = false;
+        adminId = 0;
+        role.clear();
+        lastActivity = QDateTime();
+        return false;
+    }
+
+    if (role != QStringLiteral("admin"))
+        return false;
+
+    lastActivity = now;
+    return true;
 }
 
 void ClientHandler::start()
@@ -77,6 +99,14 @@ void ClientHandler::dispatch(const QJsonObject &req)
         return;
     }
 
+    // 统一管理员权限门：登录接口负责建立会话本身，不需要先验证会话。
+    if (type.startsWith(QStringLiteral("admin_"))
+        && type != MsgType::AdminLogin
+        && !validateAdminSession()) {
+        reply(makeResponse(type, AuthFailed, "管理员未认证或会话已过期"));
+        return;
+    }
+
     int code = Unknown;
     QString msg = "未知错误";
 
@@ -89,6 +119,27 @@ void ClientHandler::dispatch(const QJsonObject &req)
     if (type == MsgType::AdminLogin) {
         const QJsonObject out = m_db->adminLogin(data.value("username").toString(),
                                                  data.value("password").toString(), code, msg);
+        // 登录请求开始时先清除旧会话，避免失败登录沿用此前连接的身份。
+        authenticated = false;
+        adminId = 0;
+        role.clear();
+        lastActivity = QDateTime();
+
+        if (code == Protocol::Ok) {
+            const qint64 loginAdminId = out.value("id").toVariant().toLongLong();
+            const Database::AdminRoleQueryResult roleResult =
+                m_db->getAdminRole(loginAdminId);
+            if (roleResult.code == Protocol::Ok) {
+                adminId = loginAdminId;
+                role = roleResult.role;
+                lastActivity = QDateTime::currentDateTimeUtc();
+                authenticated = true;
+            } else {
+                code = roleResult.code;
+                msg = roleResult.msg;
+            }
+        }
+
         reply(makeResponse(type, code, msg, out));
         return;
     }
