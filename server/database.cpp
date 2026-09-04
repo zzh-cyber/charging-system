@@ -587,12 +587,12 @@ QJsonObject Database::unfinishedOrder(qint64 userId, int &code, QString &msg)
     return data;
 }
 
-QJsonObject Database::startCharge(const QString &orderNo, int &code, QString &msg)
+QJsonObject Database::startCharge(const QString &orderNo, qint64 userId, int &code, QString &msg)
 {
     QJsonObject data;
     const QString trimmedOrderNo = orderNo.trimmed();
 
-    if (trimmedOrderNo.isEmpty()) {
+    if (trimmedOrderNo.isEmpty() || userId <= 0) {
         code = Protocol::InvalidRequest;
         msg = "order_no 参数不正确";
         return data;
@@ -614,8 +614,9 @@ QJsonObject Database::startCharge(const QString &orderNo, int &code, QString &ms
 
     QSqlQuery orderQuery(m_db);
     orderQuery.prepare("SELECT pile_id, status FROM charge_order "
-                       "WHERE order_no = ? FOR UPDATE");
+                       "WHERE order_no = ? AND user_id = ? FOR UPDATE");
     orderQuery.addBindValue(trimmedOrderNo);
+    orderQuery.addBindValue(userId);
     if (!orderQuery.exec())
         return fail(Protocol::DbError, orderQuery.lastError().text());
     if (!orderQuery.next())
@@ -636,8 +637,9 @@ QJsonObject Database::startCharge(const QString &orderNo, int &code, QString &ms
 
     QSqlQuery updateOrder(m_db);
     updateOrder.prepare("UPDATE charge_order SET status = 'charging', start_time = NOW() "
-                        "WHERE order_no = ? AND status = 'reserved'");
+                        "WHERE order_no = ? AND user_id = ? AND status = 'reserved'");
     updateOrder.addBindValue(trimmedOrderNo);
+    updateOrder.addBindValue(userId);
     if (!updateOrder.exec())
         return fail(Protocol::DbError, updateOrder.lastError().text());
     if (updateOrder.numRowsAffected() != 1)
@@ -669,12 +671,12 @@ QJsonObject Database::startCharge(const QString &orderNo, int &code, QString &ms
     return data;
 }
 
-QJsonObject Database::settle(const QString &orderNo, double kwh, int &code, QString &msg)
+QJsonObject Database::settle(const QString &orderNo, qint64 userId, double kwh, int &code, QString &msg)
 {
     QJsonObject data;
     const QString trimmedOrderNo = orderNo.trimmed();
 
-    if (trimmedOrderNo.isEmpty() || kwh <= 0) {
+    if (trimmedOrderNo.isEmpty() || userId <= 0 || kwh <= 0) {
         code = Protocol::InvalidRequest;
         msg = "order_no 或 kwh 参数不正确";
         return data;
@@ -700,8 +702,9 @@ QJsonObject Database::settle(const QString &orderNo, double kwh, int &code, QStr
                   "FROM charge_order o "
                   "JOIN `user` u ON u.id = o.user_id "
                   "JOIN pile p ON p.id = o.pile_id "
-                  "WHERE o.order_no = ? FOR UPDATE");
+                  "WHERE o.order_no = ? AND o.user_id = ? FOR UPDATE");
     query.addBindValue(trimmedOrderNo);
+    query.addBindValue(userId);
     if (!query.exec())
         return fail(Protocol::DbError, query.lastError().text());
     if (!query.next())
@@ -729,7 +732,7 @@ QJsonObject Database::settle(const QString &orderNo, double kwh, int &code, QStr
     txn.prepare("INSERT INTO wallet_transactions "
                 "(transaction_no, user_id, type, amount, balance_before, balance_after, order_id) "
                 "VALUES (?, ?, 'charge_pay', ?, ?, ?, ?)");
-    txn.addBindValue(QUuid::createUuid().toString(QUuid::WithoutBraces));
+    txn.addBindValue(QUuid::createUuid().toString(QUuid::Id128));
     txn.addBindValue(query.value("user_id").toLongLong());
     txn.addBindValue(amount);
     txn.addBindValue(balance);
@@ -744,12 +747,13 @@ QJsonObject Database::settle(const QString &orderNo, double kwh, int &code, QStr
     QSqlQuery updateOrder(m_db);
     updateOrder.prepare("UPDATE charge_order SET status = 'settled', end_time = NOW(), "
                         "kwh = ?, amount = ?, duration_seconds = ?, pay_request_id = ? "
-                        "WHERE order_no = ? AND status = 'charging'");
+                        "WHERE order_no = ? AND user_id = ? AND status = 'charging'");
     updateOrder.addBindValue(kwh);
     updateOrder.addBindValue(amount);
     updateOrder.addBindValue(durationSeconds);
     updateOrder.addBindValue(QUuid::createUuid().toString(QUuid::WithoutBraces));
     updateOrder.addBindValue(trimmedOrderNo);
+    updateOrder.addBindValue(userId);
     if (!updateOrder.exec() || updateOrder.numRowsAffected() != 1)
         return fail(Protocol::DbError, updateOrder.lastError().text());
 

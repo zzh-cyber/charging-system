@@ -136,6 +136,32 @@
 
 ---
 
+## 服务器 - start_charge / settle 校验订单归属 - 2026-09-04 - 组长
+
+### 线程职责
+
+| 线程 | 职责 |
+|------|------|
+| **ClientHandler 线程** | 校验 token 后把 `sess.userId` 传入 `startCharge` / `settle`；SQL 按 `order_no + user_id` 锁定订单 |
+
+### 跨线程通信
+
+- 无新增跨线程对象；未改 `TcpServer` / `NetClient`
+
+### 共享资源与锁
+
+| 资源 | 保护方式 | 访问线程 |
+|------|----------|----------|
+| `m_sessions` | `SessionManager::validate` 内部加锁 | 发起开始充电/结算的 Handler 线程 |
+| 订单行 | InnoDB `FOR UPDATE`（原有） | 同一 Handler 线程内的 Database 连接 |
+
+### 验证
+
+- 无 token：两接口返回 `code=9`
+- 用他人 `order_no`：返回订单不存在，不能开始或结算
+
+---
+
 ## 客户端 - NetClient - 2026-09-01 - 组长（地基）
 
 ### 线程职责

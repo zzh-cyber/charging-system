@@ -194,14 +194,29 @@ void ClientHandler::dispatch(const QJsonObject &req)
         return;
     }
     if (type == MsgType::StartCharge) {
+        Session sess;
+        const QString token = req.value("token").toString();
+        if (!SessionManager::instance().validate(token, sess)
+            || sess.role != QLatin1String("user")) {
+            reply(makeResponse(type, SessionInvalid, "登录已失效，请重新登录"));
+            return;
+        }
         const QJsonObject out = m_db->startCharge(
-            data.value("order_no").toString(), code, msg);
+            data.value("order_no").toString(), sess.userId, code, msg);
         reply(makeResponse(type, code, msg, out));
         return;
     }
     if (type == MsgType::Settle) {
+        Session sess;
+        const QString token = req.value("token").toString();
+        if (!SessionManager::instance().validate(token, sess)
+            || sess.role != QLatin1String("user")) {
+            reply(makeResponse(type, SessionInvalid, "登录已失效，请重新登录"));
+            return;
+        }
         const QJsonObject out = m_db->settle(
             data.value("order_no").toString(),
+            sess.userId,
             data.value("kwh").toDouble(), code, msg);
         reply(makeResponse(type, code, msg, out));
         return;
