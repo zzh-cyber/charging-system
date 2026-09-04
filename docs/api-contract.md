@@ -6,10 +6,10 @@
 
 - 传输：TCP，端口 **9000**。
 - 帧格式：`4 字节大端长度头 + JSON 载荷`（`common/protocol.h` 已封装 `encode/tryDecode`）。
-- 请求：`{ "type": "<接口名>", "token": "<登录后下发，可选>", "data": { ... } }`
+- 请求：`{ "type": "<接口名>", "token": "<除 login/admin_login 外必填>", "data": { ... } }`
 - 响应：`{ "type": "<接口名>", "code": <int>, "msg": "<string>", "data": { ... } }`
 - `code == 0` 成功；非 0 见错误码表。
-- **token 阶段说明（第 1 步）**：`login` / `admin_login` 成功时在 `data.token` 下发 UUID。客户端登录后 `NetClient::setToken`，后续请求自动带到 JSON 顶层。**当前服务器不强制校验**，旧客户端不带 token 仍可联调。强制鉴权另一步打开。
+- **鉴权（已开闸）**：仅 `login` / `admin_login` 不带 token。其余接口必须在 JSON 顶层带有效 token。`admin_*` 还要求会话角色为 admin；用户端接口要求角色为 user。失败统一 `code=9`。
 
 ## 错误码（`Protocol::ErrorCode`）
 
@@ -24,7 +24,7 @@
 | 6 | 账号被冻结 |
 | 7 | 余额不足 |
 | 8 | 存在未完成订单 |
-| 9 | 会话无效（未带 token / token 无效 / 已过期）。**目前 `reserve`、`unfinished_order`、`recharge`、`start_charge`、`settle` 强制校验**；其余接口尚未打开 |
+| 9 | 会话无效（未带 token / token 无效 / 已过期 / 角色不符）。除登录外全部接口强制校验 |
 | 99 | 接口尚未实现（骨架占位） |
 
 ## 状态字段取值

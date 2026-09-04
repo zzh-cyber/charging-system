@@ -188,6 +188,33 @@
 
 ---
 
+## 服务器 - dispatch 全局鉴权门 - 2026-09-04 - 组长
+
+### 线程职责
+
+| 线程 | 职责 |
+|------|------|
+| **ClientHandler 线程** | 每个非登录请求在 `dispatch` 入口 `validate` token，并按 `admin_*` / 用户接口检查 `sess.role` |
+
+### 跨线程通信
+
+- 无新增跨线程对象；登录豁免，其余接口共用同一扇门
+- 未改 `TcpServer` 派生线程、未改 `NetClient` 收发
+
+### 共享资源与锁
+
+| 资源 | 保护方式 | 访问线程 |
+|------|----------|----------|
+| `m_sessions` | `validate` 内部 `QMutex` | 每个业务请求所在的 Handler 线程 |
+
+### 验证
+
+- 不带 token 的 `station_list` / `admin_user_list` 返回 `code=9`
+- 用户 token 调 `admin_*`、管理员 token 调 `reserve` 返回 `code=9`
+- `login` / `admin_login` 仍不需要 token
+
+---
+
 ## 客户端 - NetClient - 2026-09-01 - 组长（地基）
 
 ### 线程职责
