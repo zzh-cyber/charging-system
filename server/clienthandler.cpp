@@ -255,7 +255,7 @@ void ClientHandler::dispatch(const QJsonObject &req)
     if (type == MsgType::AdminUserFreeze) {
         const qint64 targetUserId = data.value("user_id").toVariant().toLongLong();
         const bool frozen = data.value("frozen").toBool();
-        const QJsonObject out = m_db->adminUserFreeze(targetUserId, frozen, code, msg);
+        const QJsonObject out = m_db->adminUserFreeze(sess.userId, targetUserId, frozen, code, msg);
         if (code == Ok && frozen)
             SessionManager::instance().revokeByUser(targetUserId, QStringLiteral("user"));
         reply(makeResponse(type, code, msg, out));
@@ -271,7 +271,7 @@ void ClientHandler::dispatch(const QJsonObject &req)
     }
     if (type == MsgType::AdminPileRestart) {
         const QJsonObject out = m_db->adminPileRestart(
-            data.value("pile_id").toVariant().toLongLong(), code, msg);
+            sess.userId, data.value("pile_id").toVariant().toLongLong(), code, msg);
         reply(makeResponse(type, code, msg, out));
         return;
     }
