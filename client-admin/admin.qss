@@ -1,0 +1,25 @@
+* { font-family: "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 14px; color: #1F2937; }
+QMainWindow, QWidget { background: #F5F7FA; }
+#appHeader { background: #FFFFFF; border-bottom: 1px solid #E5E7EB; }
+#menuToggle, #headerAction { border: 0; background: transparent; padding: 8px 10px; border-radius: 6px; }
+#menuToggle { font-size: 22px; color: #1677FF; }
+#menuToggle:hover, #headerAction:hover { background: #EFF6FF; }
+#pageTitle { font-size: 18px; font-weight: 600; }
+#connectionStatus { color: #22C55E; }
+#lastUpdate { color: #6B7280; }
+#sidebar { background: #FFFFFF; border: 0; border-right: 1px solid #E5E7EB; padding: 12px 8px; }
+#sidebar::item { border-radius: 7px; padding: 0 12px; margin: 2px 0; }
+#sidebar::item:hover { background: #EFF6FF; color: #1677FF; }
+#sidebar::item:selected { background: #E8F1FF; color: #1677FF; font-weight: 600; }
+QPushButton { background: #1677FF; color: white; border: 0; border-radius: 6px; padding: 8px 16px; }
+QPushButton:hover { background: #4090FF; }
+QPushButton:disabled { background: #BFD7FF; }
+QLineEdit, QComboBox { background: white; border: 1px solid #E5E7EB; border-radius: 6px; padding: 8px; }
+QLineEdit:focus, QComboBox:focus { border: 1px solid #1677FF; }
+QTableWidget, QTableView { background: white; border: 1px solid #E5E7EB; border-radius: 8px; gridline-color: #F0F2F5; }
+QHeaderView::section { background: #F9FAFB; color: #6B7280; border: 0; border-bottom: 1px solid #E5E7EB; padding: 9px; font-weight: 600; }
+#placeholderLabel { color: #6B7280; font-size: 18px; }
+#kpiCard { background: white; border: 1px solid #E5E7EB; border-radius: 10px; }
+#kpiTitle { color: #6B7280; font-size: 14px; }
+#kpiValue { color: #1F2937; font-size: 26px; font-weight: 700; }
+#kpiDescription { color: #6B7280; font-size: 12px; }
