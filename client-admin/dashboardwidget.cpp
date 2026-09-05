@@ -47,7 +47,8 @@ DashboardWidget::DashboardWidget(NetClient *netClient, QWidget *parent)
       m_series(nullptr),
       m_dateAxis(nullptr),
       m_valueAxis(nullptr),
-      m_loading(false)
+      m_loading(false),
+      m_currentDays(7)
 {
     initUi();
     refreshData();
@@ -120,8 +121,9 @@ void DashboardWidget::initUi()
     m_dateAxis->setTitleText(QStringLiteral("日期"));
     m_dateAxis->setTickCount(7);
     m_valueAxis = new QValueAxis(this);
-    m_valueAxis->setTitleText(QStringLiteral("营收金额（元）"));
-    m_valueAxis->setLabelFormat(QStringLiteral("¥%.2f"));
+    m_valueAxis->setTitleText(QStringLiteral("营业额（元）"));
+    // 避免部分 Linux 字体无法显示 ¥ 导致刻度前出现问号；单位已在轴标题中说明。
+    m_valueAxis->setLabelFormat(QStringLiteral("%.2f"));
     m_valueAxis->setRange(0.0, 1.0);
     m_valueAxis->setTickCount(6);
     m_chart->addAxis(m_dateAxis, Qt::AlignBottom);
@@ -166,6 +168,7 @@ QWidget *DashboardWidget::createKpiCard(const QString &title, QLabel **valueLabe
 
 void DashboardWidget::onRangeChanged()
 {
+    m_currentDays = m_thirtyDaysButton->isChecked() ? 30 : 7;
     refreshData();
 }
 
@@ -186,7 +189,7 @@ void DashboardWidget::refreshData()
     m_loadingLabel->setText(QStringLiteral("加载中..."));
     QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
 
-    const int days = m_thirtyDaysButton->isChecked() ? 30 : 7;
+    const int days = m_currentDays;
     QJsonObject requestData;
     requestData.insert(QStringLiteral("days"), days);
     const QJsonObject response = m_net->request(
@@ -257,11 +260,12 @@ void DashboardWidget::updateChart(const QJsonObject &data, int days)
     QHash<QDate, double> revenueByDate;
     for (const QJsonValue &value : trend) {
         const QJsonObject item = value.toObject();
-        QDate date = QDate::fromString(
-            item.value(QStringLiteral("date")).toString(), Qt::ISODate);
+        const QString dateString = item.value(QStringLiteral("date")).toString().trimmed();
+        QDate date = QDate::fromString(dateString, QStringLiteral("yyyy-MM-dd"));
         if (!date.isValid())
-            date = QDateTime::fromString(
-                item.value(QStringLiteral("date")).toString(), Qt::ISODate).date();
+            date = QDate::fromString(dateString, Qt::ISODate);
+        if (!date.isValid())
+            date = QDateTime::fromString(dateString, Qt::ISODate).date();
         if (!date.isValid())
             continue;
         double revenue = numberValue(
@@ -289,7 +293,8 @@ void DashboardWidget::updateChart(const QJsonObject &data, int days)
     m_series->replace(points);
     m_dateAxis->setRange(QDateTime(startDate, QTime(0, 0)),
                          QDateTime(endDate, QTime(23, 59, 59)));
-    m_dateAxis->setTickCount(days == 30 ? 7 : 7);
+    m_dateAxis->setFormat(QStringLiteral("MM-dd"));
+    m_dateAxis->setTickCount(days == 30 ? 6 : 7);
     const double upperBound = maximum > 0.0 ? maximum * 1.15 : 1.0;
     m_valueAxis->setRange(0.0, upperBound);
 }

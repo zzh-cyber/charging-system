@@ -978,10 +978,12 @@ QJsonArray Database::adminPileList(int &code, QString &msg)
 
     QSqlQuery q(m_db);
     const QString sql =
-        "SELECT p.id, p.code, s.name AS station, p.type, p.power_kw, p.status, "
-        "  p.total_count, p.total_hours "
-        "FROM pile p LEFT JOIN station s ON p.station_id = s.id "
+        "SELECT p.id, p.code, s.name AS station, "
+        "p.type, p.power_kw, p.status, p.total_count, p.total_hours "
+        "FROM pile p "
+        "LEFT JOIN station s ON p.station_id = s.id "
         "ORDER BY p.id";
+
     if (!q.exec(sql)) {
         code = Protocol::DbError;
         msg = q.lastError().text();
@@ -990,14 +992,15 @@ QJsonArray Database::adminPileList(int &code, QString &msg)
 
     while (q.next()) {
         QJsonObject o;
-        o["id"]          = q.value("id").toLongLong();
-        o["code"]        = q.value("code").toString();
-        o["station"]     = q.value("station").toString();
-        o["type"]        = q.value("type").toString();
-        o["power_kw"]    = q.value("power_kw").toDouble();
-        o["status"]      = q.value("status").toString();
+        o["id"]       = q.value("id").toLongLong();
+        o["code"]     = q.value("code").toString();
+        o["station"]  = q.value("station").toString();
+        o["type"]     = q.value("type").toString();
+        o["power_kw"] = q.value("power_kw").toDouble();
+        o["status"]   = q.value("status").toString();
         o["total_count"] = q.value("total_count").toInt();
         o["total_hours"] = q.value("total_hours").toDouble();
+
         arr.append(o);
     }
 
@@ -1120,6 +1123,53 @@ QJsonArray Database::adminStationList(int &code, QString &msg)
     code = Protocol::Ok;
     msg = "ok";
     return arr;
+}
+
+QJsonObject Database::adminStationAdd(const QJsonObject &input, int &code, QString &msg)
+{
+    const QString name = input.value("name").toString().trimmed();
+    const QString address = input.value("address").toString().trimmed();
+    const double longitude = input.value("longitude").toDouble();
+    const double latitude = input.value("latitude").toDouble();
+    const double price = input.value("price").toDouble(1.0);
+    const int pileCount = input.value("pile_count").toInt();
+    if (name.isEmpty() || address.isEmpty() || longitude < -180 || longitude > 180 ||
+        latitude < -90 || latitude > 90 || price <= 0 || pileCount < 0 || pileCount > 1000) {
+        code = Protocol::InvalidRequest; msg = "电站信息不合法"; return {};
+    }
+    if (!m_db.transaction()) { code = Protocol::DbError; msg = m_db.lastError().text(); return {}; }
+    QSqlQuery station(m_db);
+    station.prepare("INSERT INTO station (station_code,name,address,longitude,latitude,price) VALUES (?,?,?,?,?,?)");
+    station.addBindValue(QUuid::createUuid().toString(QUuid::WithoutBraces).left(32));
+    station.addBindValue(name); station.addBindValue(address); station.addBindValue(longitude);
+    station.addBindValue(latitude); station.addBindValue(price);
+    if (!station.exec()) { m_db.rollback(); code = Protocol::DbError; msg = station.lastError().text(); return {}; }
+    const qint64 stationId = station.lastInsertId().toLongLong();
+    QSqlQuery pile(m_db);
+    pile.prepare("INSERT INTO pile (station_id,code,type,power_kw,status) VALUES (?,?, 'fast',120.0,'idle')");
+    for (int i = 1; i <= pileCount; ++i) {
+        pile.bindValue(0, stationId); pile.bindValue(1, QString("%1-%2").arg(name.left(20)).arg(i, 3, 10, QLatin1Char('0')));
+        if (!pile.exec()) { m_db.rollback(); code = Protocol::DbError; msg = pile.lastError().text(); return {}; }
+    }
+    if (!m_db.commit()) { m_db.rollback(); code = Protocol::DbError; msg = m_db.lastError().text(); return {}; }
+    code = Protocol::Ok; msg = "电站新增成功"; return QJsonObject{{"id", stationId}};
+}
+
+QJsonObject Database::revenueTrend(int days, int &code, QString &msg)
+{
+    if (days != 7 && days != 30) { code = Protocol::InvalidRequest; msg = "days 仅支持 7 或 30"; return {}; }
+    QJsonObject out; QJsonArray trend;
+    QSqlQuery q(m_db);
+    q.prepare("SELECT DATE(end_time) day, COALESCE(SUM(amount),0) revenue FROM charge_order WHERE status='settled' AND end_time >= DATE_SUB(CURDATE(), INTERVAL ? DAY) GROUP BY DATE(end_time) ORDER BY day");
+    q.addBindValue(days - 1);
+    if (!q.exec()) { code = Protocol::DbError; msg = q.lastError().text(); return {}; }
+    while (q.next()) trend.append(QJsonObject{{"date", q.value("day").toString()}, {"revenue", q.value("revenue").toDouble()}});
+    out["trend"] = trend;
+    QSqlQuery totals(m_db);
+    if (totals.exec("SELECT COALESCE(SUM(CASE WHEN DATE(end_time)=CURDATE() THEN amount ELSE 0 END),0) today, COALESCE(SUM(CASE WHEN YEAR(end_time)=YEAR(CURDATE()) AND MONTH(end_time)=MONTH(CURDATE()) THEN amount ELSE 0 END),0) month, COALESCE(SUM(amount),0) total FROM charge_order WHERE status='settled'") && totals.next()) {
+        out["todayRevenue"] = totals.value("today").toDouble(); out["monthRevenue"] = totals.value("month").toDouble(); out["totalRevenue"] = totals.value("total").toDouble();
+    }
+    code = Protocol::Ok; msg = "ok"; return out;
 }
 
 // ============================================================================

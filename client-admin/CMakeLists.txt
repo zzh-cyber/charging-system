@@ -3,6 +3,8 @@ find_package(Qt6 REQUIRED COMPONENTS Charts)
 
 add_executable(charging-admin
     main.cpp
+    pilestatuswidget.cpp
+    pilestatuswidget.h
     adminloginwindow.cpp
     adminloginwindow.h
     adminmainwindow.cpp

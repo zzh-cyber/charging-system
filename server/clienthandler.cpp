@@ -281,6 +281,19 @@ void ClientHandler::dispatch(const QJsonObject &req)
         reply(makeResponse(type, code, msg, out));
         return;
     }
+    if (type == MsgType::AdminStationAdd) {
+        const QJsonObject out = m_db->adminStationAdd(data, code, msg);
+        reply(makeResponse(type, code, msg, out));
+        return;
+    }
+    if (type == QStringLiteral("revenue_trend_query")) {
+        Session sess;
+        if (!SessionManager::instance().validate(req.value("token").toString(), sess) || sess.role != QLatin1String("admin")) {
+            reply(makeResponse(type, SessionInvalid, "登录已失效，请重新登录")); return;
+        }
+        const QJsonObject out = m_db->revenueTrend(data.value("days").toInt(7), code, msg);
+        reply(makeResponse(type, code, msg, out)); return;
+    }
 
     // ================= 其余接口：占位，待各模块负责人实现 =================
     // 实现步骤：① 在 Database 里加对应查询方法；② 在此加一个 if 分支分发。

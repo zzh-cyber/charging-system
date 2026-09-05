@@ -51,6 +51,7 @@ private:
     QDateTimeAxis *m_dateAxis;
     QValueAxis *m_valueAxis;
     bool m_loading;
+    int m_currentDays;
 };
 
 #endif // DASHBOARDWIDGET_H

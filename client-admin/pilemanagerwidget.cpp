@@ -19,7 +19,7 @@
 namespace {
 constexpr int StatusColumn = 4;
 constexpr int ActionColumn = 5;
-}
+} 
 
 PileManagerWidget::PileManagerWidget(NetClient *netClient, QWidget *parent)
     : QWidget(parent), m_net(netClient), m_table(nullptr),
