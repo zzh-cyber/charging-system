@@ -16,7 +16,7 @@ add_executable(charging-user
     fonts.qrc
     locationmanager.cpp
     locationmanager.h
-
+    windowhelper.h
 )
 
 set_target_properties(charging-user PROPERTIES

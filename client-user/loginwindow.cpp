@@ -3,6 +3,7 @@
 #include "mainwindow.h"
 #include "netclient.h"
 #include "protocol.h"
+#include "windowhelper.h"
 
 #include <QFrame>
 #include <QJsonObject>
@@ -25,7 +26,7 @@ LoginWindow::LoginWindow(QWidget *parent)
     , m_net(new NetClient(this))
 {
     setWindowTitle(QStringLiteral("充电用户端 - 登录"));
-    setFixedSize(400, 460);
+    applyPhoneWindow(this);
 
     auto *brand = new QLabel(QStringLiteral("新能源充电"), this);
     brand->setAlignment(Qt::AlignCenter);
@@ -90,7 +91,9 @@ LoginWindow::LoginWindow(QWidget *parent)
 
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(20, 20, 20, 20);
+    layout->addStretch();
     layout->addWidget(card);
+    layout->addStretch();
 
     connect(m_loginBtn, &QPushButton::clicked, this, &LoginWindow::onLoginClicked);
 }
@@ -175,9 +178,9 @@ void LoginWindow::onLoginClicked()
         u.value("id").toVariant().toLongLong(),
         u.value("nickname").toString(),
         u.value("phone").toString(),
-        u.value("balance").toDouble());
+        u.value("balance").toDouble(),
+        u.value("token").toString());
 
-    mainWin->setSessionToken(u.value("token").toString());
     mainWin->setAttribute(Qt::WA_DeleteOnClose);
     mainWin->show();
     close();

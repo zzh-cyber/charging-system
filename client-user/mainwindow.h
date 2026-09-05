@@ -32,6 +32,7 @@ public:
                     const QString &nickname,
                     const QString &phone,
                     double balance,
+                    const QString &token,
                     QWidget *parent = nullptr);
 
     // 登录成功后写入会话 token；主窗口自建 NetClient，后续请求会自动附带

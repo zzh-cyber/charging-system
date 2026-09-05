@@ -8,6 +8,7 @@
 #include "profilepage.h"
 #include "stationlistpage.h"
 #include "protocol.h"
+#include "windowhelper.h"
 
 
 #include <QButtonGroup>
@@ -30,6 +31,7 @@ MainWindow::MainWindow(qint64 userId,
                        const QString &nickname,
                        const QString &phone,
                        double balance,
+                       const QString &token,
                        QWidget *parent)
 
     : QWidget(parent)
@@ -54,7 +56,7 @@ MainWindow::MainWindow(qint64 userId,
     setWindowTitle(
         QStringLiteral("充电用户端"));
 
-    resize(420, 680);
+    applyPhoneWindow(this);
 
     // ------------------------------------------------------------------------
     // 连接业务服务器
@@ -64,6 +66,11 @@ MainWindow::MainWindow(qint64 userId,
             kServerHost,
             kServerPort);
     }
+
+    // 必须在任何业务请求之前写入 token。
+    // 否则构造函数里的 unfinished_order 会因无 token 收到 code=9，
+    // 被误判为「登录已失效」。
+    m_net->setToken(token);
 
     connect(m_net, &NetClient::sessionInvalid,
             this, &MainWindow::onSessionInvalid);
