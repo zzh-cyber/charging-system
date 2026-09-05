@@ -1,209 +1,306 @@
 #include "stationcardwidget.h"
+
+#include "uitheme.h"
 #include "windowhelper.h"
 
+#include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
-#include <QVBoxLayout>
 #include <QResizeEvent>
+#include <QVBoxLayout>
 
 #include <cmath>
 
+
 namespace {
 
+// ============================================================================
+// 安全读取 JSON 数值
+// ============================================================================
 bool readNumber(
-    const QJsonObject &obj,
+    const QJsonObject &object,
     const QString &key,
     double &value)
 {
-    const QJsonValue v =
-        obj.value(key);
+    const QJsonValue jsonValue =
+        object.value(
+            key);
 
-    if (!v.isDouble())
+
+    if (!jsonValue.isDouble())
         return false;
 
-    value = v.toDouble();
 
-    return std::isfinite(value);
+    value =
+        jsonValue.toDouble();
+
+
+    return std::isfinite(
+        value);
 }
 
+
+// ============================================================================
+// 经纬度合法性检查
+// ============================================================================
 bool validCoordinate(
     double lat,
     double lng)
 {
-    return std::isfinite(lat) &&
-           std::isfinite(lng) &&
-           lat >= -90.0 &&
-           lat <= 90.0 &&
-           lng >= -180.0 &&
-           lng <= 180.0;
+    return
+        std::isfinite(lat) &&
+        std::isfinite(lng) &&
+        lat >= -90.0 &&
+        lat <= 90.0 &&
+        lng >= -180.0 &&
+        lng <= 180.0;
 }
 
 } // namespace
 
+
+// ============================================================================
+// 构造函数
+// ============================================================================
 StationCardWidget::StationCardWidget(
     const QJsonObject &station,
     QWidget *parent)
     : QFrame(parent)
 {
     setObjectName(
-        QStringLiteral("stationCard"));
+        QStringLiteral(
+            "stationCard"));
+
     setSizePolicy(
         QSizePolicy::Expanding,
         QSizePolicy::Preferred);
 
 
-    setStyleSheet(
-        "#stationCard{"
-        "background:#ffffff;"
-        "border:1px solid #d6e4ff;"
-        "border-radius:10px;"
-        "}"
-        "#stationCard:hover{"
-        "border-color:#1d4ed8;"
-        "}");
+    UiTheme::applyCardShadow(
+        this,
+        14,
+        3);
 
-    // =====================================================================
+
+    // ========================================================================
     // 业务主键
-    // =====================================================================
+    // ========================================================================
     m_stationId =
         station.value(
-            QStringLiteral("id"))
+                   QStringLiteral(
+                       "id"))
             .toVariant()
             .toLongLong();
 
+
     m_name =
         station.value(
-            QStringLiteral("name"))
+                   QStringLiteral(
+                       "name"))
             .toString()
             .trimmed();
 
-    if (m_name.isEmpty())
-        m_name = QStringLiteral("--");
+
+    if (m_name.isEmpty()) {
+
+        m_name =
+            QStringLiteral(
+                "--");
+    }
+
 
     const QString address =
         station.value(
-            QStringLiteral("address"))
+                   QStringLiteral(
+                       "address"))
             .toString()
             .trimmed();
 
-    // =====================================================================
+
+    // ========================================================================
     // 字段安全读取
-    // =====================================================================
-    double price = 0.0;
+    // ========================================================================
+    double price =
+        0.0;
+
 
     const bool hasPrice =
         readNumber(
             station,
-            QStringLiteral("price"),
-            price) &&
+            QStringLiteral(
+                "price"),
+            price)
+        &&
         price >= 0.0;
 
-    double totalValue = 0.0;
-    double idleValue = 0.0;
+
+    double totalValue =
+        0.0;
+
+    double idleValue =
+        0.0;
+
 
     const bool hasTotal =
         readNumber(
             station,
-            QStringLiteral("total"),
-            totalValue) &&
+            QStringLiteral(
+                "total"),
+            totalValue)
+        &&
         totalValue >= 0.0;
+
 
     const bool hasIdle =
         readNumber(
             station,
-            QStringLiteral("idle"),
-            idleValue) &&
+            QStringLiteral(
+                "idle"),
+            idleValue)
+        &&
         idleValue >= 0.0;
 
+
     const int total =
-        static_cast<int>(totalValue);
+        static_cast<int>(
+            totalValue);
+
 
     const int idle =
-        static_cast<int>(idleValue);
+        static_cast<int>(
+            idleValue);
 
-    // =====================================================================
+
+    // ========================================================================
     // 经纬度
-    // =====================================================================
-    double lat = 0.0;
-    double lng = 0.0;
+    // ========================================================================
+    double latitude =
+        0.0;
 
-    const bool hasLat =
+    double longitude =
+        0.0;
+
+
+    const bool hasLatitude =
         readNumber(
             station,
-            QStringLiteral("latitude"),
-            lat);
+            QStringLiteral(
+                "latitude"),
+            latitude);
 
-    const bool hasLng =
+
+    const bool hasLongitude =
         readNumber(
             station,
-            QStringLiteral("longitude"),
-            lng);
+            QStringLiteral(
+                "longitude"),
+            longitude);
 
-    if (hasLat &&
-        hasLng &&
-        validCoordinate(lat, lng)) {
 
-        m_latitude = lat;
-        m_longitude = lng;
-        m_hasCoordinate = true;
+    if (hasLatitude &&
+        hasLongitude &&
+        validCoordinate(
+            latitude,
+            longitude)) {
+
+        m_latitude =
+            latitude;
+
+        m_longitude =
+            longitude;
+
+        m_hasCoordinate =
+            true;
     }
 
-    // =====================================================================
+
+    // ========================================================================
     // 距离
-    // =====================================================================
-    double distance = 0.0;
+    // ========================================================================
+    double distance =
+        0.0;
+
 
     if (readNumber(
             station,
-            QStringLiteral("distance"),
-            distance) &&
+            QStringLiteral(
+                "distance"),
+            distance)
+        &&
         distance >= 0.0) {
 
-        m_distance = distance;
-        m_hasDistance = true;
+        m_distance =
+            distance;
+
+        m_hasDistance =
+            true;
     }
 
-    // =====================================================================
-    // 是否已满
-    // =====================================================================
-    const bool full =
+
+    // ========================================================================
+    // 状态
+    // ========================================================================
+    const bool hasPileInfo =
         hasIdle &&
-        hasTotal &&
+        hasTotal;
+
+
+    const bool full =
+        hasPileInfo &&
         idle == 0;
 
-    // =====================================================================
-    // UI
-    // =====================================================================
+
+    // ========================================================================
+    // 主布局
+    // ========================================================================
     auto *mainLayout =
         new QVBoxLayout(this);
 
+    mainLayout->setObjectName(
+        QStringLiteral(
+            "stationCardLayout"));
+
     mainLayout->setContentsMargins(
-        14, 12, 14, 12);
+        18,
+        16,
+        18,
+        16);
 
-    mainLayout->setSpacing(7);
+    mainLayout->setSpacing(
+        10);
 
-    // 第一行：站名 + 价格
+
+    // ========================================================================
+    // 第一行：站名 + 单价
+    // ========================================================================
     auto *topRow =
         new QHBoxLayout;
+
+    topRow->setSpacing(
+        12);
+
 
     auto *nameLabel =
         new QLabel(
             m_name,
             this);
+
     nameLabel->setObjectName(
-    QStringLiteral("stationNameLabel"));
+        QStringLiteral(
+            "stationNameLabel"));
 
+    nameLabel->setWordWrap(
+        true);
 
-    nameLabel->setStyleSheet(
-        "font-size:17px;"
-        "font-weight:bold;"
-        "color:#1d2129;");
 
     QString priceText =
-        QStringLiteral("--");
+        QStringLiteral(
+            "--");
+
 
     if (hasPrice) {
+
         priceText =
             QStringLiteral(
                 "￥%1/度")
@@ -214,18 +311,20 @@ StationCardWidget::StationCardWidget(
                     2);
     }
 
+
     auto *priceLabel =
         new QLabel(
             priceText,
             this);
+
     priceLabel->setObjectName(
-    QStringLiteral("stationPriceLabel"));
+        QStringLiteral(
+            "stationPriceLabel"));
 
+    priceLabel->setAlignment(
+        Qt::AlignRight |
+        Qt::AlignTop);
 
-    priceLabel->setStyleSheet(
-        "font-size:15px;"
-        "font-weight:bold;"
-        "color:#ff6a00;");
 
     topRow->addWidget(
         nameLabel,
@@ -234,75 +333,98 @@ StationCardWidget::StationCardWidget(
     topRow->addWidget(
         priceLabel);
 
+
+    mainLayout->addLayout(
+        topRow);
+
+
+    // ========================================================================
     // 地址
+    // ========================================================================
     auto *addressLabel =
         new QLabel(
             address.isEmpty()
-                ? QStringLiteral("--")
+                ? QStringLiteral(
+                      "站点地址暂未提供")
                 : address,
             this);
+
     addressLabel->setObjectName(
-    QStringLiteral("stationAddressLabel"));
+        QStringLiteral(
+            "stationAddressLabel"));
+
+    addressLabel->setWordWrap(
+        true);
 
 
-    addressLabel->setWordWrap(true);
+    mainLayout->addWidget(
+        addressLabel);
 
-    addressLabel->setStyleSheet(
-        "font-size:12px;"
-        "color:#86909c;");
 
-    // 空闲状态
-    QString idleText;
+    // ========================================================================
+    // 状态 + 距离
+    // ========================================================================
+    auto *metaRow =
+        new QHBoxLayout;
 
-    if (!hasIdle ||
-        !hasTotal) {
+    metaRow->setSpacing(
+        10);
 
-        idleText =
+
+    QString statusText;
+
+    QString statusProperty;
+
+
+    if (!hasPileInfo) {
+
+        statusText =
             QStringLiteral(
-                "空闲 --/--");
+                "状态待更新");
+
+        statusProperty =
+            QStringLiteral(
+                "unknown");
 
     } else if (full) {
 
-        idleText =
-            QStringLiteral("已满");
-
-    } else {
-
-        idleText =
+        statusText =
             QStringLiteral(
-                "空闲 %1/%2")
-                .arg(idle)
-                .arg(total);
-    }
+                "暂无空闲");
 
-    auto *idleLabel =
-        new QLabel(
-            idleText,
-            this);
-    idleLabel->setObjectName(
-        QStringLiteral("stationIdleLabel"));
-
-    idleLabel->setProperty(
-        "stationFull",
-        full);
-
-
-    if (full) {
-
-        idleLabel->setStyleSheet(
-            "font-size:13px;"
-            "font-weight:bold;"
-            "color:#999999;");
+        statusProperty =
+            QStringLiteral(
+                "full");
 
     } else {
 
-        idleLabel->setStyleSheet(
-            "font-size:13px;"
-            "font-weight:bold;"
-            "color:#16a34a;");
+        statusText =
+            QStringLiteral(
+                "可预约");
+
+        statusProperty =
+            QStringLiteral(
+                "available");
     }
 
-    // 距离
+
+    auto *statusBadge =
+        new QLabel(
+            statusText,
+            this);
+
+    statusBadge->setObjectName(
+        QStringLiteral(
+            "stationStatusBadge"));
+
+    statusBadge->setProperty(
+        "stationState",
+        statusProperty);
+
+    statusBadge->setAlignment(
+        Qt::AlignCenter);
+
+
     const QString distanceText =
         m_hasDistance
             ? QStringLiteral(
@@ -313,110 +435,246 @@ StationCardWidget::StationCardWidget(
                       'f',
                       1)
             : QStringLiteral(
-                  "距您 -- km");
+                  "距离暂不可用");
 
-    // NO.8：距离为可点击入口（无有效终点坐标时不可点，避免只传显示文本）
+
+    // NO.8：
+    // 距离本身继续保留为可点击的导航入口
     auto *distanceButton =
         new QPushButton(
             distanceText,
             this);
-    distanceButton->setObjectName(
-        QStringLiteral("stationDistanceLabel"));
 
-    distanceButton->setFlat(true);
+    distanceButton->setObjectName(
+        QStringLiteral(
+            "stationDistanceButton"));
+
+    distanceButton->setFlat(
+        true);
 
     distanceButton->setCursor(
         Qt::PointingHandCursor);
 
-    distanceButton->setStyleSheet(
-        "QPushButton{"
-        "border:none;"
-        "background:transparent;"
-        "padding:0px;"
-        "font-size:12px;"
-        "color:#1d4ed8;"
-        "text-decoration:underline;"
-        "}"
-        "QPushButton:disabled{"
-        "color:#4e5969;"
-        "text-decoration:none;"
-        "}");
 
-    // 底部信息
-    auto *infoRow =
-        new QHBoxLayout;
+    metaRow->addWidget(
+        statusBadge);
 
-    infoRow->addWidget(
-        idleLabel);
+    metaRow->addStretch();
 
-    infoRow->addStretch();
-
-    infoRow->addWidget(
+    metaRow->addWidget(
         distanceButton);
 
-    // =====================================================================
+
+    mainLayout->addLayout(
+        metaRow);
+
+
+    // ========================================================================
+    // 数据信息面板
+    // ========================================================================
+    auto *metricsPanel =
+        new QFrame(this);
+
+    metricsPanel->setObjectName(
+        QStringLiteral(
+            "stationMetricsPanel"));
+
+
+    auto *metricsLayout =
+        new QHBoxLayout(
+            metricsPanel);
+
+    metricsLayout->setObjectName(
+        QStringLiteral(
+            "stationMetricsLayout"));
+
+    metricsLayout->setContentsMargins(
+        14,
+        11,
+        14,
+        11);
+
+    metricsLayout->setSpacing(
+        14);
+
+
+    // ------------------------------------------------------------------------
+    // 空闲桩
+    // ------------------------------------------------------------------------
+    auto *idleBlock =
+        new QVBoxLayout;
+
+    idleBlock->setSpacing(
+        3);
+
+
+    auto *idleCaption =
+        new QLabel(
+            QStringLiteral(
+                "空闲充电桩"),
+            metricsPanel);
+
+    idleCaption->setObjectName(
+        QStringLiteral(
+            "stationMetricCaption"));
+
+
+    const QString idleMetricText =
+        hasIdle
+            ? QString::number(
+                  idle)
+            : QStringLiteral(
+                  "--");
+
+
+    auto *idleMetric =
+        new QLabel(
+            idleMetricText,
+            metricsPanel);
+
+    idleMetric->setObjectName(
+        QStringLiteral(
+            "stationMetricValue"));
+
+
+    idleBlock->addWidget(
+        idleCaption);
+
+    idleBlock->addWidget(
+        idleMetric);
+
+
+    // ------------------------------------------------------------------------
+    // 分隔线
+    // ------------------------------------------------------------------------
+    auto *divider =
+        new QFrame(
+            metricsPanel);
+
+    divider->setObjectName(
+        QStringLiteral(
+            "stationMetricDivider"));
+
+    divider->setFrameShape(
+        QFrame::VLine);
+
+
+    // ------------------------------------------------------------------------
+    // 总桩数
+    // ------------------------------------------------------------------------
+    auto *totalBlock =
+        new QVBoxLayout;
+
+    totalBlock->setSpacing(
+        3);
+
+
+    auto *totalCaption =
+        new QLabel(
+            QStringLiteral(
+                "充电桩总数"),
+            metricsPanel);
+
+    totalCaption->setObjectName(
+        QStringLiteral(
+            "stationMetricCaption"));
+
+
+    const QString totalMetricText =
+        hasTotal
+            ? QString::number(
+                  total)
+            : QStringLiteral(
+                  "--");
+
+
+    auto *totalMetric =
+        new QLabel(
+            totalMetricText,
+            metricsPanel);
+
+    totalMetric->setObjectName(
+        QStringLiteral(
+            "stationMetricValue"));
+
+
+    totalBlock->addWidget(
+        totalCaption);
+
+    totalBlock->addWidget(
+        totalMetric);
+
+
+    metricsLayout->addLayout(
+        idleBlock,
+        1);
+
+    metricsLayout->addWidget(
+        divider);
+
+    metricsLayout->addLayout(
+        totalBlock,
+        1);
+
+
+    mainLayout->addWidget(
+        metricsPanel);
+
+
+    // ========================================================================
     // 操作按钮
-    // =====================================================================
+    // ========================================================================
     auto *buttonRow =
         new QHBoxLayout;
 
-    buttonRow->addStretch();
+    buttonRow->setObjectName(
+        QStringLiteral(
+            "stationButtonLayout"));
+
+    buttonRow->setSpacing(
+        9);
+
 
     auto *pileButton =
         new QPushButton(
             QStringLiteral(
                 "查看充电桩"),
             this);
+
     pileButton->setObjectName(
-    QStringLiteral("stationActionButton"));
-
-
-    auto *navigationButton =
-        new QPushButton(
-            QStringLiteral("导航"),
-            this);
-    navigationButton->setObjectName(
-    QStringLiteral("stationActionButton"));
-
-
-    const QString buttonStyle =
-        "QPushButton{"
-        "border:1px solid #1d4ed8;"
-        "border-radius:6px;"
-        "padding:5px 12px;"
-        "color:#1d4ed8;"
-        "background:#ffffff;"
-        "}"
-        "QPushButton:hover{"
-        "background:#eef4ff;"
-        "}"
-        "QPushButton:disabled{"
-        "border-color:#d9d9d9;"
-        "color:#bfbfbf;"
-        "background:#f5f5f5;"
-        "}";
-
-    pileButton->setStyleSheet(
-        buttonStyle);
-
-    navigationButton->setStyleSheet(
-        buttonStyle);
+        QStringLiteral(
+            "stationPileButton"));
 
     pileButton->setCursor(
         Qt::PointingHandCursor);
 
+
+    auto *navigationButton =
+        new QPushButton(
+            QStringLiteral(
+                "导航"),
+            this);
+
+    navigationButton->setObjectName(
+        QStringLiteral(
+            "stationNavigationButton"));
+
     navigationButton->setCursor(
         Qt::PointingHandCursor);
 
-    // 已满时弱化“查看充电桩”
+
+    // 已满时保持原有逻辑：
+    // 弱化并禁用查看充电桩
     pileButton->setEnabled(
         !full &&
         m_stationId > 0);
 
-    // 没有目标坐标不能导航（距离入口与按钮同一条件）
+
+    // 没有有效终点坐标不能导航
     const bool canNavigate =
         m_stationId > 0 &&
         m_hasCoordinate;
+
 
     navigationButton->setEnabled(
         canNavigate);
@@ -424,27 +682,22 @@ StationCardWidget::StationCardWidget(
     distanceButton->setEnabled(
         canNavigate);
 
+
     buttonRow->addWidget(
-        pileButton);
+        pileButton,
+        1);
 
     buttonRow->addWidget(
         navigationButton);
 
-    mainLayout->addLayout(
-        topRow);
-
-    mainLayout->addWidget(
-        addressLabel);
-
-    mainLayout->addLayout(
-        infoRow);
 
     mainLayout->addLayout(
         buttonRow);
 
-    // =====================================================================
-    // 信号
-    // =====================================================================
+
+    // ========================================================================
+    // 信号：查看充电桩
+    // ========================================================================
     connect(
         pileButton,
         &QPushButton::clicked,
@@ -456,12 +709,19 @@ StationCardWidget::StationCardWidget(
                 m_name);
         });
 
+
+    // ========================================================================
+    // 信号：导航
+    // ========================================================================
     const auto requestNavigation =
         [this]() {
 
             if (m_stationId <= 0 ||
-                !m_hasCoordinate)
+                !m_hasCoordinate) {
+
                 return;
+            }
+
 
             emit navigationRequested(
                 m_stationId,
@@ -471,11 +731,13 @@ StationCardWidget::StationCardWidget(
                 m_distance);
         };
 
+
     connect(
         navigationButton,
         &QPushButton::clicked,
         this,
         requestNavigation);
+
 
     connect(
         distanceButton,
@@ -483,17 +745,27 @@ StationCardWidget::StationCardWidget(
         this,
         requestNavigation);
 
+
     applyResponsiveStyle();
 }
+
+
+// ============================================================================
+// 响应式
+// ============================================================================
 void StationCardWidget::resizeEvent(
     QResizeEvent *event)
 {
-    QFrame::resizeEvent(event);
+    QFrame::resizeEvent(
+        event);
 
     applyResponsiveStyle();
 }
 
 
+// ============================================================================
+// 响应式样式
+// ============================================================================
 void StationCardWidget::applyResponsiveStyle()
 {
     QWidget *scaleBase =
@@ -501,178 +773,328 @@ void StationCardWidget::applyResponsiveStyle()
             ? window()
             : this;
 
+
     const int nameFont =
-        scaledUi(scaleBase, 17);
+        scaledUi(
+            scaleBase,
+            17);
 
     const int priceFont =
-        scaledUi(scaleBase, 15);
+        scaledUi(
+            scaleBase,
+            15);
 
-    const int smallFont =
-        scaledUi(scaleBase, 12);
+    const int addressFont =
+        scaledUi(
+            scaleBase,
+            12);
 
-    const int idleFont =
-        scaledUi(scaleBase, 13);
+    const int badgeFont =
+        scaledUi(
+            scaleBase,
+            11);
+
+    const int metricCaptionFont =
+        scaledUi(
+            scaleBase,
+            11);
+
+    const int metricValueFont =
+        scaledUi(
+            scaleBase,
+            18);
 
     const int buttonFont =
-        scaledUi(scaleBase, 15);
+        scaledUi(
+            scaleBase,
+            13);
 
-    // ---------------------------------------------------------
-    // 卡片内部边距和间距
-    // ---------------------------------------------------------
+    const int cardRadius =
+        scaledUi(
+            scaleBase,
+            18);
+
+    const int smallRadius =
+        scaledUi(
+            scaleBase,
+            10);
+
+
+    setStyleSheet(
+        QStringLiteral(
+
+            // ================================================================
+            // 卡片
+            // ================================================================
+            "QFrame#stationCard{"
+            "background:%1;"
+            "border:1px solid %2;"
+            "border-radius:%3px;"
+            "}"
+
+            "QFrame#stationCard:hover{"
+            "border-color:#CCD9D2;"
+            "}"
+
+            // ================================================================
+            // 站点名称
+            // ================================================================
+            "QLabel#stationNameLabel{"
+            "background:transparent;"
+            "color:%4;"
+            "font-size:%5px;"
+            "font-weight:800;"
+            "}"
+
+            // ================================================================
+            // 单价
+            // ================================================================
+            "QLabel#stationPriceLabel{"
+            "background:transparent;"
+            "color:%6;"
+            "font-size:%7px;"
+            "font-weight:800;"
+            "}"
+
+            // ================================================================
+            // 地址
+            // ================================================================
+            "QLabel#stationAddressLabel{"
+            "background:transparent;"
+            "color:%8;"
+            "font-size:%9px;"
+            "}"
+
+            // ================================================================
+            // 状态 Badge
+            // ================================================================
+            "QLabel#stationStatusBadge{"
+            "border:none;"
+            "border-radius:%10px;"
+            "font-size:%11px;"
+            "font-weight:700;"
+            "padding:5px 9px;"
+            "}"
+
+            "QLabel#stationStatusBadge[stationState=\"available\"]{"
+            "background:#EAF3ED;"
+            "color:#4F8668;"
+            "}"
+
+            "QLabel#stationStatusBadge[stationState=\"full\"]{"
+            "background:#F7ECEA;"
+            "color:#C96C66;"
+            "}"
+
+            "QLabel#stationStatusBadge[stationState=\"unknown\"]{"
+            "background:#F1F0EC;"
+            "color:#7A837E;"
+            "}"
+
+            // ================================================================
+            // 距离入口
+            // ================================================================
+            "QPushButton#stationDistanceButton{"
+            "background:transparent;"
+            "border:none;"
+            "color:%12;"
+            "font-size:%9px;"
+            "font-weight:600;"
+            "padding:3px 0;"
+            "}"
+
+            "QPushButton#stationDistanceButton:hover{"
+            "text-decoration:underline;"
+            "}"
+
+            "QPushButton#stationDistanceButton:disabled{"
+            "color:#A0A6A2;"
+            "text-decoration:none;"
+            "}"
+
+            // ================================================================
+            // 数据面板
+            // ================================================================
+            "QFrame#stationMetricsPanel{"
+            "background:%13;"
+            "border:1px solid %2;"
+            "border-radius:%14px;"
+            "}"
+
+            "QLabel#stationMetricCaption{"
+            "background:transparent;"
+            "color:%8;"
+            "font-size:%15px;"
+            "}"
+
+            "QLabel#stationMetricValue{"
+            "background:transparent;"
+            "color:%4;"
+            "font-size:%16px;"
+            "font-weight:800;"
+            "}"
+
+            "QFrame#stationMetricDivider{"
+            "background:%2;"
+            "border:none;"
+            "max-width:1px;"
+            "}"
+
+            // ================================================================
+            // 查看充电桩：主按钮
+            // ================================================================
+            "QPushButton#stationPileButton{"
+            "background:%12;"
+            "color:#FFFFFF;"
+            "border:none;"
+            "border-radius:%14px;"
+            "font-size:%17px;"
+            "font-weight:700;"
+            "padding:9px 15px;"
+            "}"
+
+            "QPushButton#stationPileButton:hover{"
+            "background:%18;"
+            "}"
+
+            "QPushButton#stationPileButton:disabled{"
+            "background:#D7DAD7;"
+            "color:#999F9C;"
+            "}"
+
+            // ================================================================
+            // 导航：次按钮
+            // ================================================================
+            "QPushButton#stationNavigationButton{"
+            "background:%19;"
+            "color:%12;"
+            "border:1px solid #D6E1DA;"
+            "border-radius:%14px;"
+            "font-size:%17px;"
+            "font-weight:700;"
+            "padding:9px 18px;"
+            "}"
+
+            "QPushButton#stationNavigationButton:hover{"
+            "background:#DFE9E3;"
+            "}"
+
+            "QPushButton#stationNavigationButton:disabled{"
+            "background:#F1F1EE;"
+            "color:#A8ADA9;"
+            "border-color:#E4E4DF;"
+            "}")
+
+        .arg(
+            UiTheme::surface())            // %1
+
+        .arg(
+            UiTheme::border())             // %2
+
+        .arg(
+            cardRadius)                    // %3
+
+        .arg(
+            UiTheme::textPrimary())        // %4
+
+        .arg(
+            nameFont)                      // %5
+
+        .arg(
+            UiTheme::accent())             // %6
+
+        .arg(
+            priceFont)                     // %7
+
+        .arg(
+            UiTheme::textSecondary())      // %8
+
+        .arg(
+            addressFont)                   // %9
+
+        .arg(
+            smallRadius)                   // %10
+
+        .arg(
+            badgeFont)                     // %11
+
+        .arg(
+            UiTheme::primary())            // %12
+
+        .arg(
+            UiTheme::surfaceSoft())        // %13
+
+        .arg(
+            smallRadius)                   // %14
+
+        .arg(
+            metricCaptionFont)             // %15
+
+        .arg(
+            metricValueFont)               // %16
+
+        .arg(
+            buttonFont)                    // %17
+
+        .arg(
+            UiTheme::primaryHover())       // %18
+
+        .arg(
+            UiTheme::primarySoft()));      // %19
+
+
+    // ========================================================================
+    // 卡片内部间距
+    // ========================================================================
     if (auto *mainLayout =
             qobject_cast<QVBoxLayout *>(
                 layout())) {
 
         mainLayout->setContentsMargins(
-            scaledUi(scaleBase, 14),
-            scaledUi(scaleBase, 12),
-            scaledUi(scaleBase, 14),
-            scaledUi(scaleBase, 12));
+            scaledUi(scaleBase, 18),
+            scaledUi(scaleBase, 16),
+            scaledUi(scaleBase, 18),
+            scaledUi(scaleBase, 16));
 
         mainLayout->setSpacing(
-            scaledUi(scaleBase, 7));
+            scaledUi(
+                scaleBase,
+                10));
     }
 
-    // ---------------------------------------------------------
-    // 站名
-    // ---------------------------------------------------------
-    if (auto *label =
-            findChild<QLabel *>(
+
+    // ========================================================================
+    // 数据面板间距
+    // ========================================================================
+    if (auto *metricsLayout =
+            findChild<QHBoxLayout *>(
                 QStringLiteral(
-                    "stationNameLabel"))) {
+                    "stationMetricsLayout"))) {
 
-        label->setStyleSheet(
-            QStringLiteral(
-                "font-size:%1px;"
-                "font-weight:bold;"
-                "color:#1d2129;")
-                .arg(nameFont));
+        metricsLayout->setContentsMargins(
+            scaledUi(scaleBase, 14),
+            scaledUi(scaleBase, 11),
+            scaledUi(scaleBase, 14),
+            scaledUi(scaleBase, 11));
+
+        metricsLayout->setSpacing(
+            scaledUi(
+                scaleBase,
+                14));
     }
 
-    // ---------------------------------------------------------
-    // 价格
-    // ---------------------------------------------------------
-    if (auto *label =
-            findChild<QLabel *>(
+
+    // ========================================================================
+    // 按钮间距
+    // ========================================================================
+    if (auto *buttonLayout =
+            findChild<QHBoxLayout *>(
                 QStringLiteral(
-                    "stationPriceLabel"))) {
+                    "stationButtonLayout"))) {
 
-        label->setStyleSheet(
-            QStringLiteral(
-                "font-size:%1px;"
-                "font-weight:bold;"
-                "color:#ff6a00;")
-                .arg(priceFont));
-    }
-
-    // ---------------------------------------------------------
-    // 地址
-    // ---------------------------------------------------------
-    if (auto *label =
-            findChild<QLabel *>(
-                QStringLiteral(
-                    "stationAddressLabel"))) {
-
-        label->setStyleSheet(
-            QStringLiteral(
-                "font-size:%1px;"
-                "color:#86909c;")
-                .arg(smallFont));
-    }
-
-    // ---------------------------------------------------------
-    // 空闲 / 已满
-    // ---------------------------------------------------------
-    if (auto *label =
-            findChild<QLabel *>(
-                QStringLiteral(
-                    "stationIdleLabel"))) {
-
-        const bool full =
-            label->property(
-                "stationFull")
-                .toBool();
-
-        label->setStyleSheet(
-            QStringLiteral(
-                "font-size:%1px;"
-                "font-weight:bold;"
-                "color:%2;")
-                .arg(idleFont)
-                .arg(
-                    full
-                        ? QStringLiteral(
-                              "#999999")
-                        : QStringLiteral(
-                              "#16a34a")));
-    }
-
-    // ---------------------------------------------------------
-    // 距离（NO.8：可点击 QPushButton）
-    // ---------------------------------------------------------
-    if (auto *button =
-            findChild<QPushButton *>(
-                QStringLiteral(
-                    "stationDistanceLabel"))) {
-
-        button->setStyleSheet(
-            QStringLiteral(
-                "QPushButton{"
-                "border:none;"
-                "background:transparent;"
-                "padding:0px;"
-                "font-size:%1px;"
-                "color:#1d4ed8;"
-                "text-decoration:underline;"
-                "}"
-                "QPushButton:disabled{"
-                "color:#4e5969;"
-                "text-decoration:none;"
-                "}")
-                .arg(smallFont));
-    }
-
-    // ---------------------------------------------------------
-    // 两个操作按钮
-    // ---------------------------------------------------------
-    const auto buttons =
-        findChildren<QPushButton *>(
-            QStringLiteral(
-                "stationActionButton"));
-
-    for (QPushButton *button :
-         buttons) {
-
-        button->setStyleSheet(
-            QStringLiteral(
-                "QPushButton{"
-                "border:1px solid #1d4ed8;"
-                "border-radius:%1px;"
-                "padding:%2px %3px;"
-                "font-size:%4px;"
-                "color:#1d4ed8;"
-                "background:#ffffff;"
-                "}"
-                "QPushButton:hover{"
-                "background:#eef4ff;"
-                "}"
-                "QPushButton:disabled{"
-                "border-color:#d9d9d9;"
-                "color:#bfbfbf;"
-                "background:#f5f5f5;"
-                "}")
-                .arg(
-                    scaledUi(
-                        scaleBase,
-                        6))
-                .arg(
-                    scaledUi(
-                        scaleBase,
-                        5))
-                .arg(
-                    scaledUi(
-                        scaleBase,
-                        12))
-                .arg(buttonFont));
+        buttonLayout->setSpacing(
+            scaledUi(
+                scaleBase,
+                9));
     }
 }

@@ -10,6 +10,7 @@
 #include "protocol.h"
 #include "navigationpage.h"
 #include "windowhelper.h"
+#include "uitheme.h"
 
 
 #include <QButtonGroup>
@@ -58,7 +59,9 @@ MainWindow::MainWindow(
     , m_userId(userId)
     , m_balance(balance)
 {
-    
+        setObjectName(
+        QStringLiteral("userMainWindow"));
+
     setWindowTitle(
         QStringLiteral("充电用户端"));
 
@@ -109,23 +112,32 @@ MainWindow::MainWindow(
         new QVBoxLayout(homePage);
 
     homeLayout->setContentsMargins(
-        0, 0, 0, 0);
+    14, 14, 14, 0);
 
-    homeLayout->setSpacing(0);
+
+    homeLayout->setSpacing(12);
 
     // =========================================================================
     // 地址定位区域
     // =========================================================================
     auto *locationPanel =
         new QWidget(homePage);
+    locationPanel->setObjectName(
+    QStringLiteral("locationPanel"));
+    UiTheme::applyCardShadow(
+    locationPanel,
+    18,
+    4);
+
 
     auto *locationMainLayout =
         new QVBoxLayout(locationPanel);
 
     locationMainLayout->setContentsMargins(
-        12, 10, 12, 8);
+    16, 14, 16, 12);
 
-    locationMainLayout->setSpacing(6);
+locationMainLayout->setSpacing(8);
+
 
     // 第一行：
     // 城市 + 地址 + 定位按钮
@@ -139,6 +151,9 @@ MainWindow::MainWindow(
     // ------------------------------------------------------------------------
     m_regionCombo =
         new QComboBox(locationPanel);
+    m_regionCombo->setObjectName(
+    QStringLiteral("regionCombo"));
+
 
     m_regionCombo->addItem(
         QStringLiteral("北京市"));
@@ -165,6 +180,9 @@ MainWindow::MainWindow(
     // ------------------------------------------------------------------------
     m_addressEdit =
         new QLineEdit(locationPanel);
+    m_addressEdit->setObjectName(
+    QStringLiteral("addressEdit"));
+
 
     m_addressEdit->setPlaceholderText(
         QStringLiteral(
@@ -177,6 +195,9 @@ MainWindow::MainWindow(
         new QPushButton(
             QStringLiteral("定位"),
             locationPanel);
+    m_locationBtn->setObjectName(
+    QStringLiteral("locationButton"));
+
 
     m_locationBtn->setCursor(
         Qt::PointingHandCursor);
@@ -199,6 +220,9 @@ MainWindow::MainWindow(
             QStringLiteral(
                 "请输入当前位置"),
             locationPanel);
+    m_locationTip->setObjectName(
+    QStringLiteral("locationTip"));
+
 
     m_locationTip->setStyleSheet(
         "color:#86909c;"
@@ -252,9 +276,9 @@ MainWindow::MainWindow(
         new QHBoxLayout(navBar);
 
     navLayout->setContentsMargins(
-        0, 0, 0, 0);
+    12, 8, 12, 10);
 
-    navLayout->setSpacing(0);
+navLayout->setSpacing(8);
 
     struct NavItem
     {
@@ -286,6 +310,8 @@ MainWindow::MainWindow(
 
         btn->setObjectName(
             "navBtn");
+        btn->setMinimumHeight(46);
+
 
         btn->setCheckable(true);
 
@@ -485,7 +511,17 @@ MainWindow::MainWindow(
 
         // 服务端 start_charge 成功，
         // 将充电页切换到“充电中”状态
-        m_chargePage->setChargingState();
+        const QJsonObject chargeData =
+    resp.value("data").toObject();
+
+m_chargePage->setChargingState(
+    chargeData.value(
+        "start_time").toString(),
+    chargeData.value(
+        "power_kw").toDouble(),
+    chargeData.value(
+        "unit_price").toDouble());
+
 
         QMessageBox::information(
             this,
@@ -495,19 +531,16 @@ MainWindow::MainWindow(
     
     connect(
     m_chargePage,
-    &ChargePage::settleRequested,
+    &ChargePage::finishChargeRequested,
     this,
-    [this](const QString &orderNo,
-           double kwh) {
+    [this](const QString &orderNo) {
 
-        if (orderNo.trimmed().isEmpty() ||
-            kwh <= 0.0) {
+        if (orderNo.trimmed().isEmpty()) {
 
             QMessageBox::warning(
                 this,
-                QStringLiteral("结算失败"),
-                QStringLiteral(
-                    "订单或充电量无效"));
+                QStringLiteral("结束充电失败"),
+                QStringLiteral("订单号无效"));
 
             return;
         }
@@ -517,13 +550,10 @@ MainWindow::MainWindow(
         data["order_no"] =
             orderNo;
 
-        data["kwh"] =
-            kwh;
-
         const QJsonObject resp =
             m_net->request(
                 Protocol::makeRequest(
-                    Protocol::MsgType::Settle,
+                    "finish_charge",
                     data));
 
         const int code =
@@ -536,7 +566,7 @@ MainWindow::MainWindow(
 
             QMessageBox::warning(
                 this,
-                QStringLiteral("结算失败"),
+                QStringLiteral("结束充电失败"),
                 msg);
 
             return;
@@ -546,6 +576,83 @@ MainWindow::MainWindow(
             resp.value("data")
                 .toObject();
 
+        const qint64 durationSeconds =
+            result.value(
+                "duration_seconds")
+                .toVariant()
+                .toLongLong();
+
+        const double kwh =
+            result.value("kwh")
+                .toDouble();
+
+        const double amount =
+            result.value("amount")
+                .toDouble();
+
+        m_chargePage
+            ->setPendingPaymentResult(
+                durationSeconds,
+                kwh,
+                amount);
+    });
+    connect(
+    m_chargePage,
+    &ChargePage::payChargeRequested,
+    this,
+    [this](const QString &orderNo) {
+
+        if (orderNo.trimmed().isEmpty()) {
+
+            QMessageBox::warning(
+                this,
+                QStringLiteral("支付失败"),
+                QStringLiteral("订单号无效"));
+
+            return;
+        }
+
+        QJsonObject data;
+
+        data["order_no"] =
+            orderNo;
+
+        const QJsonObject resp =
+            m_net->request(
+                Protocol::makeRequest(
+                    "pay_charge",
+                    data));
+
+        const int code =
+            resp.value("code").toInt();
+
+        const QString msg =
+            resp.value("msg").toString();
+
+        if (code != Protocol::Ok) {
+
+            QMessageBox::warning(
+                this,
+                QStringLiteral("支付失败"),
+                msg);
+
+            return;
+        }
+
+        const QJsonObject result =
+            resp.value("data")
+                .toObject();
+
+        const qint64 durationSeconds =
+            result.value(
+                "duration_seconds")
+                .toVariant()
+                .toLongLong();
+
+        const double kwh =
+            result.value("kwh")
+                .toDouble();
+
         const double amount =
             result.value("amount")
                 .toDouble();
@@ -554,36 +661,19 @@ MainWindow::MainWindow(
             result.value("balance")
                 .toDouble();
 
-        // 充电页展示结果
-        m_chargePage->setSettledResult(
-            kwh,
-            amount);
-
-        // 服务端已经扣余额，
-        // 客户端只更新显示
         m_balance =
             newBalance;
 
         m_profilePage->setBalance(
             m_balance);
 
-        QMessageBox::information(
-            this,
-            QStringLiteral("结算成功"),
-            QStringLiteral(
-                "本次费用：￥%1\n"
-                "当前余额：￥%2")
-                .arg(
-                    amount,
-                    0,
-                    'f',
-                    2)
-                .arg(
-                    newBalance,
-                    0,
-                    'f',
-                    2));
+        m_chargePage->setPaidResult(
+            durationSeconds,
+            kwh,
+            amount,
+            newBalance);
     });
+
 
     // =========================================================================
     // 修改昵称 → update_profile（NO.18）
@@ -740,15 +830,36 @@ MainWindow::MainWindow(
                 m_chargePage->setReservedOrder(
                     orderNo);
 
-                const bool charging =
-                    status == QStringLiteral("charging");
-                const bool pending =
-                    status == QStringLiteral("pending_payment");
+                    const bool charging =
+                        status == QStringLiteral("charging");
 
-                if (charging || pending) {
+                    const bool pending =
+                        status == QStringLiteral("pending_payment");
+
+                    if (charging) {
+
+                        m_chargePage->setChargingState(
+                            order.value("start_time").toString(),
+                            order.value("power_kw").toDouble(),
+                            order.value("unit_price").toDouble());
+                    }
+                    else if (pending) {
+
                     m_chargePage
-                        ->setChargingState();
+                        ->setPendingPaymentResult(
+                            order.value(
+                                "duration_seconds")
+                                .toVariant()
+                                .toLongLong(),
+                            order.value(
+                                "kwh")
+                                .toDouble(),
+                            order.value(
+                                "amount")
+                                .toDouble());
                 }
+
+
 
                 // NO.20：有未完成订单时弹窗提示，并切到充电页。
                 // 用 singleShot(0) 延后到构造完成、窗口显示后再弹，
@@ -900,27 +1011,129 @@ void MainWindow::applyResponsiveStyle()
         qRound(14 * scale);
 
     setStyleSheet(
-        QStringLiteral(
-            "QWidget{font-size:%1px;}"
-            "QLineEdit,QComboBox,QDoubleSpinBox{"
-            "font-size:%2px;"
-            "padding:%3px %4px;"
-            "}"
-            "QPushButton{"
-            "font-size:%2px;"
-            "padding:%5px %6px;"
-            "}"
-            "QPushButton#navBtn{"
-            "font-size:%2px;"
-            "padding:%7px 0;"
-            "}")
-            .arg(normalFont)
-            .arg(controlFont)
-            .arg(inputPaddingV)
-            .arg(inputPaddingH)
-            .arg(buttonPaddingV)
-            .arg(buttonPaddingH)
-            .arg(navPadding));
+    QStringLiteral(
+
+        // ========================================================
+        // 主窗口
+        // ========================================================
+        "QWidget#userMainWindow{"
+        "background:%1;"
+        "color:%2;"
+        "}"
+
+        // ========================================================
+        // 首页定位卡
+        // ========================================================
+        "QWidget#locationPanel{"
+        "background:#FFFFFF;"
+        "border:1px solid %3;"
+        "border-radius:%4px;"
+        "}"
+
+        "QComboBox#regionCombo,"
+        "QLineEdit#addressEdit{"
+        "background:#FAF8F3;"
+        "color:%2;"
+        "border:1px solid %3;"
+        "border-radius:%5px;"
+        "font-size:%6px;"
+        "padding:%7px %8px;"
+        "}"
+
+        "QComboBox#regionCombo:focus,"
+        "QLineEdit#addressEdit:focus{"
+        "border:1px solid %9;"
+        "}"
+
+        // ========================================================
+        // 定位按钮
+        // ========================================================
+        "QPushButton#locationButton{"
+        "background:%9;"
+        "color:#FFFFFF;"
+        "border:none;"
+        "border-radius:%5px;"
+        "font-size:%6px;"
+        "font-weight:700;"
+        "padding:%10px %11px;"
+        "}"
+
+        "QPushButton#locationButton:hover{"
+        "background:#284C41;"
+        "}"
+
+        "QPushButton#locationButton:disabled{"
+        "background:#D7DAD7;"
+        "color:#999F9C;"
+        "}"
+
+        // ========================================================
+        // 定位提示
+        // ========================================================
+        "QLabel#locationTip{"
+        "background:transparent;"
+        "color:%12;"
+        "font-size:%13px;"
+        "padding-left:2px;"
+        "}"
+
+        // ========================================================
+        // 底部导航
+        // ========================================================
+        "QWidget#navBar{"
+        "background:#FFFFFF;"
+        "border-top:1px solid %3;"
+        "}"
+
+        "QPushButton#navBtn{"
+        "background:transparent;"
+        "border:none;"
+        "border-radius:%5px;"
+        "color:#858D89;"
+        "font-size:%6px;"
+        "font-weight:600;"
+        "padding:%14px 4px;"
+        "}"
+
+        "QPushButton#navBtn:hover{"
+        "background:#F4F2EC;"
+        "color:%2;"
+        "}"
+
+        "QPushButton#navBtn:checked{"
+        "background:#E9F0EC;"
+        "color:%9;"
+        "font-weight:700;"
+        "}")
+        .arg(
+            UiTheme::pageBackground())       // %1
+        .arg(
+            UiTheme::textPrimary())          // %2
+        .arg(
+            UiTheme::border())               // %3
+        .arg(
+            qRound(18 * scale))              // %4
+        .arg(
+            qRound(12 * scale))              // %5
+        .arg(
+            controlFont)                     // %6
+        .arg(
+            inputPaddingV)                   // %7
+        .arg(
+            inputPaddingH)                   // %8
+        .arg(
+            UiTheme::primary())              // %9
+        .arg(
+            buttonPaddingV)                  // %10
+        .arg(
+            buttonPaddingH)                  // %11
+        .arg(
+            UiTheme::textSecondary())        // %12
+        .arg(
+            normalFont)                      // %13
+        .arg(
+            navPadding));                    // %14
+
 }
 
 
