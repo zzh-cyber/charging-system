@@ -30,8 +30,9 @@ public:
 
     // ---- 业务查询：出参 code/msg 用于返回给客户端 ----
 
-    // 手机号免密登录/注册：存在则返回，不存在则自动创建
-    QJsonObject loginOrRegister(const QString &phone, int &code, QString &msg);
+    // 手机号免密登录；registerMode=true 时不存在则创建，否则返回可注册
+    QJsonObject loginOrRegister(const QString &phone, bool registerMode,
+                                int &code, QString &msg);
 
     // 管理员登录
     QJsonObject adminLogin(const QString &username, const QString &password,

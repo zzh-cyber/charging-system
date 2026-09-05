@@ -2,6 +2,7 @@
 
 #include "netclient.h"
 #include "protocol.h"
+#include "windowhelper.h"
 
 #include <QFrame>
 #include <QHBoxLayout>
@@ -11,6 +12,8 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QVBoxLayout>
+#include <QResizeEvent>
+
 
 PileListPage::PileListPage(NetClient *net, QWidget *parent)
     : QWidget(parent)
@@ -18,17 +21,26 @@ PileListPage::PileListPage(NetClient *net, QWidget *parent)
 {
     auto *topBar = new QHBoxLayout;
     m_backBtn = new QPushButton(QStringLiteral("← 返回"), this);
+    m_backBtn->setObjectName(
+    QStringLiteral("pileBackButton"));
+
     m_backBtn->setCursor(Qt::PointingHandCursor);
     m_backBtn->setStyleSheet(
         "QPushButton{background:transparent;color:#1d4ed8;border:1px solid #1d4ed8;"
         "border-radius:8px;padding:6px 14px;font-weight:600;}"
         "QPushButton:hover{background:#1d4ed8;color:#ffffff;}");
     m_title = new QLabel(this);
+    m_title->setObjectName(
+    QStringLiteral("pileTitle"));
+
     m_title->setStyleSheet("font-size:20px;font-weight:bold;");
     topBar->addWidget(m_backBtn);
     topBar->addWidget(m_title, 1);
 
     m_tip = new QLabel(this);
+    m_tip->setObjectName(
+    QStringLiteral("pileTip"));
+
     m_tip->setStyleSheet("color:#86909c;padding:0 16px 8px 16px;");
 
     auto *container = new QWidget(this);
@@ -44,6 +56,8 @@ PileListPage::PileListPage(NetClient *net, QWidget *parent)
     layout->addWidget(container, 1);
 
     connect(m_backBtn, &QPushButton::clicked, this, &PileListPage::back);
+    applyResponsiveStyle();
+
 }
 void PileListPage::setUserId(qint64 userId)
 {
@@ -108,6 +122,9 @@ void PileListPage::loadStation(qint64 stationId, const QString &name)
             color = QStringLiteral("#e11d48");
 
         auto *row = new QFrame(this);
+        row->setObjectName(
+    QStringLiteral("pileRow"));
+
         row->setStyleSheet(
             "QFrame{border:1px solid #d6e4ff;border-radius:8px;background:#ffffff;}");
 
@@ -115,18 +132,34 @@ void PileListPage::loadStation(qint64 stationId, const QString &name)
         rowLayout->setContentsMargins(12, 10, 12, 10);
 
         auto *codeLabel = new QLabel(code, row);
+        codeLabel->setObjectName(
+    QStringLiteral("pileCodeLabel"));
+
         codeLabel->setStyleSheet("font-size:16px;font-weight:bold;border:none;");
 
         auto *infoLabel = new QLabel(
             QStringLiteral("%1 · %2 kW").arg(typeText).arg(power, 0, 'f', 1), row);
+        infoLabel->setObjectName(
+    QStringLiteral("pileInfoLabel"));
+
         infoLabel->setStyleSheet("color:#86909c;border:none;");
 
         auto *statusLabel = new QLabel(statusText, row);
+        statusLabel->setObjectName(
+            QStringLiteral("pileStatusLabel"));
+
+        statusLabel->setProperty(
+            "pileStatusColor",
+            color);
+
         statusLabel->setStyleSheet(
             QStringLiteral("color:%1;font-weight:bold;border:none;").arg(color));
 
         // 「预约」按钮（UI 占位）：仅闲置桩可点，待 B 接 reserve 接口
         auto *reserveBtn = new QPushButton(QStringLiteral("预约"), row);
+        reserveBtn->setObjectName(
+    QStringLiteral("pileReserveButton"));
+
         reserveBtn->setCursor(Qt::PointingHandCursor);
         const bool canReserve = (status == "idle");
         reserveBtn->setEnabled(canReserve);
@@ -242,6 +275,8 @@ void PileListPage::loadStation(qint64 stationId, const QString &name)
 
         m_listLayout->addWidget(row);
     }
+    applyResponsiveStyle();
+
 }
 
 
@@ -251,5 +286,282 @@ void PileListPage::clearList()
         if (QWidget *w = item->widget())
             w->deleteLater();
         delete item;
+    }
+}
+void PileListPage::resizeEvent(
+    QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+
+    applyResponsiveStyle();
+}
+
+
+void PileListPage::applyResponsiveStyle()
+{
+    QWidget *scaleBase =
+        window()
+            ? window()
+            : this;
+
+    const int titleFont =
+        scaledUi(scaleBase, 20);
+
+    const int normalFont =
+        scaledUi(scaleBase, 14);
+
+    const int codeFont =
+        scaledUi(scaleBase, 16);
+
+    const int buttonFont =
+        scaledUi(scaleBase, 14);
+
+    // ============================================================
+    // 返回按钮
+    // ============================================================
+    if (m_backBtn) {
+
+        m_backBtn->setStyleSheet(
+            QStringLiteral(
+                "QPushButton{"
+                "background:transparent;"
+                "color:#1d4ed8;"
+                "border:1px solid #1d4ed8;"
+                "border-radius:%1px;"
+                "padding:%2px %3px;"
+                "font-size:%4px;"
+                "font-weight:600;"
+                "}"
+                "QPushButton:hover{"
+                "background:#1d4ed8;"
+                "color:#ffffff;"
+                "}")
+                .arg(
+                    scaledUi(
+                        scaleBase,
+                        8))
+                .arg(
+                    scaledUi(
+                        scaleBase,
+                        6))
+                .arg(
+                    scaledUi(
+                        scaleBase,
+                        14))
+                .arg(buttonFont));
+    }
+
+    // ============================================================
+    // 标题
+    // ============================================================
+    if (m_title) {
+
+        m_title->setStyleSheet(
+            QStringLiteral(
+                "font-size:%1px;"
+                "font-weight:bold;")
+                .arg(titleFont));
+    }
+
+    // ============================================================
+    // 顶部提示
+    // ============================================================
+    if (m_tip) {
+
+        m_tip->setStyleSheet(
+            QStringLiteral(
+                "color:#86909c;"
+                "font-size:%1px;"
+                "padding:0 %2px %3px %2px;")
+                .arg(normalFont)
+                .arg(
+                    scaledUi(
+                        scaleBase,
+                        16))
+                .arg(
+                    scaledUi(
+                        scaleBase,
+                        8)));
+    }
+
+    // ============================================================
+    // 列表整体间距
+    // ============================================================
+    if (m_listLayout) {
+
+        m_listLayout->setContentsMargins(
+            scaledUi(
+                scaleBase,
+                12),
+            scaledUi(
+                scaleBase,
+                4),
+            scaledUi(
+                scaleBase,
+                12),
+            scaledUi(
+                scaleBase,
+                12));
+
+        m_listLayout->setSpacing(
+            scaledUi(
+                scaleBase,
+                10));
+    }
+
+    // ============================================================
+    // 每一个桩卡片
+    // ============================================================
+    const auto rows =
+        findChildren<QFrame *>(
+            QStringLiteral(
+                "pileRow"));
+
+    for (QFrame *row : rows) {
+
+        row->setStyleSheet(
+            QStringLiteral(
+                "QFrame#pileRow{"
+                "border:1px solid #d6e4ff;"
+                "border-radius:%1px;"
+                "background:#ffffff;"
+                "}")
+                .arg(
+                    scaledUi(
+                        scaleBase,
+                        8)));
+
+        if (auto *rowLayout =
+                qobject_cast<QHBoxLayout *>(
+                    row->layout())) {
+
+            rowLayout->setContentsMargins(
+                scaledUi(
+                    scaleBase,
+                    12),
+                scaledUi(
+                    scaleBase,
+                    10),
+                scaledUi(
+                    scaleBase,
+                    12),
+                scaledUi(
+                    scaleBase,
+                    10));
+
+            rowLayout->setSpacing(
+                scaledUi(
+                    scaleBase,
+                    8));
+        }
+    }
+
+    // ============================================================
+    // 桩编号
+    // ============================================================
+    const auto codeLabels =
+        findChildren<QLabel *>(
+            QStringLiteral(
+                "pileCodeLabel"));
+
+    for (QLabel *label : codeLabels) {
+
+        label->setStyleSheet(
+            QStringLiteral(
+                "font-size:%1px;"
+                "font-weight:bold;"
+                "border:none;")
+                .arg(codeFont));
+    }
+
+    // ============================================================
+    // 类型 + 功率
+    // ============================================================
+    const auto infoLabels =
+        findChildren<QLabel *>(
+            QStringLiteral(
+                "pileInfoLabel"));
+
+    for (QLabel *label : infoLabels) {
+
+        label->setStyleSheet(
+            QStringLiteral(
+                "font-size:%1px;"
+                "color:#86909c;"
+                "border:none;")
+                .arg(normalFont));
+    }
+
+    // ============================================================
+    // 状态
+    // ============================================================
+    const auto statusLabels =
+        findChildren<QLabel *>(
+            QStringLiteral(
+                "pileStatusLabel"));
+
+    for (QLabel *label : statusLabels) {
+
+        const QString color =
+            label->property(
+                "pileStatusColor")
+                .toString();
+
+        label->setStyleSheet(
+            QStringLiteral(
+                "font-size:%1px;"
+                "color:%2;"
+                "font-weight:bold;"
+                "border:none;")
+                .arg(normalFont)
+                .arg(color));
+    }
+
+    // ============================================================
+    // 预约按钮
+    // ============================================================
+    const auto reserveButtons =
+        findChildren<QPushButton *>(
+            QStringLiteral(
+                "pileReserveButton"));
+
+    for (QPushButton *button :
+         reserveButtons) {
+
+        button->setStyleSheet(
+            QStringLiteral(
+                "QPushButton{"
+                "padding:%1px %2px;"
+                "border:1px solid #1d4ed8;"
+                "border-radius:%3px;"
+                "font-size:%4px;"
+                "font-weight:bold;"
+                "color:#1d4ed8;"
+                "background:#ffffff;"
+                "}"
+
+                "QPushButton:hover{"
+                "background:#1d4ed8;"
+                "color:#ffffff;"
+                "}"
+
+                "QPushButton:disabled{"
+                "border-color:#dddddd;"
+                "color:#bbbbbb;"
+                "background:#f5f5f5;"
+                "}")
+                .arg(
+                    scaledUi(
+                        scaleBase,
+                        4))
+                .arg(
+                    scaledUi(
+                        scaleBase,
+                        14))
+                .arg(
+                    scaledUi(
+                        scaleBase,
+                        6))
+                .arg(buttonFont));
     }
 }

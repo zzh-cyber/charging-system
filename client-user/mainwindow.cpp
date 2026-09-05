@@ -23,6 +23,7 @@
 #include <QJsonObject>
 #include <QMessageBox>
 #include <QTimer>
+#include <QResizeEvent>
 
 
 // 服务器地址（与登录页保持一致）
@@ -63,6 +64,8 @@ MainWindow::MainWindow(
 
     // 响应式窗口：按屏幕分辨率自适应手机比例并居中
     applyPhoneWindow(this);
+    applyResponsiveStyle();
+
 
     if (!m_net->isConnected()) {
         m_net->connectToServer(
@@ -199,7 +202,6 @@ MainWindow::MainWindow(
 
     m_locationTip->setStyleSheet(
         "color:#86909c;"
-        "font-size:12px;"
         "padding-left:2px;");
 
     locationMainLayout->addLayout(
@@ -863,6 +865,64 @@ MainWindow::MainWindow(
                 message);
         });
 }
+void MainWindow::resizeEvent(
+    QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+
+    applyResponsiveStyle();
+}
+
+void MainWindow::applyResponsiveStyle()
+{
+    const double scale =
+        uiScaleForWindow(this);
+
+    const int normalFont =
+        qRound(14 * scale);
+
+    const int controlFont =
+        qRound(15 * scale);
+
+    const int inputPaddingV =
+        qRound(10 * scale);
+
+    const int inputPaddingH =
+        qRound(12 * scale);
+
+    const int buttonPaddingV =
+        qRound(10 * scale);
+
+    const int buttonPaddingH =
+        qRound(16 * scale);
+
+    const int navPadding =
+        qRound(14 * scale);
+
+    setStyleSheet(
+        QStringLiteral(
+            "QWidget{font-size:%1px;}"
+            "QLineEdit,QComboBox,QDoubleSpinBox{"
+            "font-size:%2px;"
+            "padding:%3px %4px;"
+            "}"
+            "QPushButton{"
+            "font-size:%2px;"
+            "padding:%5px %6px;"
+            "}"
+            "QPushButton#navBtn{"
+            "font-size:%2px;"
+            "padding:%7px 0;"
+            "}")
+            .arg(normalFont)
+            .arg(controlFont)
+            .arg(inputPaddingV)
+            .arg(inputPaddingH)
+            .arg(buttonPaddingV)
+            .arg(buttonPaddingH)
+            .arg(navPadding));
+}
+
 
 
 void MainWindow::setSessionToken(const QString &token)

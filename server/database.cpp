@@ -50,7 +50,8 @@ bool Database::isOpen() const
     return m_db.isOpen();
 }
 
-QJsonObject Database::loginOrRegister(const QString &phone, int &code, QString &msg)
+QJsonObject Database::loginOrRegister(const QString &phone, bool registerMode,
+                                      int &code, QString &msg)
 {
     QJsonObject data;
 
@@ -94,7 +95,14 @@ QJsonObject Database::loginOrRegister(const QString &phone, int &code, QString &
         return data;
     }
 
-    // 不存在 → 自动创建，默认昵称"用户+手机后4位"
+    // 不存在：仅明确注册时建号；登录则提示去点注册（NO.15 注册入口）
+    if (!registerMode) {
+        data["can_register"] = true;
+        code = Protocol::NotFound;
+        msg = "该手机号尚未注册";
+        return data;
+    }
+
     const QString nickname = "用户" + phone.right(4);
     QSqlQuery ins(m_db);
     ins.prepare("INSERT INTO `user` (phone, nickname, balance, status, last_login_at) "

@@ -1,16 +1,18 @@
 #pragma once
 
 // ============================================================================
-// 充电用户端 - 登录/注册界面（M1 链路样板）
-// 手机号免密登录：输入 11 位手机号 → 服务器不存在则自动注册 → 返回用户信息。
+// 充电用户端 - 登录/注册界面
+// 已注册手机号免密登录；未注册时显示「注册」按钮，仍走 login 报文（data.register=true）。
 // ============================================================================
 
+#include <QJsonObject>
 #include <QWidget>
 
 class QLineEdit;
 class QPushButton;
 class QLabel;
 class NetClient;
+class QResizeEvent;
 
 class LoginWindow : public QWidget
 {
@@ -18,12 +20,21 @@ class LoginWindow : public QWidget
 public:
     explicit LoginWindow(QWidget *parent = nullptr);
 
+protected:
+    void resizeEvent(QResizeEvent *event) override;
+
 private slots:
     void onLoginClicked();
+    void onRegisterClicked();
 
 private:
+    void applyResponsiveStyle();
+    QJsonObject sendLoginRequest(const QString &phone, bool registerMode);
+    void enterMainWindow(const QJsonObject &userData);
+
     QLineEdit   *m_phoneEdit;
     QPushButton *m_loginBtn;
     QLabel      *m_hint;
     NetClient   *m_net;
+    QPushButton *m_registerBtn = nullptr;
 };

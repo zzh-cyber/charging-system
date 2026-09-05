@@ -1,4 +1,5 @@
 #include "chargepage.h"
+#include "windowhelper.h"
 
 #include <QDoubleSpinBox>
 #include <QFrame>
@@ -6,6 +7,8 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QVBoxLayout>
+#include <QResizeEvent>
+
 
 ChargePage::ChargePage(QWidget *parent)
     : QWidget(parent)
@@ -23,6 +26,9 @@ ChargePage::ChargePage(QWidget *parent)
     // ========================================================================
     auto *title =
         new QLabel(QStringLiteral("充电"), this);
+    title->setObjectName(
+    QStringLiteral("chargeTitle"));
+
 
     title->setStyleSheet(
         "font-size:24px;"
@@ -33,6 +39,9 @@ ChargePage::ChargePage(QWidget *parent)
         new QLabel(
             QStringLiteral("查看当前订单并完成充电结算"),
             this);
+    subtitle->setObjectName(
+    QStringLiteral("chargeSubtitle"));
+
 
     subtitle->setStyleSheet(
         "color:#86909c;"
@@ -45,6 +54,9 @@ ChargePage::ChargePage(QWidget *parent)
     // 当前订单卡片
     // ========================================================================
     auto *orderCard = new QFrame(this);
+    orderCard->setObjectName(
+    QStringLiteral("chargeOrderCard"));
+
 
     orderCard->setStyleSheet(
         "QFrame{"
@@ -119,6 +131,9 @@ ChargePage::ChargePage(QWidget *parent)
         new QLabel(
             QStringLiteral("本次充电量"),
             orderCard);
+    kwhTitle->setObjectName(
+    QStringLiteral("chargeKwhTitle"));
+
 
     kwhTitle->setStyleSheet(
         "border:none;"
@@ -466,5 +481,299 @@ void ChargePage::refreshUi()
                 "本次充电订单已完成"));
 
         break;
+    }
+    applyResponsiveStyle();
+
+}
+void ChargePage::resizeEvent(
+    QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+
+    applyResponsiveStyle();
+}
+
+
+void ChargePage::applyResponsiveStyle()
+{
+    QWidget *scaleBase =
+        window()
+            ? window()
+            : this;
+
+    const int titleFont =
+        scaledUi(scaleBase, 24);
+
+    const int stateTitleFont =
+        scaledUi(scaleBase, 18);
+
+    const int normalFont =
+        scaledUi(scaleBase, 14);
+
+    const int smallFont =
+        scaledUi(scaleBase, 13);
+
+    // ============================================================
+    // 页面整体边距
+    // ============================================================
+    if (auto *pageLayout =
+            qobject_cast<QVBoxLayout *>(
+                layout())) {
+
+        const int margin =
+            scaledUi(scaleBase, 18);
+
+        pageLayout->setContentsMargins(
+            margin,
+            margin,
+            margin,
+            margin);
+
+        pageLayout->setSpacing(
+            scaledUi(scaleBase, 14));
+    }
+
+    // ============================================================
+    // 页面标题
+    // ============================================================
+    if (auto *title =
+            findChild<QLabel *>(
+                QStringLiteral(
+                    "chargeTitle"))) {
+
+        title->setStyleSheet(
+            QStringLiteral(
+                "font-size:%1px;"
+                "font-weight:700;"
+                "color:#1f2329;")
+                .arg(titleFont));
+    }
+
+    // ============================================================
+    // 副标题
+    // ============================================================
+    if (auto *subtitle =
+            findChild<QLabel *>(
+                QStringLiteral(
+                    "chargeSubtitle"))) {
+
+        subtitle->setStyleSheet(
+            QStringLiteral(
+                "color:#86909c;"
+                "font-size:%1px;")
+                .arg(smallFont));
+    }
+
+    // ============================================================
+    // 订单卡片
+    // ============================================================
+    if (auto *orderCard =
+            findChild<QFrame *>(
+                QStringLiteral(
+                    "chargeOrderCard"))) {
+
+        orderCard->setStyleSheet(
+            QStringLiteral(
+                "QFrame#chargeOrderCard{"
+                "background:#ffffff;"
+                "border:1px solid #d6e4ff;"
+                "border-radius:%1px;"
+                "}")
+                .arg(
+                    scaledUi(
+                        scaleBase,
+                        14)));
+
+        if (auto *orderLayout =
+                qobject_cast<QVBoxLayout *>(
+                    orderCard->layout())) {
+
+            const int margin =
+                scaledUi(
+                    scaleBase,
+                    18);
+
+            orderLayout->setContentsMargins(
+                margin,
+                margin,
+                margin,
+                margin);
+
+            orderLayout->setSpacing(
+                scaledUi(
+                    scaleBase,
+                    12));
+        }
+    }
+
+    // ============================================================
+    // 卡片主状态标题
+    // ============================================================
+    if (m_stateTitle) {
+
+        m_stateTitle->setStyleSheet(
+            QStringLiteral(
+                "border:none;"
+                "font-size:%1px;"
+                "font-weight:700;"
+                "color:#1f2329;")
+                .arg(stateTitleFont));
+    }
+
+    // ============================================================
+    // 订单号
+    // ============================================================
+    if (m_orderLabel) {
+
+        m_orderLabel->setStyleSheet(
+            QStringLiteral(
+                "border:none;"
+                "color:#4e5969;"
+                "font-size:%1px;")
+                .arg(normalFont));
+    }
+
+    // ============================================================
+    // 当前状态
+    // ============================================================
+    if (m_statusLabel) {
+
+        QString color =
+            QStringLiteral("#86909c");
+
+        QString weight =
+            QStringLiteral("400");
+
+        switch (m_state) {
+
+        case ChargeState::Empty:
+            break;
+
+        case ChargeState::Reserved:
+            color =
+                QStringLiteral("#d97706");
+            weight =
+                QStringLiteral("600");
+            break;
+
+        case ChargeState::Charging:
+            color =
+                QStringLiteral("#16a34a");
+            weight =
+                QStringLiteral("600");
+            break;
+
+        case ChargeState::Settled:
+            color =
+                QStringLiteral("#1d4ed8");
+            weight =
+                QStringLiteral("600");
+            break;
+        }
+
+        m_statusLabel->setStyleSheet(
+            QStringLiteral(
+                "border:none;"
+                "color:%1;"
+                "font-size:%2px;"
+                "font-weight:%3;")
+                .arg(color)
+                .arg(normalFont)
+                .arg(weight));
+    }
+
+    // ============================================================
+    // “本次充电量”
+    // ============================================================
+    if (auto *kwhTitle =
+            findChild<QLabel *>(
+                QStringLiteral(
+                    "chargeKwhTitle"))) {
+
+        kwhTitle->setStyleSheet(
+            QStringLiteral(
+                "border:none;"
+                "font-size:%1px;"
+                "font-weight:600;")
+                .arg(normalFont));
+    }
+
+    // ============================================================
+    // 充电量输入框
+    // ============================================================
+    if (m_kwhSpin) {
+
+        m_kwhSpin->setMinimumWidth(
+            scaledUi(
+                scaleBase,
+                150));
+
+        m_kwhSpin->setStyleSheet(
+            QStringLiteral(
+                "QDoubleSpinBox{"
+                "background:#ffffff;"
+                "border:1px solid #d6e4ff;"
+                "border-radius:%1px;"
+                "padding:%2px %3px;"
+                "font-size:%4px;"
+                "}"
+                "QDoubleSpinBox:focus{"
+                "border-color:#1d4ed8;"
+                "}")
+                .arg(
+                    scaledUi(
+                        scaleBase,
+                        8))
+                .arg(
+                    scaledUi(
+                        scaleBase,
+                        8))
+                .arg(
+                    scaledUi(
+                        scaleBase,
+                        10))
+                .arg(normalFont));
+    }
+
+    // ============================================================
+    // 结算结果
+    // ============================================================
+    if (m_resultLabel) {
+
+        m_resultLabel->setStyleSheet(
+            QStringLiteral(
+                "border:none;"
+                "background:#f2f7ff;"
+                "border-radius:%1px;"
+                "padding:%2px;"
+                "color:#1d4ed8;"
+                "font-size:%3px;"
+                "font-weight:600;")
+                .arg(
+                    scaledUi(
+                        scaleBase,
+                        8))
+                .arg(
+                    scaledUi(
+                        scaleBase,
+                        10))
+                .arg(normalFont));
+    }
+
+    // ============================================================
+    // 页面底部提示
+    // ============================================================
+    if (m_tipLabel) {
+
+        m_tipLabel->setStyleSheet(
+            QStringLiteral(
+                "color:#86909c;"
+                "font-size:%1px;"
+                "padding:%2px;")
+                .arg(smallFont)
+                .arg(
+                    scaledUi(
+                        scaleBase,
+                        8)));
     }
 }

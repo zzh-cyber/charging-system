@@ -6,12 +6,17 @@
 class QLabel;
 class QPushButton;
 class QDoubleSpinBox;
+class QResizeEvent;
 
 class ProfilePage : public QWidget
 {
     Q_OBJECT
 
-public:
+protected:
+    void resizeEvent(
+        QResizeEvent *event) override;
+
+    public:
     explicit ProfilePage(
         QWidget *parent = nullptr);
 
@@ -34,6 +39,8 @@ signals:
     void nicknameChangeRequested(const QString &nickname);
 
 private:
+    void applyResponsiveStyle();
+
     QLabel *m_nicknameLabel = nullptr;
     QLabel *m_phoneLabel = nullptr;
     QLabel *m_balanceLabel = nullptr;

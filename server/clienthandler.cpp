@@ -103,7 +103,10 @@ void ClientHandler::dispatch(const QJsonObject &req)
 
     // ================= 登录链路样板（已实现，供其他接口照抄） =================
     if (type == MsgType::Login) {
-        QJsonObject out = m_db->loginOrRegister(data.value("phone").toString(), code, msg);
+        QJsonObject out = m_db->loginOrRegister(
+            data.value("phone").toString(),
+            data.value("register").toBool(),
+            code, msg);
         if (code == Ok) {
             const qint64 uid = out.value("id").toVariant().toLongLong();
             out["token"] = SessionManager::instance().create(uid, QStringLiteral("user"));
