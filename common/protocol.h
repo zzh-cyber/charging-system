@@ -60,6 +60,7 @@ inline constexpr const char *AdminPileRestart  = "admin_pile_restart";  // 远�
 inline constexpr const char *AdminStationList  = "admin_station_list";
 inline constexpr const char *AdminStationAdd   = "admin_station_add";
 inline constexpr const char *AdminOrderList    = "admin_order_list";
+inline constexpr const char *AdminRevenueTrend = "admin_revenue_trend";
 } // namespace MsgType
 
 // ------- 构造请求/响应 -------

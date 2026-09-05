@@ -286,11 +286,7 @@ void ClientHandler::dispatch(const QJsonObject &req)
         reply(makeResponse(type, code, msg, out));
         return;
     }
-    if (type == QStringLiteral("revenue_trend_query")) {
-        Session sess;
-        if (!SessionManager::instance().validate(req.value("token").toString(), sess) || sess.role != QLatin1String("admin")) {
-            reply(makeResponse(type, SessionInvalid, "登录已失效，请重新登录")); return;
-        }
+    if (type == MsgType::AdminRevenueTrend) {
         const QJsonObject out = m_db->revenueTrend(data.value("days").toInt(7), code, msg);
         reply(makeResponse(type, code, msg, out)); return;
     }
