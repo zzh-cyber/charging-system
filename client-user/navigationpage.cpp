@@ -1,53 +1,126 @@
 #include "navigationpage.h"
+
+#include "uitheme.h"
 #include "windowhelper.h"
 
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
-#include <QVBoxLayout>
 #include <QResizeEvent>
+#include <QScrollArea>
+#include <QVBoxLayout>
 
 
 NavigationPage::NavigationPage(
     QWidget *parent)
     : QWidget(parent)
 {
-    auto *mainLayout =
+    setObjectName(
+        QStringLiteral(
+            "navigationPage"));
+
+
+    // ========================================================================
+    // 页面根布局
+    // ========================================================================
+    auto *rootLayout =
         new QVBoxLayout(this);
 
+    rootLayout->setContentsMargins(
+        0,
+        0,
+        0,
+        0);
+
+    rootLayout->setSpacing(
+        0);
+
+
+    // ========================================================================
+    // 滚动区域
+    // ========================================================================
+    auto *scrollArea =
+        new QScrollArea(this);
+
+    scrollArea->setObjectName(
+        QStringLiteral(
+            "navigationScrollArea"));
+
+    scrollArea->setWidgetResizable(
+        true);
+
+    scrollArea->setFrameShape(
+        QFrame::NoFrame);
+
+    scrollArea->setHorizontalScrollBarPolicy(
+        Qt::ScrollBarAlwaysOff);
+
+
+    auto *content =
+        new QWidget;
+
+    content->setObjectName(
+        QStringLiteral(
+            "navigationContent"));
+
+
+    auto *mainLayout =
+        new QVBoxLayout(
+            content);
+
+    mainLayout->setObjectName(
+        QStringLiteral(
+            "navigationMainLayout"));
+
     mainLayout->setContentsMargins(
-        16, 14, 16, 16);
+        18,
+        18,
+        18,
+        18);
 
-    mainLayout->setSpacing(14);
+    mainLayout->setSpacing(
+        14);
 
-    // =====================================================================
+
+    // ========================================================================
     // 页头
-    // =====================================================================
+    // ========================================================================
     auto *header =
         new QHBoxLayout;
 
+    header->setObjectName(
+        QStringLiteral(
+            "navigationHeaderLayout"));
+
+    header->setSpacing(
+        10);
+
+
     auto *backButton =
         new QPushButton(
-            QStringLiteral("← 返回"),
-            this);
-    backButton->setObjectName(
-    QStringLiteral("navigationBackButton"));
+            QStringLiteral(
+                "← 返回"),
+            content);
 
+    backButton->setObjectName(
+        QStringLiteral(
+            "navigationBackButton"));
 
     backButton->setCursor(
         Qt::PointingHandCursor);
 
+
     auto *title =
         new QLabel(
-            QStringLiteral("一键导航"),
-            this);
-    title->setObjectName(
-    QStringLiteral("navigationTitle"));
+            QStringLiteral(
+                "一键导航"),
+            content);
 
-    title->setStyleSheet(
-        "font-size:20px;"
-        "font-weight:bold;");
+    title->setObjectName(
+        QStringLiteral(
+            "navigationTitle"));
+
 
     header->addWidget(
         backButton);
@@ -56,163 +129,459 @@ NavigationPage::NavigationPage(
         title,
         1);
 
+
     connect(
         backButton,
         &QPushButton::clicked,
         this,
         &NavigationPage::back);
 
-    // =====================================================================
-    // 目标站
-    // =====================================================================
+
+    mainLayout->addLayout(
+        header);
+
+
+    // ========================================================================
+    // 目标站点卡
+    // ========================================================================
+    auto *stationCard =
+        new QFrame(
+            content);
+
+    stationCard->setObjectName(
+        QStringLiteral(
+            "navigationStationCard"));
+
+    UiTheme::applyCardShadow(
+        stationCard,
+        16,
+        4);
+
+
+    auto *stationLayout =
+        new QVBoxLayout(
+            stationCard);
+
+    stationLayout->setObjectName(
+        QStringLiteral(
+            "navigationStationLayout"));
+
+    stationLayout->setContentsMargins(
+        18,
+        16,
+        18,
+        16);
+
+    stationLayout->setSpacing(
+        7);
+
+
     auto *stationTitle =
         new QLabel(
-            QStringLiteral("导航至"),
-            this);
+            QStringLiteral(
+                "导航至"),
+            stationCard);
+
     stationTitle->setObjectName(
-    QStringLiteral("navigationStationTitle"));
+        QStringLiteral(
+            "navigationStationTitle"));
 
-
-    stationTitle->setStyleSheet(
-        "color:#86909c;"
-        "font-size:13px;");
 
     m_stationLabel =
-        new QLabel(this);
+        new QLabel(
+            stationCard);
+
     m_stationLabel->setObjectName(
-    QStringLiteral("navigationStationLabel"));
+        QStringLiteral(
+            "navigationStationLabel"));
+
+    m_stationLabel->setWordWrap(
+        true);
 
 
-    m_stationLabel->setStyleSheet(
-        "font-size:19px;"
-        "font-weight:bold;"
-        "color:#1d2129;");
+    stationLayout->addWidget(
+        stationTitle);
 
-    // =====================================================================
-    // 路线摘要
-    // =====================================================================
+    stationLayout->addWidget(
+        m_stationLabel);
+
+
+    mainLayout->addWidget(
+        stationCard);
+
+
+    // ========================================================================
+    // 路线摘要卡
+    // ========================================================================
     auto *routeCard =
-        new QFrame(this);
+        new QFrame(
+            content);
+
     routeCard->setObjectName(
-    QStringLiteral("navigationRouteCard"));
+        QStringLiteral(
+            "navigationRouteCard"));
 
+    UiTheme::applyCardShadow(
+        routeCard,
+        16,
+        4);
 
-    routeCard->setStyleSheet(
-        "QFrame{"
-        "background:#ffffff;"
-        "border:1px solid #d6e4ff;"
-        "border-radius:10px;"
-        "}");
 
     auto *routeLayout =
         new QVBoxLayout(
             routeCard);
 
-    routeLayout->setContentsMargins(
-        16, 14, 16, 14);
+    routeLayout->setObjectName(
+        QStringLiteral(
+            "navigationRouteLayout"));
 
-    routeLayout->setSpacing(12);
+    routeLayout->setContentsMargins(
+        18,
+        16,
+        18,
+        16);
+
+    routeLayout->setSpacing(
+        12);
+
+
+    // ========================================================================
+    // 路线卡标题
+    // ========================================================================
+    auto *routeHeader =
+        new QHBoxLayout;
+
+
+    auto *routeTitle =
+        new QLabel(
+            QStringLiteral(
+                "路线信息"),
+            routeCard);
+
+    routeTitle->setObjectName(
+        QStringLiteral(
+            "navigationRouteTitle"));
+
+
+    auto *routeBadge =
+        new QLabel(
+            QStringLiteral(
+                "直线距离"),
+            routeCard);
+
+    routeBadge->setObjectName(
+        QStringLiteral(
+            "navigationRouteBadge"));
+
+    routeBadge->setAlignment(
+        Qt::AlignCenter);
+
+
+    routeHeader->addWidget(
+        routeTitle);
+
+    routeHeader->addStretch();
+
+    routeHeader->addWidget(
+        routeBadge);
+
+
+    routeLayout->addLayout(
+        routeHeader);
+
+
+    // ========================================================================
+    // 起点卡
+    // ========================================================================
+    auto *startCard =
+        new QFrame(
+            routeCard);
+
+    startCard->setObjectName(
+        QStringLiteral(
+            "navigationPointCard"));
+
+
+    auto *startLayout =
+        new QHBoxLayout(
+            startCard);
+
+    startLayout->setObjectName(
+        QStringLiteral(
+            "navigationStartLayout"));
+
+    startLayout->setContentsMargins(
+        13,
+        11,
+        13,
+        11);
+
+    startLayout->setSpacing(
+        12);
+
+
+    auto *startMarker =
+        new QLabel(
+            QStringLiteral(
+                "起"),
+            startCard);
+
+    startMarker->setObjectName(
+        QStringLiteral(
+            "navigationStartMarker"));
+
+    startMarker->setAlignment(
+        Qt::AlignCenter);
+
+
+    auto *startTextLayout =
+        new QVBoxLayout;
+
+    startTextLayout->setSpacing(
+        3);
+
 
     auto *startTitle =
         new QLabel(
-            QStringLiteral("当前位置"),
-            routeCard);
+            QStringLiteral(
+                "当前位置"),
+            startCard);
+
     startTitle->setObjectName(
-    QStringLiteral("navigationSmallTitle"));
+        QStringLiteral(
+            "navigationSmallTitle"));
 
-
-    startTitle->setStyleSheet(
-        "color:#86909c;"
-        "font-size:12px;");
 
     m_startLabel =
         new QLabel(
-            routeCard);
+            startCard);
 
-    m_startLabel->setStyleSheet(
-        "font-size:14px;");
+    m_startLabel->setObjectName(
+        QStringLiteral(
+            "navigationCoordinateLabel"));
 
+    m_startLabel->setWordWrap(
+        true);
+
+
+    startTextLayout->addWidget(
+        startTitle);
+
+    startTextLayout->addWidget(
+        m_startLabel);
+
+
+    startLayout->addWidget(
+        startMarker);
+
+    startLayout->addLayout(
+        startTextLayout,
+        1);
+
+
+    routeLayout->addWidget(
+        startCard);
+
+
+    // ========================================================================
+    // 中间箭头
+    // ========================================================================
     auto *arrow =
         new QLabel(
-            QStringLiteral("↓"),
+            QStringLiteral(
+                "↓"),
             routeCard);
-    arrow->setObjectName(
-    QStringLiteral("navigationArrow"));
 
+    arrow->setObjectName(
+        QStringLiteral(
+            "navigationArrow"));
 
     arrow->setAlignment(
         Qt::AlignCenter);
 
-    arrow->setStyleSheet(
-        "font-size:22px;"
-        "color:#1d4ed8;");
-
-    auto *targetTitle =
-        new QLabel(
-            QStringLiteral("目的地"),
-            routeCard);
-    targetTitle->setObjectName(
-    QStringLiteral("navigationSmallTitle"));
-
-
-    targetTitle->setStyleSheet(
-        "color:#86909c;"
-        "font-size:12px;");
-
-    m_targetLabel =
-        new QLabel(
-            routeCard);
-
-    m_targetLabel->setStyleSheet(
-        "font-size:14px;");
-
-    m_distanceLabel =
-        new QLabel(
-            routeCard);
-
-    m_distanceLabel->setStyleSheet(
-        "font-size:15px;"
-        "font-weight:bold;"
-        "color:#1d4ed8;");
-
-    routeLayout->addWidget(
-        startTitle);
-
-    routeLayout->addWidget(
-        m_startLabel);
 
     routeLayout->addWidget(
         arrow);
 
-    routeLayout->addWidget(
+
+    // ========================================================================
+    // 终点卡
+    // ========================================================================
+    auto *targetCard =
+        new QFrame(
+            routeCard);
+
+    targetCard->setObjectName(
+        QStringLiteral(
+            "navigationPointCard"));
+
+
+    auto *targetLayout =
+        new QHBoxLayout(
+            targetCard);
+
+    targetLayout->setObjectName(
+        QStringLiteral(
+            "navigationTargetLayout"));
+
+    targetLayout->setContentsMargins(
+        13,
+        11,
+        13,
+        11);
+
+    targetLayout->setSpacing(
+        12);
+
+
+    auto *targetMarker =
+        new QLabel(
+            QStringLiteral(
+                "终"),
+            targetCard);
+
+    targetMarker->setObjectName(
+        QStringLiteral(
+            "navigationTargetMarker"));
+
+    targetMarker->setAlignment(
+        Qt::AlignCenter);
+
+
+    auto *targetTextLayout =
+        new QVBoxLayout;
+
+    targetTextLayout->setSpacing(
+        3);
+
+
+    auto *targetTitle =
+        new QLabel(
+            QStringLiteral(
+                "目的地"),
+            targetCard);
+
+    targetTitle->setObjectName(
+        QStringLiteral(
+            "navigationSmallTitle"));
+
+
+    m_targetLabel =
+        new QLabel(
+            targetCard);
+
+    m_targetLabel->setObjectName(
+        QStringLiteral(
+            "navigationCoordinateLabel"));
+
+    m_targetLabel->setWordWrap(
+        true);
+
+
+    targetTextLayout->addWidget(
         targetTitle);
 
-    routeLayout->addWidget(
+    targetTextLayout->addWidget(
         m_targetLabel);
 
+
+    targetLayout->addWidget(
+        targetMarker);
+
+    targetLayout->addLayout(
+        targetTextLayout,
+        1);
+
+
     routeLayout->addWidget(
+        targetCard);
+
+
+    // ========================================================================
+    // 距离区域
+    // ========================================================================
+    auto *distanceCard =
+        new QFrame(
+            routeCard);
+
+    distanceCard->setObjectName(
+        QStringLiteral(
+            "navigationDistanceCard"));
+
+
+    auto *distanceLayout =
+        new QHBoxLayout(
+            distanceCard);
+
+    distanceLayout->setObjectName(
+        QStringLiteral(
+            "navigationDistanceLayout"));
+
+    distanceLayout->setContentsMargins(
+        14,
+        11,
+        14,
+        11);
+
+
+    auto *distanceTitle =
+        new QLabel(
+            QStringLiteral(
+                "距离"),
+            distanceCard);
+
+    distanceTitle->setObjectName(
+        QStringLiteral(
+            "navigationDistanceTitle"));
+
+
+    m_distanceLabel =
+        new QLabel(
+            distanceCard);
+
+    m_distanceLabel->setObjectName(
+        QStringLiteral(
+            "navigationDistanceLabel"));
+
+    m_distanceLabel->setAlignment(
+        Qt::AlignRight |
+        Qt::AlignVCenter);
+
+
+    distanceLayout->addWidget(
+        distanceTitle);
+
+    distanceLayout->addStretch();
+
+    distanceLayout->addWidget(
         m_distanceLabel);
 
-    // =====================================================================
-    // 整体
-    // =====================================================================
-    mainLayout->addLayout(
-        header);
 
-    mainLayout->addWidget(
-        stationTitle);
+    routeLayout->addWidget(
+        distanceCard);
 
-    mainLayout->addWidget(
-        m_stationLabel);
 
     mainLayout->addWidget(
         routeCard);
 
     mainLayout->addStretch();
-applyResponsiveStyle();
 
+
+    scrollArea->setWidget(
+        content);
+
+    rootLayout->addWidget(
+        scrollArea);
+
+
+    applyResponsiveStyle();
 }
 
+
+// ============================================================================
+// 设置导航数据
+// 这里保持原逻辑、原格式、原默认显示不变
+// ============================================================================
 void NavigationPage::setNavigationData(
     const QString &stationName,
     double startLat,
@@ -223,6 +592,7 @@ void NavigationPage::setNavigationData(
 {
     m_stationLabel->setText(
         stationName);
+
 
     m_startLabel->setText(
         QStringLiteral(
@@ -238,6 +608,7 @@ void NavigationPage::setNavigationData(
                 'f',
                 6));
 
+
     m_targetLabel->setText(
         QStringLiteral(
             "%1, %2")
@@ -251,6 +622,7 @@ void NavigationPage::setNavigationData(
                 0,
                 'f',
                 6));
+
 
     if (distance >= 0.0) {
 
@@ -270,15 +642,24 @@ void NavigationPage::setNavigationData(
                 "距离 -- km"));
     }
 }
+
+
+// ============================================================================
+// Resize
+// ============================================================================
 void NavigationPage::resizeEvent(
     QResizeEvent *event)
 {
-    QWidget::resizeEvent(event);
+    QWidget::resizeEvent(
+        event);
 
     applyResponsiveStyle();
 }
 
 
+// ============================================================================
+// 响应式样式
+// ============================================================================
 void NavigationPage::applyResponsiveStyle()
 {
     QWidget *scaleBase =
@@ -286,190 +667,419 @@ void NavigationPage::applyResponsiveStyle()
             ? window()
             : this;
 
+
     const int titleFont =
-        scaledUi(scaleBase, 20);
+        scaledUi(
+            scaleBase,
+            22);
 
     const int stationFont =
-        scaledUi(scaleBase, 19);
+        scaledUi(
+            scaleBase,
+            19);
+
+    const int routeTitleFont =
+        scaledUi(
+            scaleBase,
+            15);
 
     const int normalFont =
-        scaledUi(scaleBase, 14);
+        scaledUi(
+            scaleBase,
+            14);
 
     const int smallFont =
-        scaledUi(scaleBase, 12);
+        scaledUi(
+            scaleBase,
+            12);
+
+    const int tinyFont =
+        scaledUi(
+            scaleBase,
+            11);
 
     const int distanceFont =
-        scaledUi(scaleBase, 15);
+        scaledUi(
+            scaleBase,
+            15);
 
+    const int cardRadius =
+        scaledUi(
+            scaleBase,
+            18);
+
+    const int smallRadius =
+        scaledUi(
+            scaleBase,
+            10);
+
+
+    // ========================================================================
+    // 页面整体样式
+    // ========================================================================
+    setStyleSheet(
+        QStringLiteral(
+
+            // ================================================================
+            // 页面
+            // ================================================================
+            "QWidget#navigationPage{"
+            "background:transparent;"
+            "color:%1;"
+            "}"
+
+            "QWidget#navigationContent{"
+            "background:transparent;"
+            "}"
+
+            "QScrollArea#navigationScrollArea{"
+            "background:transparent;"
+            "border:none;"
+            "}"
+
+            // ================================================================
+            // 返回按钮
+            // ================================================================
+            "QPushButton#navigationBackButton{"
+            "background:%2;"
+            "color:%3;"
+            "border:1px solid #D6E1DA;"
+            "border-radius:%4px;"
+            "font-size:%5px;"
+            "font-weight:700;"
+            "padding:7px 13px;"
+            "}"
+
+            "QPushButton#navigationBackButton:hover{"
+            "background:#DFE9E3;"
+            "}"
+
+            // ================================================================
+            // 标题
+            // ================================================================
+            "QLabel#navigationTitle{"
+            "background:transparent;"
+            "color:%1;"
+            "font-size:%6px;"
+            "font-weight:800;"
+            "}"
+
+            // ================================================================
+            // 目标站点卡
+            // ================================================================
+            "QFrame#navigationStationCard{"
+            "background:%7;"
+            "border:1px solid %8;"
+            "border-radius:%9px;"
+            "}"
+
+            "QLabel#navigationStationTitle{"
+            "background:transparent;"
+            "color:%10;"
+            "font-size:%11px;"
+            "}"
+
+            "QLabel#navigationStationLabel{"
+            "background:transparent;"
+            "color:%1;"
+            "font-size:%12px;"
+            "font-weight:800;"
+            "}"
+
+            // ================================================================
+            // 路线卡
+            // ================================================================
+            "QFrame#navigationRouteCard{"
+            "background:%7;"
+            "border:1px solid %8;"
+            "border-radius:%9px;"
+            "}"
+
+            "QLabel#navigationRouteTitle{"
+            "background:transparent;"
+            "color:%1;"
+            "font-size:%13px;"
+            "font-weight:800;"
+            "}"
+
+            "QLabel#navigationRouteBadge{"
+            "background:%2;"
+            "color:%3;"
+            "border:none;"
+            "border-radius:%4px;"
+            "font-size:%14px;"
+            "font-weight:700;"
+            "padding:4px 9px;"
+            "}"
+
+            // ================================================================
+            // 起点终点
+            // ================================================================
+            "QFrame#navigationPointCard{"
+            "background:%15;"
+            "border:1px solid %8;"
+            "border-radius:%4px;"
+            "}"
+
+            "QLabel#navigationSmallTitle{"
+            "background:transparent;"
+            "color:%10;"
+            "font-size:%14px;"
+            "}"
+
+            "QLabel#navigationCoordinateLabel{"
+            "background:transparent;"
+            "color:%1;"
+            "font-size:%5px;"
+            "font-weight:600;"
+            "}"
+
+            // ================================================================
+            // 起点 Marker
+            // ================================================================
+            "QLabel#navigationStartMarker{"
+            "background:#EAF3ED;"
+            "color:#4F8668;"
+            "border:none;"
+            "border-radius:%4px;"
+            "font-size:%14px;"
+            "font-weight:800;"
+            "min-width:30px;"
+            "min-height:30px;"
+            "}"
+
+            // ================================================================
+            // 终点 Marker
+            // ================================================================
+            "QLabel#navigationTargetMarker{"
+            "background:#FFF3DF;"
+            "color:#A86D1E;"
+            "border:none;"
+            "border-radius:%4px;"
+            "font-size:%14px;"
+            "font-weight:800;"
+            "min-width:30px;"
+            "min-height:30px;"
+            "}"
+
+            // ================================================================
+            // 箭头
+            // ================================================================
+            "QLabel#navigationArrow{"
+            "background:transparent;"
+            "color:%3;"
+            "font-size:%16px;"
+            "font-weight:700;"
+            "}"
+
+            // ================================================================
+            // 距离
+            // ================================================================
+            "QFrame#navigationDistanceCard{"
+            "background:%2;"
+            "border:1px solid #DCE5DF;"
+            "border-radius:%4px;"
+            "}"
+
+            "QLabel#navigationDistanceTitle{"
+            "background:transparent;"
+            "color:%10;"
+            "font-size:%11px;"
+            "}"
+
+            "QLabel#navigationDistanceLabel{"
+            "background:transparent;"
+            "color:%3;"
+            "font-size:%17px;"
+            "font-weight:800;"
+            "}")
+
+        .arg(
+            UiTheme::textPrimary())      // %1
+
+        .arg(
+            UiTheme::primarySoft())      // %2
+
+        .arg(
+            UiTheme::primary())          // %3
+
+        .arg(
+            smallRadius)                 // %4
+
+        .arg(
+            normalFont)                  // %5
+
+        .arg(
+            titleFont)                   // %6
+
+        .arg(
+            UiTheme::surface())          // %7
+
+        .arg(
+            UiTheme::border())           // %8
+
+        .arg(
+            cardRadius)                  // %9
+
+        .arg(
+            UiTheme::textSecondary())    // %10
+
+        .arg(
+            smallFont)                   // %11
+
+        .arg(
+            stationFont)                 // %12
+
+        .arg(
+            routeTitleFont)              // %13
+
+        .arg(
+            tinyFont)                    // %14
+
+        .arg(
+            UiTheme::surfaceSoft())      // %15
+
+        .arg(
+            scaledUi(
+                scaleBase,
+                22))                     // %16
+
+        .arg(
+            distanceFont));              // %17
+
+
+    // ========================================================================
     // 页面整体边距
+    // ========================================================================
     if (auto *mainLayout =
-            qobject_cast<QVBoxLayout *>(
-                layout())) {
+            findChild<QVBoxLayout *>(
+                QStringLiteral(
+                    "navigationMainLayout"))) {
 
         mainLayout->setContentsMargins(
-            scaledUi(scaleBase, 16),
-            scaledUi(scaleBase, 14),
-            scaledUi(scaleBase, 16),
-            scaledUi(scaleBase, 16));
+            scaledUi(scaleBase, 18),
+            scaledUi(scaleBase, 18),
+            scaledUi(scaleBase, 18),
+            scaledUi(scaleBase, 18));
 
         mainLayout->setSpacing(
-            scaledUi(scaleBase, 14));
+            scaledUi(
+                scaleBase,
+                14));
     }
 
-    // 返回按钮
-    if (auto *backButton =
-            findChild<QPushButton *>(
+
+    // ========================================================================
+    // 页头
+    // ========================================================================
+    if (auto *headerLayout =
+            findChild<QHBoxLayout *>(
                 QStringLiteral(
-                    "navigationBackButton"))) {
+                    "navigationHeaderLayout"))) {
 
-        backButton->setStyleSheet(
-            QStringLiteral(
-                "QPushButton{"
-                "background:transparent;"
-                "color:#1d4ed8;"
-                "border:1px solid #1d4ed8;"
-                "border-radius:%1px;"
-                "padding:%2px %3px;"
-                "font-size:%4px;"
-                "font-weight:600;"
-                "}"
-                "QPushButton:hover{"
-                "background:#1d4ed8;"
-                "color:#ffffff;"
-                "}")
-                .arg(
-                    scaledUi(scaleBase, 8))
-                .arg(
-                    scaledUi(scaleBase, 6))
-                .arg(
-                    scaledUi(scaleBase, 14))
-                .arg(normalFont));
+        headerLayout->setSpacing(
+            scaledUi(
+                scaleBase,
+                10));
     }
 
-    // 页面标题
-    if (auto *title =
-            findChild<QLabel *>(
+
+    // ========================================================================
+    // 站点卡
+    // ========================================================================
+    if (auto *stationLayout =
+            findChild<QVBoxLayout *>(
                 QStringLiteral(
-                    "navigationTitle"))) {
+                    "navigationStationLayout"))) {
 
-        title->setStyleSheet(
-            QStringLiteral(
-                "font-size:%1px;"
-                "font-weight:bold;")
-                .arg(titleFont));
+        stationLayout->setContentsMargins(
+            scaledUi(scaleBase, 18),
+            scaledUi(scaleBase, 16),
+            scaledUi(scaleBase, 18),
+            scaledUi(scaleBase, 16));
+
+        stationLayout->setSpacing(
+            scaledUi(
+                scaleBase,
+                7));
     }
 
-    // “导航至”
-    if (auto *stationTitle =
-            findChild<QLabel *>(
+
+    // ========================================================================
+    // 路线卡
+    // ========================================================================
+    if (auto *routeLayout =
+            findChild<QVBoxLayout *>(
                 QStringLiteral(
-                    "navigationStationTitle"))) {
+                    "navigationRouteLayout"))) {
 
-        stationTitle->setStyleSheet(
-            QStringLiteral(
-                "color:#86909c;"
-                "font-size:%1px;")
-                .arg(
-                    scaledUi(scaleBase, 13)));
+        routeLayout->setContentsMargins(
+            scaledUi(scaleBase, 18),
+            scaledUi(scaleBase, 16),
+            scaledUi(scaleBase, 18),
+            scaledUi(scaleBase, 16));
+
+        routeLayout->setSpacing(
+            scaledUi(
+                scaleBase,
+                12));
     }
 
-    // 目标站名
-    if (m_stationLabel) {
 
-        m_stationLabel->setStyleSheet(
-            QStringLiteral(
-                "font-size:%1px;"
-                "font-weight:bold;"
-                "color:#1d2129;")
-                .arg(stationFont));
-    }
-
-    // 路线卡片
-    if (auto *routeCard =
-            findChild<QFrame *>(
+    // ========================================================================
+    // 起点布局
+    // ========================================================================
+    if (auto *startLayout =
+            findChild<QHBoxLayout *>(
                 QStringLiteral(
-                    "navigationRouteCard"))) {
+                    "navigationStartLayout"))) {
 
-        routeCard->setStyleSheet(
-            QStringLiteral(
-                "QFrame#navigationRouteCard{"
-                "background:#ffffff;"
-                "border:1px solid #d6e4ff;"
-                "border-radius:%1px;"
-                "}")
-                .arg(
-                    scaledUi(scaleBase, 10)));
+        startLayout->setContentsMargins(
+            scaledUi(scaleBase, 13),
+            scaledUi(scaleBase, 11),
+            scaledUi(scaleBase, 13),
+            scaledUi(scaleBase, 11));
 
-        if (auto *routeLayout =
-                qobject_cast<QVBoxLayout *>(
-                    routeCard->layout())) {
-
-            routeLayout->setContentsMargins(
-                scaledUi(scaleBase, 16),
-                scaledUi(scaleBase, 14),
-                scaledUi(scaleBase, 16),
-                scaledUi(scaleBase, 14));
-
-            routeLayout->setSpacing(
-                scaledUi(scaleBase, 12));
-        }
+        startLayout->setSpacing(
+            scaledUi(
+                scaleBase,
+                12));
     }
 
-    // “当前位置 / 目的地”
-    const auto smallTitles =
-        findChildren<QLabel *>(
-            QStringLiteral(
-                "navigationSmallTitle"));
 
-    for (QLabel *label : smallTitles) {
-
-        label->setStyleSheet(
-            QStringLiteral(
-                "color:#86909c;"
-                "font-size:%1px;")
-                .arg(smallFont));
-    }
-
-    // 起点坐标
-    if (m_startLabel) {
-
-        m_startLabel->setStyleSheet(
-            QStringLiteral(
-                "font-size:%1px;")
-                .arg(normalFont));
-    }
-
-    // 终点坐标
-    if (m_targetLabel) {
-
-        m_targetLabel->setStyleSheet(
-            QStringLiteral(
-                "font-size:%1px;")
-                .arg(normalFont));
-    }
-
-    // 箭头
-    if (auto *arrow =
-            findChild<QLabel *>(
+    // ========================================================================
+    // 终点布局
+    // ========================================================================
+    if (auto *targetLayout =
+            findChild<QHBoxLayout *>(
                 QStringLiteral(
-                    "navigationArrow"))) {
+                    "navigationTargetLayout"))) {
 
-        arrow->setStyleSheet(
-            QStringLiteral(
-                "font-size:%1px;"
-                "color:#1d4ed8;")
-                .arg(
-                    scaledUi(scaleBase, 22)));
+        targetLayout->setContentsMargins(
+            scaledUi(scaleBase, 13),
+            scaledUi(scaleBase, 11),
+            scaledUi(scaleBase, 13),
+            scaledUi(scaleBase, 11));
+
+        targetLayout->setSpacing(
+            scaledUi(
+                scaleBase,
+                12));
     }
 
-    // 距离
-    if (m_distanceLabel) {
 
-        m_distanceLabel->setStyleSheet(
-            QStringLiteral(
-                "font-size:%1px;"
-                "font-weight:bold;"
-                "color:#1d4ed8;")
-                .arg(distanceFont));
+    // ========================================================================
+    // 距离卡
+    // ========================================================================
+    if (auto *distanceLayout =
+            findChild<QHBoxLayout *>(
+                QStringLiteral(
+                    "navigationDistanceLayout"))) {
+
+        distanceLayout->setContentsMargins(
+            scaledUi(scaleBase, 14),
+            scaledUi(scaleBase, 11),
+            scaledUi(scaleBase, 14),
+            scaledUi(scaleBase, 11));
     }
 }

@@ -10,6 +10,7 @@
 #include "protocol.h"
 #include "navigationpage.h"
 #include "windowhelper.h"
+#include "uitheme.h"
 
 
 #include <QButtonGroup>
@@ -58,7 +59,9 @@ MainWindow::MainWindow(
     , m_userId(userId)
     , m_balance(balance)
 {
-    
+        setObjectName(
+        QStringLiteral("userMainWindow"));
+
     setWindowTitle(
         QStringLiteral("充电用户端"));
 
@@ -109,23 +112,32 @@ MainWindow::MainWindow(
         new QVBoxLayout(homePage);
 
     homeLayout->setContentsMargins(
-        0, 0, 0, 0);
+    14, 14, 14, 0);
 
-    homeLayout->setSpacing(0);
+
+    homeLayout->setSpacing(12);
 
     // =========================================================================
     // 地址定位区域
     // =========================================================================
     auto *locationPanel =
         new QWidget(homePage);
+    locationPanel->setObjectName(
+    QStringLiteral("locationPanel"));
+    UiTheme::applyCardShadow(
+    locationPanel,
+    18,
+    4);
+
 
     auto *locationMainLayout =
         new QVBoxLayout(locationPanel);
 
     locationMainLayout->setContentsMargins(
-        12, 10, 12, 8);
+    16, 14, 16, 12);
 
-    locationMainLayout->setSpacing(6);
+locationMainLayout->setSpacing(8);
+
 
     // 第一行：
     // 城市 + 地址 + 定位按钮
@@ -139,6 +151,9 @@ MainWindow::MainWindow(
     // ------------------------------------------------------------------------
     m_regionCombo =
         new QComboBox(locationPanel);
+    m_regionCombo->setObjectName(
+    QStringLiteral("regionCombo"));
+
 
     m_regionCombo->addItem(
         QStringLiteral("北京市"));
@@ -165,6 +180,9 @@ MainWindow::MainWindow(
     // ------------------------------------------------------------------------
     m_addressEdit =
         new QLineEdit(locationPanel);
+    m_addressEdit->setObjectName(
+    QStringLiteral("addressEdit"));
+
 
     m_addressEdit->setPlaceholderText(
         QStringLiteral(
@@ -177,6 +195,9 @@ MainWindow::MainWindow(
         new QPushButton(
             QStringLiteral("定位"),
             locationPanel);
+    m_locationBtn->setObjectName(
+    QStringLiteral("locationButton"));
+
 
     m_locationBtn->setCursor(
         Qt::PointingHandCursor);
@@ -199,6 +220,9 @@ MainWindow::MainWindow(
             QStringLiteral(
                 "请输入当前位置"),
             locationPanel);
+    m_locationTip->setObjectName(
+    QStringLiteral("locationTip"));
+
 
     m_locationTip->setStyleSheet(
         "color:#86909c;"
@@ -252,9 +276,9 @@ MainWindow::MainWindow(
         new QHBoxLayout(navBar);
 
     navLayout->setContentsMargins(
-        0, 0, 0, 0);
+    12, 8, 12, 10);
 
-    navLayout->setSpacing(0);
+navLayout->setSpacing(8);
 
     struct NavItem
     {
@@ -286,6 +310,8 @@ MainWindow::MainWindow(
 
         btn->setObjectName(
             "navBtn");
+        btn->setMinimumHeight(46);
+
 
         btn->setCheckable(true);
 
@@ -985,27 +1011,129 @@ void MainWindow::applyResponsiveStyle()
         qRound(14 * scale);
 
     setStyleSheet(
-        QStringLiteral(
-            "QWidget{font-size:%1px;}"
-            "QLineEdit,QComboBox,QDoubleSpinBox{"
-            "font-size:%2px;"
-            "padding:%3px %4px;"
-            "}"
-            "QPushButton{"
-            "font-size:%2px;"
-            "padding:%5px %6px;"
-            "}"
-            "QPushButton#navBtn{"
-            "font-size:%2px;"
-            "padding:%7px 0;"
-            "}")
-            .arg(normalFont)
-            .arg(controlFont)
-            .arg(inputPaddingV)
-            .arg(inputPaddingH)
-            .arg(buttonPaddingV)
-            .arg(buttonPaddingH)
-            .arg(navPadding));
+    QStringLiteral(
+
+        // ========================================================
+        // 主窗口
+        // ========================================================
+        "QWidget#userMainWindow{"
+        "background:%1;"
+        "color:%2;"
+        "}"
+
+        // ========================================================
+        // 首页定位卡
+        // ========================================================
+        "QWidget#locationPanel{"
+        "background:#FFFFFF;"
+        "border:1px solid %3;"
+        "border-radius:%4px;"
+        "}"
+
+        "QComboBox#regionCombo,"
+        "QLineEdit#addressEdit{"
+        "background:#FAF8F3;"
+        "color:%2;"
+        "border:1px solid %3;"
+        "border-radius:%5px;"
+        "font-size:%6px;"
+        "padding:%7px %8px;"
+        "}"
+
+        "QComboBox#regionCombo:focus,"
+        "QLineEdit#addressEdit:focus{"
+        "border:1px solid %9;"
+        "}"
+
+        // ========================================================
+        // 定位按钮
+        // ========================================================
+        "QPushButton#locationButton{"
+        "background:%9;"
+        "color:#FFFFFF;"
+        "border:none;"
+        "border-radius:%5px;"
+        "font-size:%6px;"
+        "font-weight:700;"
+        "padding:%10px %11px;"
+        "}"
+
+        "QPushButton#locationButton:hover{"
+        "background:#284C41;"
+        "}"
+
+        "QPushButton#locationButton:disabled{"
+        "background:#D7DAD7;"
+        "color:#999F9C;"
+        "}"
+
+        // ========================================================
+        // 定位提示
+        // ========================================================
+        "QLabel#locationTip{"
+        "background:transparent;"
+        "color:%12;"
+        "font-size:%13px;"
+        "padding-left:2px;"
+        "}"
+
+        // ========================================================
+        // 底部导航
+        // ========================================================
+        "QWidget#navBar{"
+        "background:#FFFFFF;"
+        "border-top:1px solid %3;"
+        "}"
+
+        "QPushButton#navBtn{"
+        "background:transparent;"
+        "border:none;"
+        "border-radius:%5px;"
+        "color:#858D89;"
+        "font-size:%6px;"
+        "font-weight:600;"
+        "padding:%14px 4px;"
+        "}"
+
+        "QPushButton#navBtn:hover{"
+        "background:#F4F2EC;"
+        "color:%2;"
+        "}"
+
+        "QPushButton#navBtn:checked{"
+        "background:#E9F0EC;"
+        "color:%9;"
+        "font-weight:700;"
+        "}")
+        .arg(
+            UiTheme::pageBackground())       // %1
+        .arg(
+            UiTheme::textPrimary())          // %2
+        .arg(
+            UiTheme::border())               // %3
+        .arg(
+            qRound(18 * scale))              // %4
+        .arg(
+            qRound(12 * scale))              // %5
+        .arg(
+            controlFont)                     // %6
+        .arg(
+            inputPaddingV)                   // %7
+        .arg(
+            inputPaddingH)                   // %8
+        .arg(
+            UiTheme::primary())              // %9
+        .arg(
+            buttonPaddingV)                  // %10
+        .arg(
+            buttonPaddingH)                  // %11
+        .arg(
+            UiTheme::textSecondary())        // %12
+        .arg(
+            normalFont)                      // %13
+        .arg(
+            navPadding));                    // %14
+
 }
 
 
