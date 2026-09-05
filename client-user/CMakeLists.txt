@@ -16,7 +16,11 @@ add_executable(charging-user
     fonts.qrc
     locationmanager.cpp
     locationmanager.h
-
+    stationcardwidget.cpp
+    stationcardwidget.h
+    navigationpage.cpp
+    navigationpage.h
+    windowhelper.h
 )
 
 set_target_properties(charging-user PROPERTIES

@@ -255,7 +255,7 @@ void ClientHandler::dispatch(const QJsonObject &req)
     if (type == MsgType::AdminUserFreeze) {
         const qint64 targetUserId = data.value("user_id").toVariant().toLongLong();
         const bool frozen = data.value("frozen").toBool();
-        const QJsonObject out = m_db->adminUserFreeze(targetUserId, frozen, code, msg);
+        const QJsonObject out = m_db->adminUserFreeze(sess.userId, targetUserId, frozen, code, msg);
         if (code == Ok && frozen)
             SessionManager::instance().revokeByUser(targetUserId, QStringLiteral("user"));
         reply(makeResponse(type, code, msg, out));
@@ -271,7 +271,7 @@ void ClientHandler::dispatch(const QJsonObject &req)
     }
     if (type == MsgType::AdminPileRestart) {
         const QJsonObject out = m_db->adminPileRestart(
-            data.value("pile_id").toVariant().toLongLong(), code, msg);
+            sess.userId, data.value("pile_id").toVariant().toLongLong(), code, msg);
         reply(makeResponse(type, code, msg, out));
         return;
     }
@@ -282,13 +282,16 @@ void ClientHandler::dispatch(const QJsonObject &req)
         return;
     }
     if (type == MsgType::AdminStationAdd) {
-        const QJsonObject out = m_db->adminStationAdd(data, code, msg);
+        // 身份取自会话（已过管理员鉴权门），加站与写审计日志在同一事务内完成
+        const QJsonObject out = m_db->adminStationAdd(sess.userId, data, code, msg);
         reply(makeResponse(type, code, msg, out));
         return;
     }
     if (type == MsgType::AdminRevenueTrend) {
+        // 管理员角色已由全局鉴权门校验（admin_ 前缀），此处直接查询
         const QJsonObject out = m_db->revenueTrend(data.value("days").toInt(7), code, msg);
-        reply(makeResponse(type, code, msg, out)); return;
+        reply(makeResponse(type, code, msg, out));
+        return;
     }
 
     // ================= 其余接口：占位，待各模块负责人实现 =================

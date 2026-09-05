@@ -8,6 +8,8 @@
 #include "profilepage.h"
 #include "stationlistpage.h"
 #include "protocol.h"
+#include "navigationpage.h"
+#include "windowhelper.h"
 
 
 #include <QButtonGroup>
@@ -20,25 +22,29 @@
 #include <QVBoxLayout>
 #include <QJsonObject>
 #include <QMessageBox>
+#include <QTimer>
 
 
 // 服务器地址（与登录页保持一致）
 static constexpr const char *kServerHost = "127.0.0.1";
 static constexpr quint16     kServerPort = 9000;
 
-MainWindow::MainWindow(qint64 userId,
-                       const QString &nickname,
-                       const QString &phone,
-                       double balance,
-                       QWidget *parent)
-
+MainWindow::MainWindow(
+    qint64 userId,
+    const QString &nickname,
+    const QString &phone,
+    double balance,
+    const QString &token,
+    QWidget *parent)
     : QWidget(parent)
     , m_net(new NetClient(this))
+
     , m_contentStack(new QStackedWidget)
     , m_homeStack(new QStackedWidget)
     , m_navGroup(new QButtonGroup(this))
     , m_stationPage(new StationListPage(m_net))
     , m_pilePage(new PileListPage(m_net))
+    , m_navigationPage(new NavigationPage)
     , m_chargePage(new ChargePage)
     , m_profilePage(new ProfilePage)
     , m_locationManager(new LocationManager(this))
@@ -51,19 +57,24 @@ MainWindow::MainWindow(qint64 userId,
     , m_userId(userId)
     , m_balance(balance)
 {
+    
     setWindowTitle(
         QStringLiteral("充电用户端"));
 
-    resize(420, 680);
+    // 响应式窗口：按屏幕分辨率自适应手机比例并居中
+    applyPhoneWindow(this);
 
-    // ------------------------------------------------------------------------
-    // 连接业务服务器
-    // ------------------------------------------------------------------------
     if (!m_net->isConnected()) {
         m_net->connectToServer(
             kServerHost,
             kServerPort);
     }
+
+
+    // 必须在任何业务请求之前写入 token。
+    // 否则构造函数里的 unfinished_order 会因无 token 收到 code=9，
+    // 被误判为「登录已失效」。
+    m_net->setToken(token);
 
     connect(m_net, &NetClient::sessionInvalid,
             this, &MainWindow::onSessionInvalid);
@@ -77,6 +88,9 @@ MainWindow::MainWindow(qint64 userId,
 
     m_homeStack->addWidget(
         m_pilePage);
+    m_homeStack->addWidget(
+        m_navigationPage);
+
         // 把当前登录用户 ID 交给桩列表页
         // 预约 reserve 时需要 user_id
     m_pilePage->setUserId(m_userId);
@@ -343,6 +357,53 @@ MainWindow::MainWindow(qint64 userId,
             // 桩列表页面暂时隐藏定位栏
             locationPanel->hide();
         });
+    
+    // =========================================================================
+    // 一键导航
+    // =========================================================================
+    connect(
+        m_stationPage,
+        &StationListPage::navigationRequested,
+        this,
+        [this, locationPanel](
+            qint64 stationId,
+            const QString &name,
+            double startLat,
+            double startLng,
+            double targetLat,
+            double targetLng,
+            double distance) {
+
+            Q_UNUSED(stationId);
+
+            m_navigationPage
+                ->setNavigationData(
+                    name,
+                    startLat,
+                    startLng,
+                    targetLat,
+                    targetLng,
+                    distance);
+
+            m_homeStack->setCurrentWidget(
+                m_navigationPage);
+
+            // 导航页隐藏上方定位栏
+            locationPanel->hide();
+        });
+    connect(
+        m_navigationPage,
+        &NavigationPage::back,
+        this,
+        [this, locationPanel]() {
+
+            m_homeStack->setCurrentWidget(
+                m_stationPage);
+
+            locationPanel->show();
+        });
+
+
 
     // =========================================================================
     // 桩列表返回
@@ -522,6 +583,62 @@ MainWindow::MainWindow(qint64 userId,
                     2));
     });
 
+    // =========================================================================
+    // 修改昵称 → update_profile（NO.18）
+    // =========================================================================
+    connect(
+        m_profilePage,
+        &ProfilePage::nicknameChangeRequested,
+        this,
+        [this](const QString &nickname) {
+
+            QJsonObject data;
+            data["nickname"] = nickname;
+
+            const QJsonObject resp =
+                m_net->request(
+                    Protocol::makeRequest(
+                        Protocol::MsgType::UpdateProfile,
+                        data));
+
+            const int code =
+                resp.value("code").toInt();
+
+            const QString msg =
+                resp.value("msg").toString();
+
+            if (code != Protocol::Ok) {
+
+                // code=9 由全局 onSessionInvalid 统一回登录页，这里只提示其它错误
+                if (code != Protocol::SessionInvalid) {
+
+                    QMessageBox::warning(
+                        this,
+                        QStringLiteral("修改昵称失败"),
+                        msg);
+                }
+
+                return;
+            }
+
+            const QString newNick =
+                resp.value("data")
+                    .toObject()
+                    .value("nickname")
+                    .toString(nickname);
+
+            m_nickname = newNick;
+
+            m_profilePage->setNickname(
+                newNick);
+
+            QMessageBox::information(
+                this,
+                QStringLiteral("修改成功"),
+                QStringLiteral("昵称已更新为：%1")
+                    .arg(newNick));
+        });
+
     connect(
         m_profilePage,
         &ProfilePage::rechargeRequested,
@@ -616,15 +733,45 @@ MainWindow::MainWindow(qint64 userId,
 
             if (!orderNo.isEmpty()) {
 
+                // 先把订单交给充电页并置好状态：
+                // charging / pending_payment 都要显示结算入口（待支付可再次结算补款）。
                 m_chargePage->setReservedOrder(
                     orderNo);
 
-                if (status ==
-                    QStringLiteral("charging")) {
+                const bool charging =
+                    status == QStringLiteral("charging");
+                const bool pending =
+                    status == QStringLiteral("pending_payment");
 
+                if (charging || pending) {
                     m_chargePage
                         ->setChargingState();
                 }
+
+                // NO.20：有未完成订单时弹窗提示，并切到充电页。
+                // 用 singleShot(0) 延后到构造完成、窗口显示后再弹，
+                // 避免在构造函数里进嵌套事件循环。
+                QString tip;
+                if (pending)
+                    tip = QStringLiteral(
+                        "您有一个待支付的订单，请前往充电页完成支付。");
+                else if (charging)
+                    tip = QStringLiteral(
+                        "您有一个正在充电的订单，已为您跳转到充电页。");
+                else
+                    tip = QStringLiteral(
+                        "您有一个已预约的订单，请前往充电页开始充电。");
+
+                QTimer::singleShot(0, this,
+                    [this, tip]() {
+                        m_contentStack->setCurrentIndex(1);
+                        if (auto *b = m_navGroup->button(1))
+                            b->setChecked(true);
+                        QMessageBox::information(
+                            this,
+                            QStringLiteral("未完成订单"),
+                            tip);
+                    });
             }
         }
     }
@@ -716,6 +863,7 @@ MainWindow::MainWindow(qint64 userId,
                 message);
         });
 }
+
 
 void MainWindow::setSessionToken(const QString &token)
 {
