@@ -66,6 +66,14 @@ LoginWindow::LoginWindow(QWidget *parent)
 
 
     m_loginBtn = new QPushButton(QStringLiteral("登 录"), this);
+    m_registerBtn =
+        new QPushButton(
+            QStringLiteral("注 册"),
+            this);
+
+    // 默认隐藏
+    m_registerBtn->hide();
+
 
     m_hint = new QLabel(QStringLiteral("演示账号：13800138001 / 13800138002"), this);
     m_hint->setAlignment(Qt::AlignCenter);
@@ -86,6 +94,7 @@ LoginWindow::LoginWindow(QWidget *parent)
     cardLayout->addSpacing(10);
     cardLayout->addWidget(m_phoneEdit);
     cardLayout->addWidget(m_loginBtn);
+    cardLayout->addWidget(m_registerBtn);
     cardLayout->addSpacing(6);
     cardLayout->addWidget(m_hint);
 
@@ -96,6 +105,21 @@ LoginWindow::LoginWindow(QWidget *parent)
     layout->addStretch();
 
     connect(m_loginBtn, &QPushButton::clicked, this, &LoginWindow::onLoginClicked);
+    connect(
+        m_registerBtn,
+        &QPushButton::clicked,
+        this,
+        &LoginWindow::onRegisterClicked);
+    connect(
+        m_phoneEdit,
+        &QLineEdit::textChanged,
+        this,
+        [this]() {
+
+            m_registerBtn->hide();
+        });
+
+
 }
 
 void LoginWindow::onLoginClicked()
@@ -157,9 +181,16 @@ void LoginWindow::onLoginClicked()
 
 
     QJsonObject data;
+
     data["phone"] = phone;
+    data["register"] = false;
+
     const QJsonObject resp =
-        m_net->request(Protocol::makeRequest(Protocol::MsgType::Login, data));
+        m_net->request(
+            Protocol::makeRequest(
+                Protocol::MsgType::Login,
+                data));
+
 
     m_loginBtn->setEnabled(true);
 
@@ -168,9 +199,44 @@ void LoginWindow::onLoginClicked()
     const int code = resp.value("code").toInt();
     const QString msg = resp.value("msg").toString();
     if (code != Protocol::Ok) {
-        QMessageBox::warning(this, QStringLiteral("登录失败"), msg);
-        return;
-    }
+
+        const QJsonObject result =
+            resp.value("data").toObject();
+
+        const bool canRegister =
+            result.value("can_register").toBool();
+
+        const bool looksUnregistered =
+            msg.contains(
+                QStringLiteral("未注册"))
+            ||
+            msg.contains(
+                QStringLiteral("不存在"));
+
+        if (canRegister ||
+            looksUnregistered) {
+
+            m_hint->setText(
+                QStringLiteral(
+                    "该手机号尚未注册，请点击下方注册"));
+
+            m_hint->setStyleSheet(
+                "color:#e6a23c;"
+                "font-size:12px;");
+
+            m_registerBtn->show();
+
+            return;
+        }
+
+    QMessageBox::warning(
+        this,
+        QStringLiteral("登录失败"),
+        msg);
+
+    return;
+}
+
 
     // 登录成功 → 进入主界面，并把用户信息传进去（供「我的」页显示）
     const QJsonObject u = resp.value("data").toObject();
@@ -196,4 +262,93 @@ void LoginWindow::onLoginClicked()
     mainWin->setAttribute(Qt::WA_DeleteOnClose);
     mainWin->show();
     close();
+}
+
+void LoginWindow::onRegisterClicked()
+{
+    const QString phone =
+        m_phoneEdit
+            ->text()
+            .trimmed();
+
+    const QRegularExpression phoneRegex(
+        QStringLiteral("^1\\d{10}$"));
+
+    if (!phoneRegex
+             .match(phone)
+             .hasMatch()) {
+
+        m_hint->setText(
+            QStringLiteral(
+                "请输入正确的11位手机号"));
+
+        return;
+    }
+
+    if (!m_net->isConnected() &&
+        !m_net->connectToServer(
+            kServerHost,
+            kServerPort)) {
+
+        QMessageBox::warning(
+            this,
+            QStringLiteral("注册失败"),
+            QStringLiteral(
+                "连接服务器失败"));
+
+        return;
+    }
+
+    m_registerBtn->setEnabled(false);
+    m_loginBtn->setEnabled(false);
+
+    m_hint->setText(
+        QStringLiteral(
+            "正在注册，请稍候…"));
+
+    QJsonObject data;
+
+    data["phone"] = phone;
+
+    // 关键：仍然是 login 接口，
+    // 只是告诉服务端本次是明确注册
+    data["register"] = true;
+
+    const QJsonObject resp =
+        m_net->request(
+            Protocol::makeRequest(
+                Protocol::MsgType::Login,
+                data));
+
+    m_registerBtn->setEnabled(true);
+    m_loginBtn->setEnabled(true);
+
+    const int code =
+        resp.value("code").toInt();
+
+    const QString msg =
+        resp.value("msg").toString();
+
+    if (code != Protocol::Ok) {
+
+        QMessageBox::warning(
+            this,
+            QStringLiteral("注册失败"),
+            msg);
+
+        return;
+    }
+
+    m_registerBtn->hide();
+
+    QMessageBox::information(
+        this,
+        QStringLiteral("注册成功"),
+        QStringLiteral(
+            "注册成功，正在进入系统"));
+
+    // ↓↓↓
+    // 这里接你当前 latest main 已经存在的
+    // token + MainWindow 登录成功代码
+    // 不要重新写另一套
 }

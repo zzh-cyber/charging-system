@@ -20,10 +20,18 @@ public:
 
 private slots:
     void onLoginClicked();
+    void onRegisterClicked();
+
 
 private:
     QLineEdit   *m_phoneEdit;
     QPushButton *m_loginBtn;
     QLabel      *m_hint;
     NetClient   *m_net;
+    QPushButton *m_registerBtn = nullptr;
+
+QJsonObject sendLoginRequest(
+    const QString &phone,
+    bool registerMode);
+
 };

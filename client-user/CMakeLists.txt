@@ -21,6 +21,11 @@ add_executable(charging-user
     navigationpage.cpp
     navigationpage.h
     windowhelper.h
+    stationcardwidget.cpp
+    stationcardwidget.h
+    navigationpage.cpp
+    navigationpage.h
+
 )
 
 set_target_properties(charging-user PROPERTIES
