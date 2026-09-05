@@ -1,313 +1,697 @@
 #include "chargepage.h"
+
+#include "uitheme.h"
 #include "windowhelper.h"
 
 #include <QFrame>
+#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
-#include <QVBoxLayout>
 #include <QResizeEvent>
+#include <QScrollArea>
 #include <QTimer>
+#include <QVBoxLayout>
 
 
-
-ChargePage::ChargePage(QWidget *parent)
+// ============================================================================
+// 构造函数
+// ============================================================================
+ChargePage::ChargePage(
+    QWidget *parent)
     : QWidget(parent)
 {
-    // ========================================================================
-    // 总布局
-    // ========================================================================
-    auto *layout = new QVBoxLayout(this);
+    setObjectName(
+        QStringLiteral(
+            "chargePage"));
 
-    layout->setContentsMargins(18, 18, 18, 18);
-    layout->setSpacing(14);
+
+    // ========================================================================
+    // 页面根布局
+    // ========================================================================
+    auto *rootLayout =
+        new QVBoxLayout(this);
+
+    rootLayout->setContentsMargins(
+        0,
+        0,
+        0,
+        0);
+
+    rootLayout->setSpacing(
+        0);
+
+
+    // ========================================================================
+    // 可滚动页面
+    // ========================================================================
+    auto *scrollArea =
+        new QScrollArea(this);
+
+    scrollArea->setObjectName(
+        QStringLiteral(
+            "chargeScrollArea"));
+
+    scrollArea->setWidgetResizable(
+        true);
+
+    scrollArea->setFrameShape(
+        QFrame::NoFrame);
+
+    scrollArea->setHorizontalScrollBarPolicy(
+        Qt::ScrollBarAlwaysOff);
+
+
+    auto *content =
+        new QWidget;
+
+    content->setObjectName(
+        QStringLiteral(
+            "chargeContent"));
+
+
+    auto *layout =
+        new QVBoxLayout(
+            content);
+
+    layout->setObjectName(
+        QStringLiteral(
+            "chargeContentLayout"));
+
+    layout->setContentsMargins(
+        18,
+        18,
+        18,
+        18);
+
+    layout->setSpacing(
+        14);
+
 
     // ========================================================================
     // 页面标题
     // ========================================================================
     auto *title =
-        new QLabel(QStringLiteral("充电"), this);
+        new QLabel(
+            QStringLiteral(
+                "充电"),
+            content);
+
     title->setObjectName(
-    QStringLiteral("chargeTitle"));
+        QStringLiteral(
+            "chargeTitle"));
 
-
-    title->setStyleSheet(
-        "font-size:24px;"
-        "font-weight:700;"
-        "color:#1f2329;");
 
     auto *subtitle =
         new QLabel(
-            QStringLiteral("查看当前订单并完成充电结算"),
-            this);
+            QStringLiteral(
+                "查看当前充电状态、实时记录与订单账单"),
+            content);
+
     subtitle->setObjectName(
-    QStringLiteral("chargeSubtitle"));
+        QStringLiteral(
+            "chargeSubtitle"));
+
+    subtitle->setWordWrap(
+        true);
 
 
-    subtitle->setStyleSheet(
-        "color:#86909c;"
-        "font-size:13px;");
+    layout->addWidget(
+        title);
 
-    layout->addWidget(title);
-    layout->addWidget(subtitle);
+    layout->addWidget(
+        subtitle);
+
 
     // ========================================================================
-    // 当前订单卡片
+    // 当前订单卡
     // ========================================================================
-    auto *orderCard = new QFrame(this);
+    auto *orderCard =
+        new QFrame(content);
+
     orderCard->setObjectName(
-    QStringLiteral("chargeOrderCard"));
+        QStringLiteral(
+            "chargeOrderCard"));
 
+    UiTheme::applyCardShadow(
+        orderCard,
+        18,
+        4);
 
-    orderCard->setStyleSheet(
-        "QFrame{"
-        "background:#ffffff;"
-        "border:1px solid #d6e4ff;"
-        "border-radius:14px;"
-        "}");
 
     auto *orderLayout =
-        new QVBoxLayout(orderCard);
+        new QVBoxLayout(
+            orderCard);
+
+    orderLayout->setObjectName(
+        QStringLiteral(
+            "chargeOrderLayout"));
 
     orderLayout->setContentsMargins(
-        18, 18, 18, 18);
+        18,
+        18,
+        18,
+        18);
 
-    orderLayout->setSpacing(12);
+    orderLayout->setSpacing(
+        14);
+
+
+    // ========================================================================
+    // 订单顶部：状态标题 + 状态标签
+    // ========================================================================
+    auto *orderTopRow =
+        new QHBoxLayout;
+
+    orderTopRow->setSpacing(
+        12);
+
+
+    auto *stateBlock =
+        new QVBoxLayout;
+
+    stateBlock->setSpacing(
+        5);
+
 
     m_stateTitle =
         new QLabel(
-            QStringLiteral("暂无进行中的充电订单"),
+            QStringLiteral(
+                "暂无进行中的充电订单"),
             orderCard);
 
-    m_stateTitle->setStyleSheet(
-        "border:none;"
-        "font-size:18px;"
-        "font-weight:700;"
-        "color:#1f2329;");
+    m_stateTitle->setObjectName(
+        QStringLiteral(
+            "chargeStateTitle"));
+
+    m_stateTitle->setWordWrap(
+        true);
+
 
     m_orderLabel =
         new QLabel(
-            QStringLiteral("订单号：--"),
+            QStringLiteral(
+                "订单号：--"),
             orderCard);
 
-    m_orderLabel->setStyleSheet(
-        "border:none;"
-        "color:#4e5969;"
-        "font-size:14px;");
+    m_orderLabel->setObjectName(
+        QStringLiteral(
+            "chargeOrderNumber"));
+
+    m_orderLabel->setWordWrap(
+        true);
+
+
+    stateBlock->addWidget(
+        m_stateTitle);
+
+    stateBlock->addWidget(
+        m_orderLabel);
+
 
     m_statusLabel =
         new QLabel(
-            QStringLiteral("状态：等待预约"),
+            QStringLiteral(
+                "状态：等待预约"),
             orderCard);
 
-    m_statusLabel->setStyleSheet(
-        "border:none;"
-        "color:#86909c;"
-        "font-size:14px;");
+    m_statusLabel->setObjectName(
+        QStringLiteral(
+            "chargeStatusBadge"));
 
-    orderLayout->addWidget(m_stateTitle);
-    orderLayout->addWidget(m_orderLabel);
-    orderLayout->addWidget(m_statusLabel);
-        // ========================================================================
-    // 充电实时记录
+    m_statusLabel->setAlignment(
+        Qt::AlignCenter);
+
+
+    orderTopRow->addLayout(
+        stateBlock,
+        1);
+
+    orderTopRow->addWidget(
+        m_statusLabel,
+        0,
+        Qt::AlignTop);
+
+
+    orderLayout->addLayout(
+        orderTopRow);
+
+
+    // ========================================================================
+    // 充电实时记录卡
     // ========================================================================
     m_chargingRecordCard =
-        new QFrame(orderCard);
+        new QFrame(
+            orderCard);
 
     m_chargingRecordCard->setObjectName(
-        QStringLiteral("chargingRecordCard"));
+        QStringLiteral(
+            "chargingRecordCard"));
+
 
     auto *recordLayout =
         new QVBoxLayout(
             m_chargingRecordCard);
 
+    recordLayout->setObjectName(
+        QStringLiteral(
+            "chargingRecordLayout"));
+
     recordLayout->setContentsMargins(
-        14, 12, 14, 12);
+        14,
+        14,
+        14,
+        14);
 
-    recordLayout->setSpacing(8);
+    recordLayout->setSpacing(
+        12);
 
 
-    // 已充时间
-    auto *elapsedRow =
+    // ========================================================================
+    // 实时记录标题
+    // ========================================================================
+    auto *recordHeader =
         new QHBoxLayout;
 
-    auto *elapsedTitle =
+
+    auto *recordTitle =
         new QLabel(
-            QStringLiteral("已充时间"),
+            QStringLiteral(
+                "实时充电记录"),
             m_chargingRecordCard);
 
-    m_elapsedLabel =
+    recordTitle->setObjectName(
+        QStringLiteral(
+            "chargeRecordTitle"));
+
+
+    auto *recordBadge =
         new QLabel(
-            QStringLiteral("00:00:00"),
+            QStringLiteral(
+                "实时预估"),
             m_chargingRecordCard);
 
-    elapsedRow->addWidget(elapsedTitle);
-    elapsedRow->addStretch();
-    elapsedRow->addWidget(m_elapsedLabel);
+    recordBadge->setObjectName(
+        QStringLiteral(
+            "chargeRecordBadge"));
 
-    recordLayout->addLayout(elapsedRow);
-
-
-    // 当前功率
-    auto *powerRow =
-        new QHBoxLayout;
-
-    auto *powerTitle =
-        new QLabel(
-            QStringLiteral("当前功率"),
-            m_chargingRecordCard);
-
-    m_powerLabel =
-        new QLabel(
-            QStringLiteral("-- kW"),
-            m_chargingRecordCard);
-
-    powerRow->addWidget(powerTitle);
-    powerRow->addStretch();
-    powerRow->addWidget(m_powerLabel);
-
-    recordLayout->addLayout(powerRow);
+    recordBadge->setAlignment(
+        Qt::AlignCenter);
 
 
-    // 已充电量
-    auto *currentKwhRow =
-        new QHBoxLayout;
+    recordHeader->addWidget(
+        recordTitle);
 
-    auto *currentKwhTitle =
-        new QLabel(
-            QStringLiteral("已充电量"),
-            m_chargingRecordCard);
+    recordHeader->addStretch();
 
-    m_currentKwhLabel =
-        new QLabel(
-            QStringLiteral("-- kWh"),
-            m_chargingRecordCard);
-
-    currentKwhRow->addWidget(currentKwhTitle);
-    currentKwhRow->addStretch();
-    currentKwhRow->addWidget(m_currentKwhLabel);
-
-    recordLayout->addLayout(currentKwhRow);
+    recordHeader->addWidget(
+        recordBadge);
 
 
-    // 预估费用
-    auto *feeRow =
-        new QHBoxLayout;
-
-    auto *feeTitle =
-        new QLabel(
-            QStringLiteral("预估费用"),
-            m_chargingRecordCard);
-
-    m_estimatedFeeLabel =
-        new QLabel(
-            QStringLiteral("￥--"),
-            m_chargingRecordCard);
-
-    feeRow->addWidget(feeTitle);
-    feeRow->addStretch();
-    feeRow->addWidget(m_estimatedFeeLabel);
-
-    recordLayout->addLayout(feeRow);
+    recordLayout->addLayout(
+        recordHeader);
 
 
-    // 默认隐藏，仅充电中显示
+    // ========================================================================
+    // 四项实时数据
+    // ========================================================================
+    auto *metricsGrid =
+        new QGridLayout;
+
+    metricsGrid->setObjectName(
+        QStringLiteral(
+            "chargeMetricsGrid"));
+
+    metricsGrid->setHorizontalSpacing(
+        10);
+
+    metricsGrid->setVerticalSpacing(
+        10);
+
+
+    const auto createMetricCard =
+        [this](
+            const QString &caption,
+            const QString &initialValue,
+            const QString &role,
+            QLabel *&valueLabel) {
+
+            auto *card =
+                new QFrame(
+                    m_chargingRecordCard);
+
+            card->setObjectName(
+                QStringLiteral(
+                    "chargeMetricCard"));
+
+
+            auto *itemLayout =
+                new QVBoxLayout(
+                    card);
+
+            itemLayout->setObjectName(
+                QStringLiteral(
+                    "chargeMetricItemLayout"));
+
+            itemLayout->setContentsMargins(
+                12,
+                10,
+                12,
+                10);
+
+            itemLayout->setSpacing(
+                4);
+
+
+            auto *captionLabel =
+                new QLabel(
+                    caption,
+                    card);
+
+            captionLabel->setObjectName(
+                QStringLiteral(
+                    "chargeMetricCaption"));
+
+
+            valueLabel =
+                new QLabel(
+                    initialValue,
+                    card);
+
+            valueLabel->setObjectName(
+                QStringLiteral(
+                    "chargeMetricValue"));
+
+            valueLabel->setProperty(
+                "metricRole",
+                role);
+
+
+            itemLayout->addWidget(
+                captionLabel);
+
+            itemLayout->addWidget(
+                valueLabel);
+
+
+            return card;
+        };
+
+
+    auto *elapsedCard =
+        createMetricCard(
+            QStringLiteral(
+                "已充时间"),
+            QStringLiteral(
+                "00:00:00"),
+            QStringLiteral(
+                "time"),
+            m_elapsedLabel);
+
+
+    auto *powerCard =
+        createMetricCard(
+            QStringLiteral(
+                "当前功率"),
+            QStringLiteral(
+                "-- kW"),
+            QStringLiteral(
+                "normal"),
+            m_powerLabel);
+
+
+    auto *kwhCard =
+        createMetricCard(
+            QStringLiteral(
+                "已充电量"),
+            QStringLiteral(
+                "-- kWh"),
+            QStringLiteral(
+                "normal"),
+            m_currentKwhLabel);
+
+
+    auto *feeCard =
+        createMetricCard(
+            QStringLiteral(
+                "预估费用"),
+            QStringLiteral(
+                "￥--"),
+            QStringLiteral(
+                "fee"),
+            m_estimatedFeeLabel);
+
+
+    metricsGrid->addWidget(
+        elapsedCard,
+        0,
+        0);
+
+    metricsGrid->addWidget(
+        powerCard,
+        0,
+        1);
+
+    metricsGrid->addWidget(
+        kwhCard,
+        1,
+        0);
+
+    metricsGrid->addWidget(
+        feeCard,
+        1,
+        1);
+
+
+    metricsGrid->setColumnStretch(
+        0,
+        1);
+
+    metricsGrid->setColumnStretch(
+        1,
+        1);
+
+
+    recordLayout->addLayout(
+        metricsGrid);
+
+
+    // 默认仅充电中显示
     m_chargingRecordCard->hide();
+
 
     orderLayout->addWidget(
         m_chargingRecordCard);
 
 
     // ========================================================================
-    // 开始充电
+    // 最终账单结果
     // ========================================================================
+    m_resultLabel =
+        new QLabel(
+            orderCard);
+
+    m_resultLabel->setObjectName(
+        QStringLiteral(
+            "chargeResultLabel"));
+
+    m_resultLabel->setWordWrap(
+        true);
+
+    m_resultLabel->setAlignment(
+        Qt::AlignLeft |
+        Qt::AlignVCenter);
+
+    m_resultLabel->hide();
+
+
+    orderLayout->addWidget(
+        m_resultLabel);
+
+
+    // ========================================================================
+    // 操作按钮
+    // ========================================================================
+    auto *actionLayout =
+        new QHBoxLayout;
+
+    actionLayout->setObjectName(
+        QStringLiteral(
+            "chargeActionLayout"));
+
+    actionLayout->setSpacing(
+        10);
+
+
     m_startButton =
         new QPushButton(
-            QStringLiteral("开始充电"),
+            QStringLiteral(
+                "开始充电"),
             orderCard);
+
+    m_startButton->setObjectName(
+        QStringLiteral(
+            "chargeStartButton"));
 
     m_startButton->setCursor(
         Qt::PointingHandCursor);
 
-    orderLayout->addWidget(m_startButton);
 
-
-    // ========================================================================
-    // 结束并结算
-    // ========================================================================
     m_settleButton =
-    new QPushButton(
-        QStringLiteral("结束充电"),
-        orderCard);
+        new QPushButton(
+            QStringLiteral(
+                "结束充电"),
+            orderCard);
 
+    m_settleButton->setObjectName(
+        QStringLiteral(
+            "chargeFinishButton"));
 
     m_settleButton->setCursor(
         Qt::PointingHandCursor);
 
-    orderLayout->addWidget(m_settleButton);
 
-    // ========================================================================
-    // 结算结果
-    // ========================================================================
-    m_resultLabel =
-        new QLabel(orderCard);
-
-    m_resultLabel->setWordWrap(true);
-
-    m_resultLabel->setStyleSheet(
-        "border:none;"
-        "background:#f2f7ff;"
-        "border-radius:8px;"
-        "padding:10px;"
-        "color:#1d4ed8;"
-        "font-size:14px;"
-        "font-weight:600;");
-
-    orderLayout->addWidget(m_resultLabel);
     m_payButton =
-    new QPushButton(
-        QStringLiteral("确认支付"),
+        new QPushButton(
+            QStringLiteral(
+                "确认支付"),
+            orderCard);
+
+    m_payButton->setObjectName(
+        QStringLiteral(
+            "chargePayButton"));
+
+    m_payButton->setCursor(
+        Qt::PointingHandCursor);
+
+
+    actionLayout->addWidget(
+        m_startButton,
+        1);
+
+    actionLayout->addWidget(
+        m_settleButton,
+        1);
+
+    actionLayout->addWidget(
+        m_payButton,
+        1);
+
+
+    orderLayout->addLayout(
+        actionLayout);
+
+
+    layout->addWidget(
         orderCard);
 
-m_payButton->setCursor(
-    Qt::PointingHandCursor);
-
-m_payButton->hide();
-
-orderLayout->addWidget(
-    m_payButton);
-
-    layout->addWidget(orderCard);
 
     // ========================================================================
-    // 提示区域
+    // 当前提示 / 计费说明
     // ========================================================================
+    auto *guideCard =
+        new QFrame(
+            content);
+
+    guideCard->setObjectName(
+        QStringLiteral(
+            "chargeGuideCard"));
+
+
+    auto *guideLayout =
+        new QVBoxLayout(
+            guideCard);
+
+    guideLayout->setObjectName(
+        QStringLiteral(
+            "chargeGuideLayout"));
+
+    guideLayout->setContentsMargins(
+        16,
+        14,
+        16,
+        14);
+
+    guideLayout->setSpacing(
+        7);
+
+
+    auto *guideTitle =
+        new QLabel(
+            QStringLiteral(
+                "当前提示"),
+            guideCard);
+
+    guideTitle->setObjectName(
+        QStringLiteral(
+            "chargeGuideTitle"));
+
+
     m_tipLabel =
         new QLabel(
             QStringLiteral(
                 "请先在首页选择充电桩并完成预约"),
-            this);
+            guideCard);
+
+    m_tipLabel->setObjectName(
+        QStringLiteral(
+            "chargeTipLabel"));
+
+    m_tipLabel->setWordWrap(
+        true);
 
     m_tipLabel->setAlignment(
-        Qt::AlignCenter);
+        Qt::AlignLeft |
+        Qt::AlignVCenter);
 
-    m_tipLabel->setWordWrap(true);
 
-    m_tipLabel->setStyleSheet(
-        "color:#86909c;"
-        "font-size:13px;"
-        "padding:8px;");
+    auto *billingNote =
+        new QLabel(
+            QStringLiteral(
+                "计费说明：充电中的电量与费用为实时预估，"
+                "最终以充电结束后的服务端账单为准。"),
+            guideCard);
 
-    layout->addWidget(m_tipLabel);
+    billingNote->setObjectName(
+        QStringLiteral(
+            "chargeBillingNote"));
+
+    billingNote->setWordWrap(
+        true);
+
+
+    guideLayout->addWidget(
+        guideTitle);
+
+    guideLayout->addWidget(
+        m_tipLabel);
+
+    guideLayout->addWidget(
+        billingNote);
+
+
+    layout->addWidget(
+        guideCard);
 
     layout->addStretch();
-        // ========================================================================
+
+
+    scrollArea->setWidget(
+        content);
+
+    rootLayout->addWidget(
+        scrollArea);
+
+
+    // ========================================================================
     // 充电实时计时器
     // ========================================================================
     m_chargeTimer =
         new QTimer(this);
 
-    m_chargeTimer->setInterval(1000);
+    m_chargeTimer->setInterval(
+        1000);
+
 
     connect(
         m_chargeTimer,
@@ -317,7 +701,8 @@ orderLayout->addWidget(
 
 
     // ========================================================================
-    // 按钮事件
+    // 开始充电
+    // 业务逻辑保持不变
     // ========================================================================
     connect(
         m_startButton,
@@ -325,85 +710,132 @@ orderLayout->addWidget(
         this,
         [this]() {
 
-            if (m_state != ChargeState::Reserved ||
+            if (m_state !=
+                    ChargeState::Reserved ||
                 m_orderNo.isEmpty()) {
+
                 return;
             }
+
 
             emit startChargeRequested(
                 m_orderNo);
         });
 
-connect(
-    m_settleButton,
-    &QPushButton::clicked,
-    this,
-    [this]() {
 
-        if (m_state != ChargeState::Charging ||
-            m_orderNo.isEmpty()) {
-            return;
-        }
+    // ========================================================================
+    // 结束充电
+    // 业务逻辑保持不变
+    // ========================================================================
+    connect(
+        m_settleButton,
+        &QPushButton::clicked,
+        this,
+        [this]() {
 
-        emit finishChargeRequested(
-            m_orderNo);
-    });
+            if (m_state !=
+                    ChargeState::Charging ||
+                m_orderNo.isEmpty()) {
 
-connect(
-    m_payButton,
-    &QPushButton::clicked,
-    this,
-    [this]() {
+                return;
+            }
 
-        if (m_state !=
-                ChargeState::PendingPayment ||
-            m_orderNo.isEmpty()) {
-            return;
-        }
 
-        emit payChargeRequested(
-            m_orderNo);
-    });
+            emit finishChargeRequested(
+                m_orderNo);
+        });
+
+
+    // ========================================================================
+    // 确认支付
+    // 业务逻辑保持不变
+    // ========================================================================
+    connect(
+        m_payButton,
+        &QPushButton::clicked,
+        this,
+        [this]() {
+
+            if (m_state !=
+                    ChargeState::PendingPayment ||
+                m_orderNo.isEmpty()) {
+
+                return;
+            }
+
+
+            emit payChargeRequested(
+                m_orderNo);
+        });
 
 
     refreshUi();
 }
 
+
+// ============================================================================
+// 预约成功
+// ============================================================================
 void ChargePage::setReservedOrder(
     const QString &orderNo)
 {
     m_orderNo =
         orderNo.trimmed();
 
+
     if (m_orderNo.isEmpty()) {
+
         reset();
+
         return;
     }
+
 
     m_state =
         ChargeState::Reserved;
 
-    m_settledKwh = 0.0;
-    m_settledAmount = 0.0;
-    m_finalDurationSeconds = 0;
-m_finalBalance = 0.0;
+
+    m_settledKwh =
+        0.0;
+
+    m_settledAmount =
+        0.0;
+
+    m_finalDurationSeconds =
+        0;
+
+    m_finalBalance =
+        0.0;
 
 
     stopChargeTimer();
 
+
     m_chargeStartedAt =
         QDateTime();
 
-    m_powerKw = 0.0;
-    m_unitPrice = 0.0;
 
-    m_currentKwh = 0.0;
-    m_estimatedAmount = 0.0;
+    m_powerKw =
+        0.0;
+
+    m_unitPrice =
+        0.0;
+
+
+    m_currentKwh =
+        0.0;
+
+    m_estimatedAmount =
+        0.0;
+
 
     refreshUi();
-
 }
 
+
+// ============================================================================
+// 开始充电成功
+// ============================================================================
 void ChargePage::setChargingState(
     const QString &startTime,
     double powerKw,
@@ -412,20 +844,25 @@ void ChargePage::setChargingState(
     if (m_orderNo.isEmpty())
         return;
 
+
     m_state =
         ChargeState::Charging;
 
-    // ------------------------------------------------------------
+
+    // ========================================================================
     // 优先使用服务端 start_time
-    // ------------------------------------------------------------
-    if (!startTime.trimmed().isEmpty()) {
+    // ========================================================================
+    if (!startTime
+             .trimmed()
+             .isEmpty()) {
 
         QDateTime parsed =
             QDateTime::fromString(
                 startTime,
                 Qt::ISODate);
 
-        // 兼容 MySQL 常见 DATETIME 格式
+
+        // 兼容 MySQL DATETIME
         if (!parsed.isValid()) {
 
             parsed =
@@ -435,6 +872,7 @@ void ChargePage::setChargingState(
                         "yyyy-MM-dd HH:mm:ss"));
         }
 
+
         if (parsed.isValid()) {
 
             m_chargeStartedAt =
@@ -442,20 +880,24 @@ void ChargePage::setChargingState(
         }
     }
 
-    // 服务端暂时没返回 start_time 时才使用本机当前时间
+
+    // 服务端暂时没返回 start_time
+    // 时才使用本机当前时间
     if (!m_chargeStartedAt.isValid()) {
 
         m_chargeStartedAt =
             QDateTime::currentDateTime();
     }
 
-    // 当前服务端没有这两个字段时会得到 0，
-    // 等服务端补接口后这里无需再次修改。
+
+    // 当前服务端没有这两个字段时会得到 0
+    // 等服务端补接口后这里无需再次修改
     if (powerKw > 0.0) {
 
         m_powerKw =
             powerKw;
     }
+
 
     if (unitPrice > 0.0) {
 
@@ -463,11 +905,16 @@ void ChargePage::setChargingState(
             unitPrice;
     }
 
+
     startChargeTimer();
 
     refreshUi();
 }
 
+
+// ============================================================================
+// 结束充电成功 -> 待支付
+// ============================================================================
 void ChargePage::setPendingPaymentResult(
     qint64 durationSeconds,
     double kwh,
@@ -476,30 +923,39 @@ void ChargePage::setPendingPaymentResult(
     if (m_orderNo.isEmpty())
         return;
 
+
     stopChargeTimer();
+
 
     m_state =
         ChargeState::PendingPayment;
+
 
     m_finalDurationSeconds =
         qMax<qint64>(
             0,
             durationSeconds);
 
+
     m_settledKwh =
         qMax(
             0.0,
             kwh);
+
 
     m_settledAmount =
         qMax(
             0.0,
             amount);
 
+
     refreshUi();
 }
 
 
+// ============================================================================
+// 支付成功
+// ============================================================================
 void ChargePage::setPaidResult(
     qint64 durationSeconds,
     double kwh,
@@ -509,64 +965,96 @@ void ChargePage::setPaidResult(
     if (m_orderNo.isEmpty())
         return;
 
+
     stopChargeTimer();
+
 
     m_state =
         ChargeState::Paid;
+
 
     m_finalDurationSeconds =
         qMax<qint64>(
             0,
             durationSeconds);
 
+
     m_settledKwh =
         qMax(
             0.0,
             kwh);
+
 
     m_settledAmount =
         qMax(
             0.0,
             amount);
 
+
     m_finalBalance =
         qMax(
             0.0,
             balance);
 
+
     refreshUi();
 }
 
 
-
+// ============================================================================
+// 清空订单
+// ============================================================================
 void ChargePage::reset()
 {
     m_state =
         ChargeState::Empty;
 
+
     m_orderNo.clear();
 
-    m_settledKwh = 0.0;
-m_settledAmount = 0.0;
 
-stopChargeTimer();
+    m_settledKwh =
+        0.0;
 
-m_chargeStartedAt =
-    QDateTime();
-
-m_powerKw = 0.0;
-m_unitPrice = 0.0;
-
-m_currentKwh = 0.0;
-m_estimatedAmount = 0.0;
-m_finalDurationSeconds = 0;
-m_finalBalance = 0.0;
+    m_settledAmount =
+        0.0;
 
 
-refreshUi();
+    stopChargeTimer();
 
+
+    m_chargeStartedAt =
+        QDateTime();
+
+
+    m_powerKw =
+        0.0;
+
+    m_unitPrice =
+        0.0;
+
+
+    m_currentKwh =
+        0.0;
+
+    m_estimatedAmount =
+        0.0;
+
+
+    m_finalDurationSeconds =
+        0;
+
+    m_finalBalance =
+        0.0;
+
+
+    refreshUi();
 }
 
+
+// ============================================================================
+// 根据订单状态刷新 UI
+// ============================================================================
 void ChargePage::refreshUi()
 {
     const auto formatDuration =
@@ -577,45 +1065,81 @@ void ChargePage::refreshUi()
                     0,
                     totalSeconds);
 
+
             const qint64 hours =
-                totalSeconds / 3600;
+                totalSeconds /
+                3600;
+
 
             const qint64 minutes =
-                (totalSeconds % 3600) / 60;
+                (totalSeconds %
+                 3600) /
+                60;
+
 
             const qint64 seconds =
-                totalSeconds % 60;
+                totalSeconds %
+                60;
 
-            return QStringLiteral("%1:%2:%3")
-                .arg(hours, 2, 10, QChar('0'))
-                .arg(minutes, 2, 10, QChar('0'))
-                .arg(seconds, 2, 10, QChar('0'));
+
+            return
+                QStringLiteral(
+                    "%1:%2:%3")
+                    .arg(
+                        hours,
+                        2,
+                        10,
+                        QChar('0'))
+                    .arg(
+                        minutes,
+                        2,
+                        10,
+                        QChar('0'))
+                    .arg(
+                        seconds,
+                        2,
+                        10,
+                        QChar('0'));
         };
+
 
     switch (m_state) {
 
+    // ========================================================================
+    // 无订单
+    // ========================================================================
     case ChargeState::Empty:
 
         m_stateTitle->setText(
             QStringLiteral(
                 "暂无进行中的充电订单"));
 
+
         m_orderLabel->setText(
             QStringLiteral(
                 "订单号：--"));
 
+
         m_statusLabel->setText(
             QStringLiteral(
-                "状态：等待预约"));
+                "等待预约"));
+
 
         m_startButton->show();
-        m_startButton->setEnabled(false);
+
+        m_startButton->setEnabled(
+            false);
+
 
         m_settleButton->hide();
+
         m_payButton->hide();
 
+
         m_chargingRecordCard->hide();
+
         m_resultLabel->hide();
+
 
         m_tipLabel->setText(
             QStringLiteral(
@@ -624,29 +1148,43 @@ void ChargePage::refreshUi()
         break;
 
 
+    // ========================================================================
+    // 已预约
+    // ========================================================================
     case ChargeState::Reserved:
 
         m_stateTitle->setText(
             QStringLiteral(
                 "充电订单已预约"));
 
+
         m_orderLabel->setText(
             QStringLiteral(
                 "订单号：%1")
-                .arg(m_orderNo));
+                .arg(
+                    m_orderNo));
+
 
         m_statusLabel->setText(
             QStringLiteral(
-                "状态：已预约"));
+                "已预约"));
+
 
         m_startButton->show();
-        m_startButton->setEnabled(true);
+
+        m_startButton->setEnabled(
+            true);
+
 
         m_settleButton->hide();
+
         m_payButton->hide();
 
+
         m_chargingRecordCard->hide();
+
         m_resultLabel->hide();
+
 
         m_tipLabel->setText(
             QStringLiteral(
@@ -655,71 +1193,98 @@ void ChargePage::refreshUi()
         break;
 
 
+    // ========================================================================
+    // 充电中
+    // ========================================================================
     case ChargeState::Charging:
 
         m_stateTitle->setText(
             QStringLiteral(
                 "正在充电"));
 
+
         m_orderLabel->setText(
             QStringLiteral(
                 "订单号：%1")
-                .arg(m_orderNo));
+                .arg(
+                    m_orderNo));
+
 
         m_statusLabel->setText(
             QStringLiteral(
-                "状态：充电中"));
+                "充电中"));
+
 
         m_startButton->hide();
 
+
         m_settleButton->show();
-        m_settleButton->setEnabled(true);
+
+        m_settleButton->setEnabled(
+            true);
+
 
         m_payButton->hide();
 
+
         m_resultLabel->hide();
+
 
         m_chargingRecordCard->show();
 
+
         updateChargingInfo();
+
 
         m_tipLabel->setText(
             QStringLiteral(
-                "正在充电，可实时查看充电记录"));
+                "正在充电，可实时查看本次充电记录"));
 
         break;
 
 
+    // ========================================================================
+    // 待支付
+    // ========================================================================
     case ChargeState::PendingPayment:
     {
         m_stateTitle->setText(
             QStringLiteral(
                 "充电已结束"));
 
+
         m_orderLabel->setText(
             QStringLiteral(
                 "订单号：%1")
-                .arg(m_orderNo));
+                .arg(
+                    m_orderNo));
+
 
         m_statusLabel->setText(
             QStringLiteral(
-                "状态：待支付"));
+                "待支付"));
+
 
         m_startButton->hide();
+
         m_settleButton->hide();
 
+
         m_chargingRecordCard->hide();
+
 
         const QString duration =
             formatDuration(
                 m_finalDurationSeconds);
 
+
         m_resultLabel->setText(
             QStringLiteral(
-                "充电时长  %1\n"
-                "充电电量  %2 kWh\n"
-                "本次费用  ￥%3")
-                .arg(duration)
+                "充电时长    %1\n"
+                "充电电量    %2 kWh\n"
+                "本次费用    ￥%3")
+                .arg(
+                    duration)
                 .arg(
                     m_settledKwh,
                     0,
@@ -731,50 +1296,73 @@ void ChargePage::refreshUi()
                     'f',
                     2));
 
+
         m_resultLabel->show();
 
+
         m_payButton->show();
-        m_payButton->setEnabled(true);
+
+        m_payButton->setEnabled(
+            true);
+
 
         m_tipLabel->setText(
             QStringLiteral(
-                "请确认账单后完成支付"));
+                "请确认最终账单后完成支付"));
 
         break;
     }
 
 
+    // ========================================================================
+    // 已支付
+    // ========================================================================
     case ChargeState::Paid:
     {
         m_stateTitle->setText(
             QStringLiteral(
                 "支付成功"));
 
+
         m_orderLabel->setText(
             QStringLiteral(
                 "订单号：%1")
-                .arg(m_orderNo));
+                .arg(
+                    m_orderNo));
+
 
         m_statusLabel->setText(
             QStringLiteral(
-                "状态：已支付"));
+                "已支付"));
+
 
         m_startButton->hide();
+
         m_settleButton->hide();
+
         m_payButton->hide();
 
+
         m_chargingRecordCard->hide();
+
 
         const QString duration =
             formatDuration(
                 m_finalDurationSeconds);
 
+
+        // 必须保留：
+        // 支付成功
+        // 充电时长
+        // 本次费用
+        // 当前余额
         m_resultLabel->setText(
             QStringLiteral(
-                "充电时长  %1\n"
-                "本次费用  ￥%2\n"
-                "当前余额  ￥%3")
-                .arg(duration)
+                "充电时长    %1\n"
+                "本次费用    ￥%2\n"
+                "当前余额    ￥%3")
+                .arg(
+                    duration)
                 .arg(
                     m_settledAmount,
                     0,
@@ -786,7 +1374,9 @@ void ChargePage::refreshUi()
                     'f',
                     2));
 
+
         m_resultLabel->show();
+
 
         m_tipLabel->setText(
             QStringLiteral(
@@ -796,18 +1386,27 @@ void ChargePage::refreshUi()
     }
     }
 
+
     applyResponsiveStyle();
 }
 
+
+// ============================================================================
+// Resize
+// ============================================================================
 void ChargePage::resizeEvent(
     QResizeEvent *event)
 {
-    QWidget::resizeEvent(event);
+    QWidget::resizeEvent(
+        event);
 
     applyResponsiveStyle();
 }
 
 
+// ============================================================================
+// 响应式样式
+// ============================================================================
 void ChargePage::applyResponsiveStyle()
 {
     QWidget *scaleBase =
@@ -815,326 +1414,699 @@ void ChargePage::applyResponsiveStyle()
             ? window()
             : this;
 
+
     const int titleFont =
-        scaledUi(scaleBase, 24);
+        scaledUi(
+            scaleBase,
+            24);
 
     const int stateTitleFont =
-        scaledUi(scaleBase, 18);
+        scaledUi(
+            scaleBase,
+            20);
 
     const int normalFont =
-        scaledUi(scaleBase, 14);
+        scaledUi(
+            scaleBase,
+            14);
 
     const int smallFont =
-        scaledUi(scaleBase, 13);
+        scaledUi(
+            scaleBase,
+            12);
 
-    // ============================================================
-    // 页面整体边距
-    // ============================================================
-    if (auto *pageLayout =
-            qobject_cast<QVBoxLayout *>(
-                layout())) {
+    const int tinyFont =
+        scaledUi(
+            scaleBase,
+            11);
 
-        const int margin =
-            scaledUi(scaleBase, 18);
+    const int metricValueFont =
+        scaledUi(
+            scaleBase,
+            17);
 
-        pageLayout->setContentsMargins(
-            margin,
-            margin,
-            margin,
-            margin);
+    const int buttonFont =
+        scaledUi(
+            scaleBase,
+            14);
 
-        pageLayout->setSpacing(
-            scaledUi(scaleBase, 14));
-    }
+    const int cardRadius =
+        scaledUi(
+            scaleBase,
+            18);
 
-    // ============================================================
-    // 页面标题
-    // ============================================================
-    if (auto *title =
-            findChild<QLabel *>(
-                QStringLiteral(
-                    "chargeTitle"))) {
+    const int smallRadius =
+        scaledUi(
+            scaleBase,
+            10);
 
-        title->setStyleSheet(
-            QStringLiteral(
-                "font-size:%1px;"
-                "font-weight:700;"
-                "color:#1f2329;")
-                .arg(titleFont));
-    }
 
-    // ============================================================
-    // 副标题
-    // ============================================================
-    if (auto *subtitle =
-            findChild<QLabel *>(
-                QStringLiteral(
-                    "chargeSubtitle"))) {
+    // ========================================================================
+    // 页面基础
+    // ========================================================================
+    const QString pageStyle =
+        QStringLiteral(
 
-        subtitle->setStyleSheet(
-            QStringLiteral(
-                "color:#86909c;"
-                "font-size:%1px;")
-                .arg(smallFont));
-    }
+            "QWidget#chargePage{"
+            "background:transparent;"
+            "color:%1;"
+            "}"
 
-    // ============================================================
-    // 订单卡片
-    // ============================================================
-    if (auto *orderCard =
-            findChild<QFrame *>(
-                QStringLiteral(
-                    "chargeOrderCard"))) {
+            "QWidget#chargeContent{"
+            "background:transparent;"
+            "}"
 
-        orderCard->setStyleSheet(
-            QStringLiteral(
-                "QFrame#chargeOrderCard{"
-                "background:#ffffff;"
-                "border:1px solid #d6e4ff;"
-                "border-radius:%1px;"
-                "}")
-                .arg(
-                    scaledUi(
-                        scaleBase,
-                        14)));
+            "QScrollArea#chargeScrollArea{"
+            "background:transparent;"
+            "border:none;"
+            "}"
 
-        if (auto *orderLayout =
-                qobject_cast<QVBoxLayout *>(
-                    orderCard->layout())) {
+            "QLabel#chargeTitle{"
+            "background:transparent;"
+            "color:%1;"
+            "font-size:%2px;"
+            "font-weight:800;"
+            "}"
 
-            const int margin =
-                scaledUi(
-                    scaleBase,
-                    18);
+            "QLabel#chargeSubtitle{"
+            "background:transparent;"
+            "color:%3;"
+            "font-size:%4px;"
+            "}")
 
-            orderLayout->setContentsMargins(
-                margin,
-                margin,
-                margin,
-                margin);
+            .arg(
+                UiTheme::textPrimary())
 
-            orderLayout->setSpacing(
-                scaledUi(
-                    scaleBase,
-                    12));
-        }
-    }
+            .arg(
+                titleFont)
 
-    // ============================================================
-    // 卡片主状态标题
-    // ============================================================
-    if (m_stateTitle) {
+            .arg(
+                UiTheme::textSecondary())
 
-        m_stateTitle->setStyleSheet(
-            QStringLiteral(
-                "border:none;"
-                "font-size:%1px;"
-                "font-weight:700;"
-                "color:#1f2329;")
-                .arg(stateTitleFont));
-    }
+            .arg(
+                smallFont);
 
-    // ============================================================
-    // 订单号
-    // ============================================================
-    if (m_orderLabel) {
 
-        m_orderLabel->setStyleSheet(
-            QStringLiteral(
-                "border:none;"
-                "color:#4e5969;"
-                "font-size:%1px;")
-                .arg(normalFont));
-    }
+    // ========================================================================
+    // 订单卡
+    // ========================================================================
+    const QString orderStyle =
+        QStringLiteral(
 
-    // ============================================================
-    // 当前状态
-    // ============================================================
+            "QFrame#chargeOrderCard{"
+            "background:%1;"
+            "border:1px solid %2;"
+            "border-radius:%3px;"
+            "}"
+
+            "QLabel#chargeStateTitle{"
+            "background:transparent;"
+            "border:none;"
+            "color:%4;"
+            "font-size:%5px;"
+            "font-weight:800;"
+            "}"
+
+            "QLabel#chargeOrderNumber{"
+            "background:transparent;"
+            "border:none;"
+            "color:%6;"
+            "font-size:%7px;"
+            "}")
+
+            .arg(
+                UiTheme::surface())
+
+            .arg(
+                UiTheme::border())
+
+            .arg(
+                cardRadius)
+
+            .arg(
+                UiTheme::textPrimary())
+
+            .arg(
+                stateTitleFont)
+
+            .arg(
+                UiTheme::textSecondary())
+
+            .arg(
+                smallFont);
+
+
+    // ========================================================================
+    // 实时记录
+    // ========================================================================
+    const QString recordStyle =
+        QStringLiteral(
+
+            "QFrame#chargingRecordCard{"
+            "background:%1;"
+            "border:1px solid %2;"
+            "border-radius:%3px;"
+            "}"
+
+            "QLabel#chargeRecordTitle{"
+            "background:transparent;"
+            "border:none;"
+            "color:%4;"
+            "font-size:%5px;"
+            "font-weight:700;"
+            "}"
+
+            "QLabel#chargeRecordBadge{"
+            "background:%6;"
+            "border:none;"
+            "border-radius:%7px;"
+            "color:%8;"
+            "font-size:%9px;"
+            "font-weight:700;"
+            "padding:4px 8px;"
+            "}"
+
+            "QFrame#chargeMetricCard{"
+            "background:%10;"
+            "border:1px solid %2;"
+            "border-radius:%7px;"
+            "}"
+
+            "QLabel#chargeMetricCaption{"
+            "background:transparent;"
+            "border:none;"
+            "color:%11;"
+            "font-size:%9px;"
+            "}"
+
+            "QLabel#chargeMetricValue{"
+            "background:transparent;"
+            "border:none;"
+            "color:%4;"
+            "font-size:%12px;"
+            "font-weight:800;"
+            "}"
+
+            "QLabel#chargeMetricValue[metricRole=\"time\"]{"
+            "color:%8;"
+            "}"
+
+            "QLabel#chargeMetricValue[metricRole=\"fee\"]{"
+            "color:%13;"
+            "}")
+
+            .arg(
+                UiTheme::surfaceSoft())       // %1
+
+            .arg(
+                UiTheme::border())            // %2
+
+            .arg(
+                cardRadius)                   // %3
+
+            .arg(
+                UiTheme::textPrimary())       // %4
+
+            .arg(
+                normalFont)                   // %5
+
+            .arg(
+                UiTheme::primarySoft())       // %6
+
+            .arg(
+                smallRadius)                  // %7
+
+            .arg(
+                UiTheme::primary())           // %8
+
+            .arg(
+                tinyFont)                     // %9
+
+            .arg(
+                UiTheme::surface())           // %10
+
+            .arg(
+                UiTheme::textSecondary())     // %11
+
+            .arg(
+                metricValueFont)              // %12
+
+            .arg(
+                UiTheme::accent());           // %13
+
+
+    // ========================================================================
+    // 提示说明卡
+    // ========================================================================
+    const QString guideStyle =
+        QStringLiteral(
+
+            "QFrame#chargeGuideCard{"
+            "background:%1;"
+            "border:1px solid %2;"
+            "border-radius:%3px;"
+            "}"
+
+            "QLabel#chargeGuideTitle{"
+            "background:transparent;"
+            "color:%4;"
+            "font-size:%5px;"
+            "font-weight:700;"
+            "}"
+
+            "QLabel#chargeTipLabel{"
+            "background:transparent;"
+            "color:%4;"
+            "font-size:%6px;"
+            "}"
+
+            "QLabel#chargeBillingNote{"
+            "background:transparent;"
+            "color:%7;"
+            "font-size:%8px;"
+            "}")
+
+            .arg(
+                UiTheme::surfaceSoft())
+
+            .arg(
+                UiTheme::border())
+
+            .arg(
+                cardRadius)
+
+            .arg(
+                UiTheme::textPrimary())
+
+            .arg(
+                normalFont)
+
+            .arg(
+                smallFont)
+
+            .arg(
+                UiTheme::textSecondary())
+
+            .arg(
+                tinyFont);
+
+
+    // ========================================================================
+    // 操作按钮
+    // ========================================================================
+    const QString buttonStyle =
+        QStringLiteral(
+
+            // 开始充电
+            "QPushButton#chargeStartButton{"
+            "background:%1;"
+            "color:#FFFFFF;"
+            "border:none;"
+            "border-radius:%2px;"
+            "font-size:%3px;"
+            "font-weight:700;"
+            "padding:11px 18px;"
+            "}"
+
+            "QPushButton#chargeStartButton:hover{"
+            "background:%4;"
+            "}"
+
+            "QPushButton#chargeStartButton:disabled{"
+            "background:#E3E5E2;"
+            "color:#A0A5A2;"
+            "}"
+
+            // 结束充电
+            "QPushButton#chargeFinishButton{"
+            "background:#F8EFEC;"
+            "color:#B65F59;"
+            "border:1px solid #E9CFCA;"
+            "border-radius:%2px;"
+            "font-size:%3px;"
+            "font-weight:700;"
+            "padding:11px 18px;"
+            "}"
+
+            "QPushButton#chargeFinishButton:hover{"
+            "background:#F2E2DE;"
+            "}"
+
+            "QPushButton#chargeFinishButton:disabled{"
+            "background:#F1F1EE;"
+            "color:#A5AAA6;"
+            "border-color:#E3E3DE;"
+            "}"
+
+            // 确认支付
+            "QPushButton#chargePayButton{"
+            "background:%1;"
+            "color:#FFFFFF;"
+            "border:none;"
+            "border-radius:%2px;"
+            "font-size:%3px;"
+            "font-weight:700;"
+            "padding:11px 18px;"
+            "}"
+
+            "QPushButton#chargePayButton:hover{"
+            "background:%4;"
+            "}"
+
+            "QPushButton#chargePayButton:disabled{"
+            "background:#E3E5E2;"
+            "color:#A0A5A2;"
+            "}")
+
+            .arg(
+                UiTheme::primary())
+
+            .arg(
+                smallRadius)
+
+            .arg(
+                buttonFont)
+
+            .arg(
+                UiTheme::primaryHover());
+
+
+    setStyleSheet(
+        pageStyle
+        + orderStyle
+        + recordStyle
+        + guideStyle
+        + buttonStyle);
+
+
+    // ========================================================================
+    // 状态 Badge
+    // ========================================================================
     if (m_statusLabel) {
 
-        QString color =
-            QStringLiteral("#86909c");
+        QString background =
+            QStringLiteral(
+                "#F1F0EC");
 
-        QString weight =
-            QStringLiteral("400");
+        QString color =
+            UiTheme::textSecondary();
+
 
         switch (m_state) {
 
         case ChargeState::Empty:
+
+            background =
+                QStringLiteral(
+                    "#F1F0EC");
+
+            color =
+                UiTheme::textSecondary();
+
             break;
+
 
         case ChargeState::Reserved:
+
+            background =
+                QStringLiteral(
+                    "#FFF3DF");
+
             color =
-                QStringLiteral("#d97706");
-            weight =
-                QStringLiteral("600");
+                QStringLiteral(
+                    "#A86D1E");
+
             break;
+
 
         case ChargeState::Charging:
+
+            background =
+                QStringLiteral(
+                    "#EAF3ED");
+
             color =
-                QStringLiteral("#16a34a");
-            weight =
-                QStringLiteral("600");
+                UiTheme::success();
+
             break;
+
 
         case ChargeState::PendingPayment:
+
+            background =
+                QStringLiteral(
+                    "#FFF3DF");
+
             color =
-                QStringLiteral("#d97706");
-            weight =
-                QStringLiteral("600");
+                QStringLiteral(
+                    "#A86D1E");
+
             break;
+
 
         case ChargeState::Paid:
-            color =
-                QStringLiteral("#1d4ed8");
-            weight =
-                QStringLiteral("600");
-            break;
 
+            background =
+                QStringLiteral(
+                    "#EAF3ED");
+
+            color =
+                UiTheme::primary();
+
+            break;
         }
+
 
         m_statusLabel->setStyleSheet(
             QStringLiteral(
+                "QLabel#chargeStatusBadge{"
+                "background:%1;"
+                "color:%2;"
                 "border:none;"
-                "color:%1;"
-                "font-size:%2px;"
-                "font-weight:%3;")
-                .arg(color)
-                .arg(normalFont)
-                .arg(weight));
+                "border-radius:%3px;"
+                "font-size:%4px;"
+                "font-weight:700;"
+                "padding:6px 10px;"
+                "}")
+                .arg(
+                    background)
+                .arg(
+                    color)
+                .arg(
+                    smallRadius)
+                .arg(
+                    tinyFont));
     }
 
 
-
-    // ============================================================
-    // 结算结果
-    // ============================================================
+    // ========================================================================
+    // 最终账单区域
+    // ========================================================================
     if (m_resultLabel) {
+
+        QString background =
+            UiTheme::surfaceSoft();
+
+        QString border =
+            UiTheme::border();
+
+        QString color =
+            UiTheme::textPrimary();
+
+
+        if (m_state ==
+            ChargeState::PendingPayment) {
+
+            background =
+                QStringLiteral(
+                    "#FFF8EA");
+
+            border =
+                QStringLiteral(
+                    "#F0DDBA");
+
+            color =
+                QStringLiteral(
+                    "#8E6222");
+
+        } else if (
+            m_state ==
+            ChargeState::Paid) {
+
+            background =
+                QStringLiteral(
+                    "#EDF5F0");
+
+            border =
+                QStringLiteral(
+                    "#D5E4DB");
+
+            color =
+                UiTheme::primary();
+        }
+
 
         m_resultLabel->setStyleSheet(
             QStringLiteral(
-                "border:none;"
-                "background:#f2f7ff;"
-                "border-radius:%1px;"
-                "padding:%2px;"
-                "color:#1d4ed8;"
-                "font-size:%3px;"
-                "font-weight:600;")
-                .arg(
-                    scaledUi(
-                        scaleBase,
-                        8))
-                .arg(
-                    scaledUi(
-                        scaleBase,
-                        10))
-                .arg(normalFont));
-    }
-
-    // ============================================================
-    // 页面底部提示
-    // ============================================================
-    if (m_tipLabel) {
-
-        m_tipLabel->setStyleSheet(
-            QStringLiteral(
-                "color:#86909c;"
-                "font-size:%1px;"
-                "padding:%2px;")
-                .arg(smallFont)
-                .arg(
-                    scaledUi(
-                        scaleBase,
-                        8)));
-    }
-        // ============================================================
-    // 充电实时记录卡
-    // ============================================================
-    if (m_chargingRecordCard) {
-
-        m_chargingRecordCard->setStyleSheet(
-            QStringLiteral(
-                "QFrame#chargingRecordCard{"
-                "background:#f7faff;"
-                "border:1px solid #d6e4ff;"
-                "border-radius:%1px;"
-                "}"
-                "QFrame#chargingRecordCard QLabel{"
-                "border:none;"
-                "font-size:%2px;"
+                "QLabel#chargeResultLabel{"
+                "background:%1;"
+                "color:%2;"
+                "border:1px solid %3;"
+                "border-radius:%4px;"
+                "font-size:%5px;"
+                "font-weight:650;"
+                "padding:%6px;"
                 "}")
                 .arg(
+                    background)
+                .arg(
+                    color)
+                .arg(
+                    border)
+                .arg(
+                    smallRadius)
+                .arg(
+                    normalFont)
+                .arg(
                     scaledUi(
                         scaleBase,
-                        10))
-                .arg(normalFont));
-
-        if (auto *recordLayout =
-                qobject_cast<QVBoxLayout *>(
-                    m_chargingRecordCard->layout())) {
-
-            recordLayout->setContentsMargins(
-                scaledUi(scaleBase, 14),
-                scaledUi(scaleBase, 12),
-                scaledUi(scaleBase, 14),
-                scaledUi(scaleBase, 12));
-
-            recordLayout->setSpacing(
-                scaledUi(
-                    scaleBase,
-                    8));
-        }
+                        14)));
     }
 
-    if (m_elapsedLabel) {
 
-        m_elapsedLabel->setStyleSheet(
+    // ========================================================================
+    // 页面内容边距
+    // ========================================================================
+    if (auto *contentLayout =
+            findChild<QVBoxLayout *>(
+                QStringLiteral(
+                    "chargeContentLayout"))) {
+
+        contentLayout->setContentsMargins(
+            scaledUi(scaleBase, 18),
+            scaledUi(scaleBase, 18),
+            scaledUi(scaleBase, 18),
+            scaledUi(scaleBase, 18));
+
+        contentLayout->setSpacing(
+            scaledUi(
+                scaleBase,
+                14));
+    }
+
+
+    // ========================================================================
+    // 订单卡边距
+    // ========================================================================
+    if (auto *orderLayout =
+            findChild<QVBoxLayout *>(
+                QStringLiteral(
+                    "chargeOrderLayout"))) {
+
+        orderLayout->setContentsMargins(
+            scaledUi(scaleBase, 18),
+            scaledUi(scaleBase, 18),
+            scaledUi(scaleBase, 18),
+            scaledUi(scaleBase, 18));
+
+        orderLayout->setSpacing(
+            scaledUi(
+                scaleBase,
+                14));
+    }
+
+
+    // ========================================================================
+    // 实时记录边距
+    // ========================================================================
+    if (auto *recordLayout =
+            findChild<QVBoxLayout *>(
+                QStringLiteral(
+                    "chargingRecordLayout"))) {
+
+        recordLayout->setContentsMargins(
+            scaledUi(scaleBase, 14),
+            scaledUi(scaleBase, 14),
+            scaledUi(scaleBase, 14),
+            scaledUi(scaleBase, 14));
+
+        recordLayout->setSpacing(
+            scaledUi(
+                scaleBase,
+                12));
+    }
+
+
+    // ========================================================================
+    // 实时指标卡边距
+    // ========================================================================
+    const auto metricLayouts =
+        findChildren<QVBoxLayout *>(
             QStringLiteral(
-                "border:none;"
-                "font-size:%1px;"
-                "font-weight:700;"
-                "color:#1d4ed8;")
-                .arg(normalFont));
+                "chargeMetricItemLayout"));
+
+
+    for (QVBoxLayout *metricLayout :
+         metricLayouts) {
+
+        metricLayout->setContentsMargins(
+            scaledUi(scaleBase, 12),
+            scaledUi(scaleBase, 10),
+            scaledUi(scaleBase, 12),
+            scaledUi(scaleBase, 10));
+
+        metricLayout->setSpacing(
+            scaledUi(
+                scaleBase,
+                4));
     }
 
-    if (m_powerLabel) {
 
-        m_powerLabel->setStyleSheet(
-            QStringLiteral(
-                "border:none;"
-                "font-size:%1px;"
-                "font-weight:600;"
-                "color:#1f2329;")
-                .arg(normalFont));
+    // ========================================================================
+    // 按钮区域
+    // ========================================================================
+    if (auto *actionLayout =
+            findChild<QHBoxLayout *>(
+                QStringLiteral(
+                    "chargeActionLayout"))) {
+
+        actionLayout->setSpacing(
+            scaledUi(
+                scaleBase,
+                10));
     }
 
-    if (m_currentKwhLabel) {
 
-        m_currentKwhLabel->setStyleSheet(
-            QStringLiteral(
-                "border:none;"
-                "font-size:%1px;"
-                "font-weight:600;"
-                "color:#1f2329;")
-                .arg(normalFont));
+    // ========================================================================
+    // 提示卡
+    // ========================================================================
+    if (auto *guideLayout =
+            findChild<QVBoxLayout *>(
+                QStringLiteral(
+                    "chargeGuideLayout"))) {
+
+        guideLayout->setContentsMargins(
+            scaledUi(scaleBase, 16),
+            scaledUi(scaleBase, 14),
+            scaledUi(scaleBase, 16),
+            scaledUi(scaleBase, 14));
+
+        guideLayout->setSpacing(
+            scaledUi(
+                scaleBase,
+                7));
     }
-
-    if (m_estimatedFeeLabel) {
-
-        m_estimatedFeeLabel->setStyleSheet(
-            QStringLiteral(
-                "border:none;"
-                "font-size:%1px;"
-                "font-weight:700;"
-                "color:#ff6a00;")
-                .arg(normalFont));
-    }
-
 }
+
+
+// ============================================================================
+// 开始计时
+// ============================================================================
 void ChargePage::startChargeTimer()
 {
     if (!m_chargeTimer)
         return;
+
 
     if (!m_chargeStartedAt.isValid()) {
 
@@ -1142,7 +2114,9 @@ void ChargePage::startChargeTimer()
             QDateTime::currentDateTime();
     }
 
+
     updateChargingInfo();
+
 
     if (!m_chargeTimer->isActive()) {
 
@@ -1151,10 +2125,14 @@ void ChargePage::startChargeTimer()
 }
 
 
+// ============================================================================
+// 停止计时
+// ============================================================================
 void ChargePage::stopChargeTimer()
 {
     if (!m_chargeTimer)
         return;
+
 
     if (m_chargeTimer->isActive()) {
 
@@ -1163,47 +2141,86 @@ void ChargePage::stopChargeTimer()
 }
 
 
+// ============================================================================
+// 更新实时充电记录
+// ============================================================================
 void ChargePage::updateChargingInfo()
 {
-    if (m_state != ChargeState::Charging)
+    if (m_state !=
+        ChargeState::Charging) {
+
         return;
+    }
+
 
     if (!m_chargeStartedAt.isValid())
         return;
+
 
     qint64 elapsedSeconds =
         m_chargeStartedAt.secsTo(
             QDateTime::currentDateTime());
 
-    if (elapsedSeconds < 0)
-        elapsedSeconds = 0;
 
+    if (elapsedSeconds < 0) {
+
+        elapsedSeconds =
+            0;
+    }
+
+
+    // ========================================================================
     // 已充时间
+    // ========================================================================
     const qint64 hours =
-        elapsedSeconds / 3600;
+        elapsedSeconds /
+        3600;
+
 
     const qint64 minutes =
-        (elapsedSeconds % 3600) / 60;
+        (elapsedSeconds %
+         3600) /
+        60;
+
 
     const qint64 seconds =
-        elapsedSeconds % 60;
+        elapsedSeconds %
+        60;
+
 
     if (m_elapsedLabel) {
 
         m_elapsedLabel->setText(
-            QStringLiteral("%1:%2:%3")
-                .arg(hours, 2, 10, QChar('0'))
-                .arg(minutes, 2, 10, QChar('0'))
-                .arg(seconds, 2, 10, QChar('0')));
+            QStringLiteral(
+                "%1:%2:%3")
+                .arg(
+                    hours,
+                    2,
+                    10,
+                    QChar('0'))
+                .arg(
+                    minutes,
+                    2,
+                    10,
+                    QChar('0'))
+                .arg(
+                    seconds,
+                    2,
+                    10,
+                    QChar('0')));
     }
 
+
+    // ========================================================================
     // 当前功率 + 已充电量
+    // ========================================================================
     if (m_powerKw > 0.0) {
 
         if (m_powerLabel) {
 
             m_powerLabel->setText(
-                QStringLiteral("%1 kW")
+                QStringLiteral(
+                    "%1 kW")
                     .arg(
                         m_powerKw,
                         0,
@@ -1211,16 +2228,20 @@ void ChargePage::updateChargingInfo()
                         1));
         }
 
+
+        // 原有公式保持不变
         m_currentKwh =
             m_powerKw *
             static_cast<double>(
                 elapsedSeconds) /
             3600.0;
 
+
         if (m_currentKwhLabel) {
 
             m_currentKwhLabel->setText(
-                QStringLiteral("%1 kWh")
+                QStringLiteral(
+                    "%1 kWh")
                     .arg(
                         m_currentKwh,
                         0,
@@ -1230,27 +2251,40 @@ void ChargePage::updateChargingInfo()
 
     } else {
 
-        if (m_powerLabel)
-            m_powerLabel->setText(
-                QStringLiteral("-- kW"));
+        if (m_powerLabel) {
 
-        if (m_currentKwhLabel)
+            m_powerLabel->setText(
+                QStringLiteral(
+                    "-- kW"));
+        }
+
+
+        if (m_currentKwhLabel) {
+
             m_currentKwhLabel->setText(
-                QStringLiteral("-- kWh"));
+                QStringLiteral(
+                    "-- kWh"));
+        }
     }
 
+
+    // ========================================================================
     // 预估费用
+    // ========================================================================
     if (m_powerKw > 0.0 &&
         m_unitPrice > 0.0) {
 
+        // 原有公式保持不变
         m_estimatedAmount =
             m_currentKwh *
             m_unitPrice;
 
+
         if (m_estimatedFeeLabel) {
 
             m_estimatedFeeLabel->setText(
-                QStringLiteral("￥%1")
+                QStringLiteral(
+                    "￥%1")
                     .arg(
                         m_estimatedAmount,
                         0,
@@ -1263,7 +2297,8 @@ void ChargePage::updateChargingInfo()
         if (m_estimatedFeeLabel) {
 
             m_estimatedFeeLabel->setText(
-                QStringLiteral("￥--"));
+                QStringLiteral(
+                    "￥--"));
         }
     }
 }
