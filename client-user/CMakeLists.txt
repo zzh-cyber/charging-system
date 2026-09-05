@@ -20,8 +20,7 @@ add_executable(charging-user
     stationcardwidget.h
     navigationpage.cpp
     navigationpage.h
-
-
+    windowhelper.h
 )
 
 set_target_properties(charging-user PROPERTIES

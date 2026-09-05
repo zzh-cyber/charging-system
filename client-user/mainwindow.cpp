@@ -9,7 +9,7 @@
 #include "stationlistpage.h"
 #include "protocol.h"
 #include "navigationpage.h"
-
+#include "windowhelper.h"
 
 
 #include <QButtonGroup>
@@ -57,21 +57,23 @@ MainWindow::MainWindow(
     , m_balance(balance)
 {
     
-        // 必须先保存登录 token，
-        // 后面的 unfinished_order 等业务请求才能正常鉴权
-        m_net->setToken(token);
+    setWindowTitle(
+        QStringLiteral("充电用户端"));
 
-        setWindowTitle(
-            QStringLiteral("充电用户端"));
+    // 响应式窗口：按屏幕分辨率自适应手机比例并居中
+    applyPhoneWindow(this);
 
-        resize(420, 680);
+    if (!m_net->isConnected()) {
+        m_net->connectToServer(
+            kServerHost,
+            kServerPort);
+    }
 
-        if (!m_net->isConnected()) {
-            m_net->connectToServer(
-                kServerHost,
-                kServerPort);
-        }
 
+    // 必须在任何业务请求之前写入 token。
+    // 否则构造函数里的 unfinished_order 会因无 token 收到 code=9，
+    // 被误判为「登录已失效」。
+    m_net->setToken(token);
 
     connect(m_net, &NetClient::sessionInvalid,
             this, &MainWindow::onSessionInvalid);
@@ -579,6 +581,62 @@ MainWindow::MainWindow(
                     'f',
                     2));
     });
+
+    // =========================================================================
+    // 修改昵称 → update_profile（NO.18）
+    // =========================================================================
+    connect(
+        m_profilePage,
+        &ProfilePage::nicknameChangeRequested,
+        this,
+        [this](const QString &nickname) {
+
+            QJsonObject data;
+            data["nickname"] = nickname;
+
+            const QJsonObject resp =
+                m_net->request(
+                    Protocol::makeRequest(
+                        Protocol::MsgType::UpdateProfile,
+                        data));
+
+            const int code =
+                resp.value("code").toInt();
+
+            const QString msg =
+                resp.value("msg").toString();
+
+            if (code != Protocol::Ok) {
+
+                // code=9 由全局 onSessionInvalid 统一回登录页，这里只提示其它错误
+                if (code != Protocol::SessionInvalid) {
+
+                    QMessageBox::warning(
+                        this,
+                        QStringLiteral("修改昵称失败"),
+                        msg);
+                }
+
+                return;
+            }
+
+            const QString newNick =
+                resp.value("data")
+                    .toObject()
+                    .value("nickname")
+                    .toString(nickname);
+
+            m_nickname = newNick;
+
+            m_profilePage->setNickname(
+                newNick);
+
+            QMessageBox::information(
+                this,
+                QStringLiteral("修改成功"),
+                QStringLiteral("昵称已更新为：%1")
+                    .arg(newNick));
+        });
 
     connect(
         m_profilePage,

@@ -3,6 +3,7 @@
 #include "mainwindow.h"
 #include "netclient.h"
 #include "protocol.h"
+#include "windowhelper.h"
 
 #include <QFrame>
 #include <QJsonObject>
@@ -25,7 +26,7 @@ LoginWindow::LoginWindow(QWidget *parent)
     , m_net(new NetClient(this))
 {
     setWindowTitle(QStringLiteral("充电用户端 - 登录"));
-    setFixedSize(400, 460);
+    applyPhoneWindow(this);
 
     auto *brand = new QLabel(QStringLiteral("新能源充电"), this);
     brand->setAlignment(Qt::AlignCenter);
@@ -90,7 +91,9 @@ LoginWindow::LoginWindow(QWidget *parent)
 
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(20, 20, 20, 20);
+    layout->addStretch();
     layout->addWidget(card);
+    layout->addStretch();
 
     connect(m_loginBtn, &QPushButton::clicked, this, &LoginWindow::onLoginClicked);
 }
@@ -170,32 +173,24 @@ void LoginWindow::onLoginClicked()
     }
 
     // 登录成功 → 进入主界面，并把用户信息传进去（供「我的」页显示）
-    const QJsonObject u =
-    resp.value("data").toObject();
+    const QJsonObject u = resp.value("data").toObject();
 
-const QString token =
-    u.value("token").toString();
+    const QString token = u.value("token").toString();
 
-qDebug()
-    << "login token empty:"
-    << token.isEmpty();
+    if (token.isEmpty()) {
+        QMessageBox::warning(
+            this,
+            QStringLiteral("登录失败"),
+            QStringLiteral("服务器未返回 token"));
+        return;
+    }
 
-if (token.isEmpty()) {
-
-    QMessageBox::warning(
-        this,
-        QStringLiteral("登录失败"),
-        QStringLiteral("服务器未返回 token"));
-
-    return;
-}
-
-auto *mainWin = new MainWindow(
-    u.value("id").toVariant().toLongLong(),
-    u.value("nickname").toString(),
-    u.value("phone").toString(),
-    u.value("balance").toDouble(),
-    token);
+    auto *mainWin = new MainWindow(
+        u.value("id").toVariant().toLongLong(),
+        u.value("nickname").toString(),
+        u.value("phone").toString(),
+        u.value("balance").toDouble(),
+        token);
 
 
     mainWin->setAttribute(Qt::WA_DeleteOnClose);

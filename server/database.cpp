@@ -1046,6 +1046,70 @@ QJsonArray Database::adminStationList(int &code, QString &msg)
 }
 
 // ============================================================================
+// 高效查询（NO.56）
+// ============================================================================
+
+QJsonArray Database::revenueByDate(int days, int &code, QString &msg)
+{
+    QJsonArray arr;
+
+    QSqlQuery q(m_db);
+    q.prepare("SELECT DATE(end_time) AS date, COALESCE(SUM(amount), 0) AS revenue "
+              "FROM charge_order "
+              "WHERE status = 'settled' AND end_time >= DATE_SUB(NOW(), INTERVAL ? DAY) "
+              "GROUP BY DATE(end_time) ORDER BY date");
+    q.addBindValue(days);
+    if (!q.exec()) {
+        code = Protocol::DbError;
+        msg = q.lastError().text();
+        return arr;
+    }
+
+    while (q.next()) {
+        QJsonObject o;
+        o["date"]    = q.value("date").toString();
+        o["revenue"] = q.value("revenue").toDouble();
+        arr.append(o);
+    }
+
+    code = Protocol::Ok;
+    msg = "ok";
+    return arr;
+}
+
+QJsonArray Database::pileUsageStats(int &code, QString &msg)
+{
+    QJsonArray arr;
+
+    QSqlQuery q(m_db);
+    const QString sql =
+        "SELECT p.id AS pile_id, p.code, "
+        "  SUM(CASE WHEN o.start_time IS NOT NULL THEN 1 ELSE 0 END) AS charge_count, "
+        "  COALESCE(SUM(o.duration_seconds), 0) AS total_duration "
+        "FROM pile p "
+        "LEFT JOIN charge_order o ON o.pile_id = p.id "
+        "GROUP BY p.id, p.code ORDER BY p.id";
+    if (!q.exec(sql)) {
+        code = Protocol::DbError;
+        msg = q.lastError().text();
+        return arr;
+    }
+
+    while (q.next()) {
+        QJsonObject o;
+        o["pile_id"]        = q.value("pile_id").toLongLong();
+        o["code"]           = q.value("code").toString();
+        o["charge_count"]   = q.value("charge_count").toInt();
+        o["total_duration"] = q.value("total_duration").toDouble();
+        arr.append(o);
+    }
+
+    code = Protocol::Ok;
+    msg = "ok";
+    return arr;
+}
+
+// ============================================================================
 // 事务
 // ============================================================================
 
@@ -1138,7 +1202,9 @@ bool Database::updateNickname(qint64 userId, const QString &nickname)
         m_lastError = q.lastError().text();
         return false;
     }
-    return q.numRowsAffected() > 0;
+    // exec 成功即算成功：昵称与原值相同时 numRowsAffected() 为 0，不应视为失败。
+    // userId 来自已校验的会话，必然存在，无需再用行数判断存在性。
+    return true;
 }
 
 bool Database::updateAvatar(qint64 userId, const QString &avatarPath)
