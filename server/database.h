@@ -77,6 +77,10 @@ public:
     // 电站列表（含桩总数、在线率）
     QJsonArray adminStationList(int &code, QString &msg);
 
+    // ---- 高效查询（NO.56）----
+    QJsonArray revenueByDate(int days, int &code, QString &msg);
+    QJsonArray pileUsageStats(int &code, QString &msg);
+
     // ---- 事务 ----
     bool beginTransaction();
     bool commitTransaction();

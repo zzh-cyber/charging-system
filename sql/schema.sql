@@ -121,6 +121,7 @@ CREATE TABLE charge_order (
     KEY idx_order_station (station_id),
     KEY idx_order_user_status (user_id, status),
     KEY idx_order_end_status (end_time, status),
+    KEY idx_order_pile_start (pile_id, start_time),
     CONSTRAINT fk_order_user FOREIGN KEY (user_id) REFERENCES `user` (id),
     CONSTRAINT fk_order_pile FOREIGN KEY (pile_id) REFERENCES pile (id),
     CONSTRAINT fk_order_station FOREIGN KEY (station_id) REFERENCES station (id)
@@ -228,3 +229,27 @@ INSERT INTO `user` (phone, nickname, balance, status) VALUES
 -- 一条已结算订单示例
 INSERT INTO charge_order (order_no, user_id, station_id, pile_id, status, unit_price, reserve_time, start_time, end_time, duration_seconds, kwh, amount, pay_request_id)
 VALUES ('CD20260828001', 1, 1, 1, 'settled', 1.20, '2026-08-28 11:20:00', '2026-08-28 11:29:00', '2026-08-28 12:05:00', 2160, 30.00, 36.00, 'PAY20260828001');
+
+-- 跨月已结算订单（NO.56 营收趋势测试数据）
+INSERT INTO charge_order (order_no, user_id, station_id, pile_id, status, unit_price, reserve_time, start_time, end_time, duration_seconds, kwh, amount, pay_request_id) VALUES
+('CD20260715001', 2, 1, 2, 'settled', 1.20, '2026-07-15 09:00:00', '2026-07-15 09:10:00', '2026-07-15 10:00:00', 3000, 40.00, 48.00, 'PAY20260715001'),
+('CD20260810001', 1, 2, 7, 'settled', 1.60, '2026-08-10 14:00:00', '2026-08-10 14:10:00', '2026-08-10 15:00:00', 3000, 30.00, 48.00, 'PAY20260810001'),
+('CD20260901001', 2, 3, 11, 'settled', 1.30, '2026-09-01 08:00:00', '2026-09-01 08:05:00', '2026-09-01 09:00:00', 3300, 50.00, 65.00, 'PAY20260901001');
+
+-- 只读视图：电站汇总（总桩数、空闲桩数）
+DROP VIEW IF EXISTS v_station_summary;
+CREATE VIEW v_station_summary AS
+SELECT s.id AS station_id, s.station_code, s.name,
+       (SELECT COUNT(*) FROM pile p WHERE p.station_id = s.id) AS pile_count,
+       (SELECT COUNT(*) FROM pile p WHERE p.station_id = s.id AND p.status = 'idle') AS idle_count
+FROM station s;
+
+-- 只读视图：电桩使用统计（充电次数、累计时长）
+DROP VIEW IF EXISTS v_pile_usage;
+CREATE VIEW v_pile_usage AS
+SELECT p.id AS pile_id, p.code AS pile_code,
+       COUNT(o.id) AS charge_count,
+       COALESCE(SUM(o.duration_seconds), 0) AS total_duration_seconds
+FROM pile p
+LEFT JOIN charge_order o ON o.pile_id = p.id AND o.status = 'settled'
+GROUP BY p.id, p.code;
