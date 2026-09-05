@@ -193,7 +193,7 @@ void DashboardWidget::refreshData()
     QJsonObject requestData;
     requestData.insert(QStringLiteral("days"), days);
     const QJsonObject response = m_net->request(
-        Protocol::makeRequest(QStringLiteral("revenue_trend_query"), requestData));
+        Protocol::makeRequest(Protocol::MsgType::AdminRevenueTrend, requestData));
 
     m_loading = false;
     m_refreshButton->setEnabled(true);

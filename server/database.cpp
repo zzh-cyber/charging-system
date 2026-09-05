@@ -1125,7 +1125,7 @@ QJsonArray Database::adminStationList(int &code, QString &msg)
     return arr;
 }
 
-QJsonObject Database::adminStationAdd(const QJsonObject &input, int &code, QString &msg)
+QJsonObject Database::adminStationAdd(qint64 adminId, const QJsonObject &input, int &code, QString &msg)
 {
     const QString name = input.value("name").toString().trimmed();
     const QString address = input.value("address").toString().trimmed();
@@ -1138,9 +1138,10 @@ QJsonObject Database::adminStationAdd(const QJsonObject &input, int &code, QStri
         code = Protocol::InvalidRequest; msg = "电站信息不合法"; return {};
     }
     if (!m_db.transaction()) { code = Protocol::DbError; msg = m_db.lastError().text(); return {}; }
+    const QString stationCode = QUuid::createUuid().toString(QUuid::WithoutBraces).left(32);
     QSqlQuery station(m_db);
     station.prepare("INSERT INTO station (station_code,name,address,longitude,latitude,price) VALUES (?,?,?,?,?,?)");
-    station.addBindValue(QUuid::createUuid().toString(QUuid::WithoutBraces).left(32));
+    station.addBindValue(stationCode);
     station.addBindValue(name); station.addBindValue(address); station.addBindValue(longitude);
     station.addBindValue(latitude); station.addBindValue(price);
     if (!station.exec()) { m_db.rollback(); code = Protocol::DbError; msg = station.lastError().text(); return {}; }
@@ -1150,6 +1151,10 @@ QJsonObject Database::adminStationAdd(const QJsonObject &input, int &code, QStri
     for (int i = 1; i <= pileCount; ++i) {
         pile.bindValue(0, stationId); pile.bindValue(1, QString("%1-%2").arg(name.left(20)).arg(i, 3, 10, QLatin1Char('0')));
         if (!pile.exec()) { m_db.rollback(); code = Protocol::DbError; msg = pile.lastError().text(); return {}; }
+    }
+    // 审计日志（NO.58）：与加站在同一事务内，失败一并回滚
+    if (!logOperation(adminId, "add_station", "station", stationId, "", stationCode)) {
+        m_db.rollback(); code = Protocol::DbError; msg = m_lastError; return {};
     }
     if (!m_db.commit()) { m_db.rollback(); code = Protocol::DbError; msg = m_db.lastError().text(); return {}; }
     code = Protocol::Ok; msg = "电站新增成功"; return QJsonObject{{"id", stationId}};
@@ -1174,35 +1179,8 @@ QJsonObject Database::revenueTrend(int days, int &code, QString &msg)
 
 // ============================================================================
 // 高效查询（NO.56）
+// 注：营收趋势统一由 revenueTrend() 提供（含 KPI），此处不再重复 revenueByDate。
 // ============================================================================
-
-QJsonArray Database::revenueByDate(int days, int &code, QString &msg)
-{
-    QJsonArray arr;
-
-    QSqlQuery q(m_db);
-    q.prepare("SELECT DATE(end_time) AS date, COALESCE(SUM(amount), 0) AS revenue "
-              "FROM charge_order "
-              "WHERE status = 'settled' AND end_time >= DATE_SUB(NOW(), INTERVAL ? DAY) "
-              "GROUP BY DATE(end_time) ORDER BY date");
-    q.addBindValue(days);
-    if (!q.exec()) {
-        code = Protocol::DbError;
-        msg = q.lastError().text();
-        return arr;
-    }
-
-    while (q.next()) {
-        QJsonObject o;
-        o["date"]    = q.value("date").toString();
-        o["revenue"] = q.value("revenue").toDouble();
-        arr.append(o);
-    }
-
-    code = Protocol::Ok;
-    msg = "ok";
-    return arr;
-}
 
 QJsonArray Database::pileUsageStats(int &code, QString &msg)
 {
@@ -1350,44 +1328,6 @@ bool Database::updateAvatar(qint64 userId, const QString &avatarPath)
 // ============================================================================
 // 充电站管理（NO.53）
 // ============================================================================
-
-bool Database::addStation(qint64 adminId, const QString &code, const QString &name, const QString &address,
-                          double lng, double lat, double price)
-{
-    if (!m_db.transaction()) {
-        m_lastError = m_db.lastError().text();
-        return false;
-    }
-
-    QSqlQuery q(m_db);
-    q.prepare("INSERT INTO station (station_code, name, address, longitude, latitude, price, enabled) "
-              "VALUES (?, ?, ?, ?, ?, ?, 1)");
-    q.addBindValue(code);
-    q.addBindValue(name);
-    q.addBindValue(address);
-    q.addBindValue(lng);
-    q.addBindValue(lat);
-    q.addBindValue(price);
-    if (!q.exec()) {
-        m_lastError = q.lastError().text();
-        m_db.rollback();
-        return false;
-    }
-    const qint64 stationId = q.lastInsertId().toLongLong();
-
-    // 写操作日志（NO.58）
-    if (!logOperation(adminId, "add_station", "station", stationId, "", code)) {
-        m_db.rollback();
-        return false;
-    }
-
-    if (!m_db.commit()) {
-        m_lastError = m_db.lastError().text();
-        m_db.rollback();
-        return false;
-    }
-    return true;
-}
 
 // ============================================================================
 // 操作日志（NO.58）

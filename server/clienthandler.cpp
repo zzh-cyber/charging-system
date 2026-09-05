@@ -282,17 +282,16 @@ void ClientHandler::dispatch(const QJsonObject &req)
         return;
     }
     if (type == MsgType::AdminStationAdd) {
-        const QJsonObject out = m_db->adminStationAdd(data, code, msg);
+        // 身份取自会话（已过管理员鉴权门），加站与写审计日志在同一事务内完成
+        const QJsonObject out = m_db->adminStationAdd(sess.userId, data, code, msg);
         reply(makeResponse(type, code, msg, out));
         return;
     }
-    if (type == QStringLiteral("revenue_trend_query")) {
-        Session sess;
-        if (!SessionManager::instance().validate(req.value("token").toString(), sess) || sess.role != QLatin1String("admin")) {
-            reply(makeResponse(type, SessionInvalid, "登录已失效，请重新登录")); return;
-        }
+    if (type == MsgType::AdminRevenueTrend) {
+        // 管理员角色已由全局鉴权门校验（admin_ 前缀），此处直接查询
         const QJsonObject out = m_db->revenueTrend(data.value("days").toInt(7), code, msg);
-        reply(makeResponse(type, code, msg, out)); return;
+        reply(makeResponse(type, code, msg, out));
+        return;
     }
 
     // ================= 其余接口：占位，待各模块负责人实现 =================

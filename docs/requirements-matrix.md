@@ -153,7 +153,7 @@
 | 27 | PC管理端 | 管理员登录 | 管理员在登录界面输入账号和密码并提交验证。 | 账号密码输入；发送 {type:'admin_login', data:{username,password}}（**不带 token**）。成功后 NetClient::setToken(data.token)，进入管理后台；退出 clearToken。密码不写客户端日志。 | 牛昀轶 | 2026-09-02 | ○ |  |
 | 28 |  |  | 服务器校验数据库管理员账号并兼容默认账号 admin/123456。 | admin 表存 password_hash+salt；登录校验成功后更新 last_login_at，返回 id、username，并由 SessionManager 创建 role=admin 的 token 写入 data.token。账号停用或密码错误统一 AUTH_FAILED。默认 admin/123456 仅作初始化哈希入库，库中不保留明文。 | 朱雅琪 | 2026-09-03 | ○ |  |
 | 29 |  |  | 登录成功后建立管理员会话并控制后台操作权限。 | SessionManager 保存 token→(adminId, role=admin, lastActive)；**除 admin_login 外，所有 admin_* 请求必须带 token**，分发层校验 token 且 role 为 admin 后才进业务。30 分钟无操作滑动过期。写操作（重启、冻结、新增电站）须鉴权通过并写 operation_logs。服务器鉴权门已开闸；管理端收到 code=9 会清 token 并回到登录窗。 | 朱雅琪 | 2026-09-03 | ○ |  |
-| 30 |  | 销售业绩 | 管理端可切换查看近 7 日和近 30 日营收数据。 | 切换 7/30 日后发送 {type:'revenue_trend_query', token, data:{days:7\|30}}（须管理员 token）。横轴按自然日补 0；切换模块返回时保持原时间维度。 | 牛昀轶 | × |  |  |
+| 30 |  | 销售业绩 | 管理端可切换查看近 7 日和近 30 日营收数据。 | 切换 7/30 日后发送 {type:'admin_revenue_trend', token, data:{days:7\|30}}（须管理员 token；须 `admin_` 前缀才能过管理员鉴权门）。横轴按自然日补 0；切换模块返回时保持原时间维度。 | 牛昀轶 | × |  |  |
 | 31 |  |  | 服务器汇总已结算订单生成趋势和营收指标。 | 须管理员 token；只统计已结算订单按日汇总营收，返回趋势序列及今日/本月/历史总营收，金额保留 2 位。 | 朱雅琪 | 2026-09-05 | × |  |
 | 32 |  |  | 页面展示今日营收、本月营收和总营收三项核心指标。 | 使用三个统一样式的 KPI 卡片绑定 todayRevenue、monthRevenue、totalRevenue，按人民币格式显示并使用千分位；无数据时显示 ¥0.00。刷新趋势时三项指标同步更新，响应 requestId 不匹配时丢弃旧数据；点击刷新按钮可重新请求，失败时保留旧值并标注最后成功更新时间。 | 牛昀轶 | 2026-09-05 | × |  |
 | 33 |  |  | 使用 Qt Charts 绘制营收变化趋势折线图。 | 使用 QChart、QLineSeries 和 QDateTimeAxis/QValueAxis 构建折线图，横轴按日期、纵轴从 0 起并根据最大营收留出余量；切换数据时清空旧 series 后一次性填充，避免重复叠线。为数据点提供悬停提示“日期 + 金额”，30 日模式适当减少横轴标签密度；窗口缩放时图表自适应，异常值和空数据不导致坐标轴无效。 | 牛昀轶 | 2026-09-06 | × |  |

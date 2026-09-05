@@ -76,11 +76,12 @@ public:
 
     // 电站列表（含桩总数、在线率）
     QJsonArray adminStationList(int &code, QString &msg);
-    QJsonObject adminStationAdd(const QJsonObject &input, int &code, QString &msg);
+    // 新增电站（管理员，NO.101/102）：入参含 adminId，事务内写审计日志
+    QJsonObject adminStationAdd(qint64 adminId, const QJsonObject &input, int &code, QString &msg);
+    // 营收趋势（NO.30–33）：返回近 7/30 日按日营收 + 今日/本月/总营收
     QJsonObject revenueTrend(int days, int &code, QString &msg);
 
     // ---- 高效查询（NO.56）----
-    QJsonArray revenueByDate(int days, int &code, QString &msg);
     QJsonArray pileUsageStats(int &code, QString &msg);
 
     // ---- 事务 ----
@@ -97,8 +98,7 @@ public:
     bool updateAvatar(qint64 userId, const QString &avatarPath);
 
     // ---- 充电站管理（NO.53）----
-    bool addStation(qint64 adminId, const QString &code, const QString &name, const QString &address,
-                    double lng, double lat, double price);
+    // 新增电站统一走 adminStationAdd()；此处仅保留更新。
     bool updateStation(qint64 stationId, const QString &name, const QString &address,
                        double lng, double lat, double price);
 
