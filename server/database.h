@@ -66,13 +66,13 @@ public:
     QJsonArray adminUserList(const QString &keyword, int &code, QString &msg);
 
     // 冻结/解冻用户（frozen = true 冻结，false 解冻）
-    QJsonObject adminUserFreeze(qint64 userId, bool frozen, int &code, QString &msg);
+    QJsonObject adminUserFreeze(qint64 adminId, qint64 userId, bool frozen, int &code, QString &msg);
 
     // 全部电桩列表（含所属电站名、累计次数/时长）
     QJsonArray adminPileList(int &code, QString &msg);
 
     // 远程重启电桩：fault/busy → idle，返回新状态
-    QJsonObject adminPileRestart(qint64 pileId, int &code, QString &msg);
+    QJsonObject adminPileRestart(qint64 adminId, qint64 pileId, int &code, QString &msg);
 
     // 电站列表（含桩总数、在线率）
     QJsonArray adminStationList(int &code, QString &msg);
@@ -91,13 +91,18 @@ public:
     bool updateAvatar(qint64 userId, const QString &avatarPath);
 
     // ---- 充电站管理（NO.53）----
-    bool addStation(const QString &code, const QString &name, const QString &address,
+    bool addStation(qint64 adminId, const QString &code, const QString &name, const QString &address,
                     double lng, double lat, double price);
     bool updateStation(qint64 stationId, const QString &name, const QString &address,
                        double lng, double lat, double price);
 
 private:
     bool executeScript(const QString &sql);  // 逐条执行 SQL 脚本
+
+    // NO.58：写操作日志（operation_logs）
+    bool logOperation(qint64 adminId, const QString &action, const QString &targetType,
+                      qint64 targetId, const QString &beforeValue, const QString &afterValue,
+                      const QString &reason = QString());
 
     QSqlDatabase m_db;
     QString      m_connName;

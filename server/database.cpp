@@ -901,7 +901,7 @@ QJsonArray Database::adminUserList(const QString &keyword, int &code, QString &m
     return arr;
 }
 
-QJsonObject Database::adminUserFreeze(qint64 userId, bool frozen, int &code, QString &msg)
+QJsonObject Database::adminUserFreeze(qint64 adminId, qint64 userId, bool frozen, int &code, QString &msg)
 {
     QJsonObject data;
 
@@ -911,23 +911,62 @@ QJsonObject Database::adminUserFreeze(qint64 userId, bool frozen, int &code, QSt
         return data;
     }
 
-    QSqlQuery q(m_db);
-    q.prepare("UPDATE `user` SET status = ? WHERE id = ?");
-    q.addBindValue(frozen ? "frozen" : "normal");
-    q.addBindValue(userId);
-    if (!q.exec()) {
+    const QString newStatus = frozen ? "frozen" : "normal";
+
+    if (!m_db.transaction()) {
         code = Protocol::DbError;
-        msg = q.lastError().text();
+        msg = m_db.lastError().text();
         return data;
     }
-    if (q.numRowsAffected() == 0) {
+
+    // 查旧状态（日志 before_value 用）
+    QSqlQuery sel(m_db);
+    sel.prepare("SELECT status FROM `user` WHERE id = ?");
+    sel.addBindValue(userId);
+    if (!sel.exec()) {
+        m_db.rollback();
+        code = Protocol::DbError;
+        msg = sel.lastError().text();
+        return data;
+    }
+    if (!sel.next()) {
+        m_db.rollback();
         code = Protocol::NotFound;
         msg = "用户不存在";
         return data;
     }
+    const QString oldStatus = sel.value("status").toString();
+
+    // 更新状态
+    QSqlQuery q(m_db);
+    q.prepare("UPDATE `user` SET status = ? WHERE id = ?");
+    q.addBindValue(newStatus);
+    q.addBindValue(userId);
+    if (!q.exec()) {
+        m_db.rollback();
+        code = Protocol::DbError;
+        msg = q.lastError().text();
+        return data;
+    }
+
+    // 写操作日志（NO.58）
+    if (!logOperation(adminId, frozen ? "freeze_user" : "unfreeze_user",
+                      "user", userId, oldStatus, newStatus)) {
+        m_db.rollback();
+        code = Protocol::DbError;
+        msg = m_lastError;
+        return data;
+    }
+
+    if (!m_db.commit()) {
+        m_db.rollback();
+        code = Protocol::DbError;
+        msg = m_db.lastError().text();
+        return data;
+    }
 
     data["id"]     = userId;
-    data["status"] = frozen ? "frozen" : "normal";
+    data["status"] = newStatus;
     code = Protocol::Ok;
     msg = frozen ? "已冻结" : "已解冻";
     return data;
@@ -967,7 +1006,7 @@ QJsonArray Database::adminPileList(int &code, QString &msg)
     return arr;
 }
 
-QJsonObject Database::adminPileRestart(qint64 pileId, int &code, QString &msg)
+QJsonObject Database::adminPileRestart(qint64 adminId, qint64 pileId, int &code, QString &msg)
 {
     QJsonObject data;
 
@@ -977,31 +1016,69 @@ QJsonObject Database::adminPileRestart(qint64 pileId, int &code, QString &msg)
         return data;
     }
 
-    // 先确认电桩存在。不能用 UPDATE 的 numRowsAffected() 判断是否存在：
-    // MySQL 在字段原本就是 idle 时会返回 0，容易把“值未变化”误判为不存在。
+    if (!m_db.transaction()) {
+        code = Protocol::DbError;
+        msg = m_db.lastError().text();
+        return data;
+    }
+
+    // 确认电桩存在并记录旧状态（日志 before_value 用）
     QSqlQuery existsQuery(m_db);
-    existsQuery.prepare("SELECT 1 FROM pile WHERE id = ? LIMIT 1");
+    existsQuery.prepare("SELECT status FROM pile WHERE id = ? LIMIT 1");
     existsQuery.addBindValue(pileId);
     if (!existsQuery.exec()) {
+        m_db.rollback();
         code = Protocol::DbError;
         msg = existsQuery.lastError().text();
         return data;
     }
     if (!existsQuery.next()) {
+        m_db.rollback();
         code = Protocol::NotFound;
         msg = "电桩不存在";
         return data;
     }
+    const QString oldStatus = existsQuery.value("status").toString();
 
-    // 模拟向电桩下发重启指令：重启完成后恢复为 idle。
+    // 写设备指令（模拟重启，直接标记成功）
+    QSqlQuery cmd(m_db);
+    cmd.prepare("INSERT INTO device_commands (command_no, pile_id, command, status, response_at) "
+                "VALUES (?, ?, 'restart', 'success', NOW())");
+    cmd.addBindValue(QUuid::createUuid().toString(QUuid::WithoutBraces));
+    cmd.addBindValue(pileId);
+    if (!cmd.exec()) {
+        m_db.rollback();
+        code = Protocol::DbError;
+        msg = cmd.lastError().text();
+        return data;
+    }
+
+    // 模拟重启：恢复为 idle
     QSqlQuery q(m_db);
     q.prepare("UPDATE pile SET status = 'idle' WHERE id = ?");
     q.addBindValue(pileId);
     if (!q.exec()) {
+        m_db.rollback();
         code = Protocol::DbError;
         msg = q.lastError().text();
         return data;
     }
+
+    // 写操作日志（NO.58）
+    if (!logOperation(adminId, "restart_pile", "pile", pileId, oldStatus, "idle")) {
+        m_db.rollback();
+        code = Protocol::DbError;
+        msg = m_lastError;
+        return data;
+    }
+
+    if (!m_db.commit()) {
+        m_db.rollback();
+        code = Protocol::DbError;
+        msg = m_db.lastError().text();
+        return data;
+    }
+
     data["id"]     = pileId;
     data["status"] = "idle";
     code = Protocol::Ok;
@@ -1160,9 +1237,14 @@ bool Database::updateAvatar(qint64 userId, const QString &avatarPath)
 // 充电站管理（NO.53）
 // ============================================================================
 
-bool Database::addStation(const QString &code, const QString &name, const QString &address,
+bool Database::addStation(qint64 adminId, const QString &code, const QString &name, const QString &address,
                           double lng, double lat, double price)
 {
+    if (!m_db.transaction()) {
+        m_lastError = m_db.lastError().text();
+        return false;
+    }
+
     QSqlQuery q(m_db);
     q.prepare("INSERT INTO station (station_code, name, address, longitude, latitude, price, enabled) "
               "VALUES (?, ?, ?, ?, ?, ?, 1)");
@@ -1172,6 +1254,50 @@ bool Database::addStation(const QString &code, const QString &name, const QStrin
     q.addBindValue(lng);
     q.addBindValue(lat);
     q.addBindValue(price);
+    if (!q.exec()) {
+        m_lastError = q.lastError().text();
+        m_db.rollback();
+        return false;
+    }
+    const qint64 stationId = q.lastInsertId().toLongLong();
+
+    // 写操作日志（NO.58）
+    if (!logOperation(adminId, "add_station", "station", stationId, "", code)) {
+        m_db.rollback();
+        return false;
+    }
+
+    if (!m_db.commit()) {
+        m_lastError = m_db.lastError().text();
+        m_db.rollback();
+        return false;
+    }
+    return true;
+}
+
+// ============================================================================
+// 操作日志（NO.58）
+// ============================================================================
+
+bool Database::logOperation(qint64 adminId, const QString &action, const QString &targetType,
+                            qint64 targetId, const QString &beforeValue, const QString &afterValue,
+                            const QString &reason)
+{
+    QSqlQuery q(m_db);
+    q.prepare("INSERT INTO operation_logs "
+              "(admin_id, action, target_type, target_id, before_value, after_value, result, reason) "
+              "VALUES (?, ?, ?, ?, ?, ?, 'success', ?)");
+    // 空字符串统一转成 "" 再绑定，避免 null QString 被绑成 NULL 触发 NOT NULL 约束
+    const auto emptyIfNull = [](const QString &s) {
+        return s.isNull() ? QStringLiteral("") : s;
+    };
+    q.addBindValue(adminId);
+    q.addBindValue(action);
+    q.addBindValue(targetType);
+    q.addBindValue(targetId);
+    q.addBindValue(emptyIfNull(beforeValue));
+    q.addBindValue(emptyIfNull(afterValue));
+    q.addBindValue(emptyIfNull(reason));
     if (!q.exec()) {
         m_lastError = q.lastError().text();
         return false;
