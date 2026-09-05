@@ -3,6 +3,8 @@
 #include "netclient.h"
 #include "protocol.h"
 #include "stationcardwidget.h"
+#include "windowhelper.h"
+
 
 
 #include <QComboBox>
@@ -16,6 +18,8 @@
 #include <QShowEvent>
 #include <QStackedWidget>
 #include <QVBoxLayout>
+#include <QResizeEvent>
+
 
 #include <algorithm>
 #include <cmath>
@@ -31,6 +35,9 @@ StationListPage::StationListPage(
     // 标题栏
     // =========================================================================
     auto *header = new QHBoxLayout;
+    header->setObjectName(
+    QStringLiteral("stationHeaderLayout"));
+
 
     header->setContentsMargins(
         16, 12, 16, 4);
@@ -40,15 +47,21 @@ StationListPage::StationListPage(
             QStringLiteral(
                 "附近充电站"),
             this);
+    title->setObjectName(
+    QStringLiteral("stationTitle"));
+
 
     title->setStyleSheet(
-        "font-size:22px;"
         "font-weight:bold;");
 
     auto *refreshBtn =
         new QPushButton(
             QStringLiteral("刷新"),
             this);
+    refreshBtn->setObjectName(
+    QStringLiteral(
+        "stationRefreshButton"));
+
 
     refreshBtn->setCursor(
         Qt::PointingHandCursor);
@@ -59,8 +72,6 @@ StationListPage::StationListPage(
         "color:#ffffff;"
         "border:none;"
         "border-radius:6px;"
-        "padding:6px 14px;"
-        "font-size:13px;"
         "}"
         "QPushButton:hover{"
         "background:#1e40af;"
@@ -130,10 +141,13 @@ StationListPage::StationListPage(
     // 状态提示
     // =========================================================================
     m_tip = new QLabel(this);
+    m_tip->setObjectName(
+    QStringLiteral("stationTip"));
+
 
     m_tip->setStyleSheet(
         "color:#86909c;"
-        "padding:0 16px 8px 16px;");
+    );
 
     // =========================================================================
     // 四态 Stack
@@ -151,6 +165,10 @@ StationListPage::StationListPage(
         auto *l =
             new QVBoxLayout(
                 loadingPage);
+        l->setObjectName(
+    QStringLiteral(
+        "stationLoadingLayout"));
+
 
         l->setAlignment(
             Qt::AlignCenter);
@@ -160,10 +178,14 @@ StationListPage::StationListPage(
                 QStringLiteral(
                     "加载中…"),
                 loadingPage);
+        lab->setObjectName(
+            QStringLiteral(
+                "stationStateLabel"));
+
 
         lab->setStyleSheet(
             "color:#86909c;"
-            "font-size:15px;");
+            );
 
         l->addWidget(lab);
     }
@@ -226,6 +248,10 @@ StationListPage::StationListPage(
         auto *l =
             new QVBoxLayout(
                 emptyPage);
+        l->setObjectName(
+    QStringLiteral(
+        "stationEmptyLayout"));
+
 
         l->setAlignment(
             Qt::AlignCenter);
@@ -237,10 +263,14 @@ StationListPage::StationListPage(
                 QStringLiteral(
                     "暂无充电站"),
                 emptyPage);
+        lab->setObjectName(
+    QStringLiteral(
+        "stationStateLabel"));
+
 
         lab->setStyleSheet(
             "color:#86909c;"
-            "font-size:15px;");
+            );
 
         auto *btn =
             new QPushButton(
@@ -277,6 +307,10 @@ StationListPage::StationListPage(
         auto *l =
             new QVBoxLayout(
                 errorPage);
+        l->setObjectName(
+    QStringLiteral(
+        "stationErrorLayout"));
+
 
         l->setAlignment(
             Qt::AlignCenter);
@@ -288,10 +322,14 @@ StationListPage::StationListPage(
                 QStringLiteral(
                     "加载失败，请检查网络后重试"),
                 errorPage);
+        lab->setObjectName(
+    QStringLiteral(
+        "stationStateLabel"));
+
 
         lab->setStyleSheet(
             "color:#e5484d;"
-            "font-size:15px;");
+            );
 
         auto *btn =
             new QPushButton(
@@ -350,7 +388,134 @@ StationListPage::StationListPage(
         &NetClient::reconnected,
         this,
         &StationListPage::loadStations);
+    applyResponsiveStyle();
+
 }
+void StationListPage::resizeEvent(
+    QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+
+    applyResponsiveStyle();
+}
+
+
+void StationListPage::applyResponsiveStyle()
+{
+    QWidget *scaleBase =
+        window()
+            ? window()
+            : this;
+
+    const int titleFont =
+        scaledUi(scaleBase, 22);
+
+    const int stateFont =
+        scaledUi(scaleBase, 15);
+
+    const int refreshFont =
+        scaledUi(scaleBase, 13);
+
+    const int headerLeftRight =
+        scaledUi(scaleBase, 16);
+
+    const int headerTop =
+        scaledUi(scaleBase, 12);
+
+    const int headerBottom =
+        scaledUi(scaleBase, 4);
+
+    const int listMargin =
+        scaledUi(scaleBase, 12);
+
+    const int listTop =
+        scaledUi(scaleBase, 4);
+
+    const int spacing =
+        scaledUi(scaleBase, 12);
+
+    const int refreshPaddingV =
+        scaledUi(scaleBase, 6);
+
+    const int refreshPaddingH =
+        scaledUi(scaleBase, 14);
+
+    const int tipBottom =
+        scaledUi(scaleBase, 8);
+
+    // 标题、状态文字、刷新按钮、提示区域
+    setStyleSheet(
+        QStringLiteral(
+            "QLabel#stationTitle{"
+            "font-size:%1px;"
+            "}"
+
+            "QLabel#stationStateLabel{"
+            "font-size:%2px;"
+            "}"
+
+            "QPushButton#stationRefreshButton{"
+            "font-size:%3px;"
+            "padding:%4px %5px;"
+            "}"
+
+            "QLabel#stationTip{"
+            "padding:0 %6px %7px %6px;"
+            "}")
+            .arg(titleFont)
+            .arg(stateFont)
+            .arg(refreshFont)
+            .arg(refreshPaddingV)
+            .arg(refreshPaddingH)
+            .arg(headerLeftRight)
+            .arg(tipBottom));
+
+    // 标题栏边距
+    if (auto *header =
+            findChild<QHBoxLayout *>(
+                QStringLiteral(
+                    "stationHeaderLayout"))) {
+
+        header->setContentsMargins(
+            headerLeftRight,
+            headerTop,
+            headerLeftRight,
+            headerBottom);
+    }
+
+    // 站点卡片列表区域
+    if (m_listLayout) {
+
+        m_listLayout->setContentsMargins(
+            listMargin,
+            listTop,
+            listMargin,
+            listMargin);
+
+        m_listLayout->setSpacing(
+            spacing);
+    }
+
+    // 空页面和错误页面间距
+    if (auto *emptyLayout =
+            findChild<QVBoxLayout *>(
+                QStringLiteral(
+                    "stationEmptyLayout"))) {
+
+        emptyLayout->setSpacing(
+            spacing);
+    }
+
+    if (auto *errorLayout =
+            findChild<QVBoxLayout *>(
+                QStringLiteral(
+                    "stationErrorLayout"))) {
+
+        errorLayout->setSpacing(
+            spacing);
+    }
+}
+
 
 // =============================================================================
 // 设置用户当前位置

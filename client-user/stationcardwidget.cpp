@@ -1,9 +1,11 @@
 #include "stationcardwidget.h"
+#include "windowhelper.h"
 
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
 #include <QVBoxLayout>
+#include <QResizeEvent>
 
 #include <cmath>
 
@@ -46,6 +48,10 @@ StationCardWidget::StationCardWidget(
 {
     setObjectName(
         QStringLiteral("stationCard"));
+    setSizePolicy(
+        QSizePolicy::Expanding,
+        QSizePolicy::Preferred);
+
 
     setStyleSheet(
         "#stationCard{"
@@ -185,6 +191,9 @@ StationCardWidget::StationCardWidget(
         new QLabel(
             m_name,
             this);
+    nameLabel->setObjectName(
+    QStringLiteral("stationNameLabel"));
+
 
     nameLabel->setStyleSheet(
         "font-size:17px;"
@@ -209,6 +218,9 @@ StationCardWidget::StationCardWidget(
         new QLabel(
             priceText,
             this);
+    priceLabel->setObjectName(
+    QStringLiteral("stationPriceLabel"));
+
 
     priceLabel->setStyleSheet(
         "font-size:15px;"
@@ -229,6 +241,9 @@ StationCardWidget::StationCardWidget(
                 ? QStringLiteral("--")
                 : address,
             this);
+    addressLabel->setObjectName(
+    QStringLiteral("stationAddressLabel"));
+
 
     addressLabel->setWordWrap(true);
 
@@ -264,6 +279,13 @@ StationCardWidget::StationCardWidget(
         new QLabel(
             idleText,
             this);
+    idleLabel->setObjectName(
+        QStringLiteral("stationIdleLabel"));
+
+    idleLabel->setProperty(
+        "stationFull",
+        full);
+
 
     if (full) {
 
@@ -297,6 +319,8 @@ StationCardWidget::StationCardWidget(
         new QLabel(
             distanceText,
             this);
+    distanceLabel->setObjectName(
+        QStringLiteral("stationDistanceLabel"));
 
     distanceLabel->setStyleSheet(
         "font-size:12px;"
@@ -327,11 +351,17 @@ StationCardWidget::StationCardWidget(
             QStringLiteral(
                 "查看充电桩"),
             this);
+    pileButton->setObjectName(
+    QStringLiteral("stationActionButton"));
+
 
     auto *navigationButton =
         new QPushButton(
             QStringLiteral("导航"),
             this);
+    navigationButton->setObjectName(
+    QStringLiteral("stationActionButton"));
+
 
     const QString buttonStyle =
         "QPushButton{"
@@ -417,4 +447,187 @@ StationCardWidget::StationCardWidget(
                 m_longitude,
                 m_distance);
         });
+applyResponsiveStyle();
+
+}
+void StationCardWidget::resizeEvent(
+    QResizeEvent *event)
+{
+    QFrame::resizeEvent(event);
+
+    applyResponsiveStyle();
+}
+
+
+void StationCardWidget::applyResponsiveStyle()
+{
+    QWidget *scaleBase =
+        window()
+            ? window()
+            : this;
+
+    const int nameFont =
+        scaledUi(scaleBase, 17);
+
+    const int priceFont =
+        scaledUi(scaleBase, 15);
+
+    const int smallFont =
+        scaledUi(scaleBase, 12);
+
+    const int idleFont =
+        scaledUi(scaleBase, 13);
+
+    const int buttonFont =
+        scaledUi(scaleBase, 15);
+
+    // ---------------------------------------------------------
+    // 卡片内部边距和间距
+    // ---------------------------------------------------------
+    if (auto *mainLayout =
+            qobject_cast<QVBoxLayout *>(
+                layout())) {
+
+        mainLayout->setContentsMargins(
+            scaledUi(scaleBase, 14),
+            scaledUi(scaleBase, 12),
+            scaledUi(scaleBase, 14),
+            scaledUi(scaleBase, 12));
+
+        mainLayout->setSpacing(
+            scaledUi(scaleBase, 7));
+    }
+
+    // ---------------------------------------------------------
+    // 站名
+    // ---------------------------------------------------------
+    if (auto *label =
+            findChild<QLabel *>(
+                QStringLiteral(
+                    "stationNameLabel"))) {
+
+        label->setStyleSheet(
+            QStringLiteral(
+                "font-size:%1px;"
+                "font-weight:bold;"
+                "color:#1d2129;")
+                .arg(nameFont));
+    }
+
+    // ---------------------------------------------------------
+    // 价格
+    // ---------------------------------------------------------
+    if (auto *label =
+            findChild<QLabel *>(
+                QStringLiteral(
+                    "stationPriceLabel"))) {
+
+        label->setStyleSheet(
+            QStringLiteral(
+                "font-size:%1px;"
+                "font-weight:bold;"
+                "color:#ff6a00;")
+                .arg(priceFont));
+    }
+
+    // ---------------------------------------------------------
+    // 地址
+    // ---------------------------------------------------------
+    if (auto *label =
+            findChild<QLabel *>(
+                QStringLiteral(
+                    "stationAddressLabel"))) {
+
+        label->setStyleSheet(
+            QStringLiteral(
+                "font-size:%1px;"
+                "color:#86909c;")
+                .arg(smallFont));
+    }
+
+    // ---------------------------------------------------------
+    // 空闲 / 已满
+    // ---------------------------------------------------------
+    if (auto *label =
+            findChild<QLabel *>(
+                QStringLiteral(
+                    "stationIdleLabel"))) {
+
+        const bool full =
+            label->property(
+                "stationFull")
+                .toBool();
+
+        label->setStyleSheet(
+            QStringLiteral(
+                "font-size:%1px;"
+                "font-weight:bold;"
+                "color:%2;")
+                .arg(idleFont)
+                .arg(
+                    full
+                        ? QStringLiteral(
+                              "#999999")
+                        : QStringLiteral(
+                              "#16a34a")));
+    }
+
+    // ---------------------------------------------------------
+    // 距离
+    // ---------------------------------------------------------
+    if (auto *label =
+            findChild<QLabel *>(
+                QStringLiteral(
+                    "stationDistanceLabel"))) {
+
+        label->setStyleSheet(
+            QStringLiteral(
+                "font-size:%1px;"
+                "color:#4e5969;")
+                .arg(smallFont));
+    }
+
+    // ---------------------------------------------------------
+    // 两个操作按钮
+    // ---------------------------------------------------------
+    const auto buttons =
+        findChildren<QPushButton *>(
+            QStringLiteral(
+                "stationActionButton"));
+
+    for (QPushButton *button :
+         buttons) {
+
+        button->setStyleSheet(
+            QStringLiteral(
+                "QPushButton{"
+                "border:1px solid #1d4ed8;"
+                "border-radius:%1px;"
+                "padding:%2px %3px;"
+                "font-size:%4px;"
+                "color:#1d4ed8;"
+                "background:#ffffff;"
+                "}"
+                "QPushButton:hover{"
+                "background:#eef4ff;"
+                "}"
+                "QPushButton:disabled{"
+                "border-color:#d9d9d9;"
+                "color:#bfbfbf;"
+                "background:#f5f5f5;"
+                "}")
+                .arg(
+                    scaledUi(
+                        scaleBase,
+                        6))
+                .arg(
+                    scaledUi(
+                        scaleBase,
+                        5))
+                .arg(
+                    scaledUi(
+                        scaleBase,
+                        12))
+                .arg(buttonFont));
+    }
 }

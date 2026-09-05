@@ -11,6 +11,8 @@ class QLineEdit;
 class QPushButton;
 class QLabel;
 class NetClient;
+class QResizeEvent;
+
 
 class LoginWindow : public QWidget
 {
@@ -18,12 +20,17 @@ class LoginWindow : public QWidget
 public:
     explicit LoginWindow(QWidget *parent = nullptr);
 
+protected:
+    void resizeEvent(
+        QResizeEvent *event) override;
+
 private slots:
     void onLoginClicked();
     void onRegisterClicked();
 
 
 private:
+    void applyResponsiveStyle();
     QLineEdit   *m_phoneEdit;
     QPushButton *m_loginBtn;
     QLabel      *m_hint;

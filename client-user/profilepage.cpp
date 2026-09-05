@@ -1,4 +1,5 @@
 #include "profilepage.h"
+#include "windowhelper.h"
 
 #include <QDialog>
 #include <QDialogButtonBox>
@@ -13,6 +14,9 @@
 #include <QVBoxLayout>
 #include <QPainter>
 #include <QPixmap>
+#include <QResizeEvent>
+#include <QStringList>
+
 
 
 ProfilePage::ProfilePage(
@@ -34,6 +38,8 @@ ProfilePage::ProfilePage(
         new QLabel(
             QStringLiteral("我的"),
             this);
+title->setObjectName(
+    QStringLiteral("profileTitle"));
 
     title->setStyleSheet(
         "font-size:24px;"
@@ -45,6 +51,8 @@ ProfilePage::ProfilePage(
             QStringLiteral(
                 "个人资料与钱包管理"),
             this);
+    subtitle->setObjectName(
+    QStringLiteral("profileSubtitle"));
 
     subtitle->setStyleSheet(
         "color:#86909c;"
@@ -58,6 +66,9 @@ ProfilePage::ProfilePage(
     // ========================================================================
     auto *userCard =
         new QFrame(this);
+    userCard->setObjectName(
+    QStringLiteral("profileUserCard"));
+
 
     userCard->setStyleSheet(
         "QFrame{"
@@ -114,6 +125,11 @@ avatar->setPixmap(avatarPixmap);
 
     avatar->setAlignment(
         Qt::AlignCenter);
+    avatar->setObjectName(
+    QStringLiteral("profileAvatar"));
+
+    avatar->setScaledContents(true);
+
 
     avatar->setStyleSheet(
         "background:#e8f0ff;"
@@ -271,6 +287,9 @@ avatar->setPixmap(avatarPixmap);
     // ========================================================================
     auto *walletCard =
         new QFrame(this);
+    walletCard->setObjectName(
+    QStringLiteral("profileWalletCard"));
+
 
     walletCard->setStyleSheet(
         "QFrame{"
@@ -292,6 +311,9 @@ avatar->setPixmap(avatarPixmap);
             QStringLiteral(
                 "钱包余额"),
             walletCard);
+    walletTitle->setObjectName(
+    QStringLiteral("profileWalletTitle"));
+
 
     walletTitle->setStyleSheet(
         "border:none;"
@@ -324,6 +346,9 @@ avatar->setPixmap(avatarPixmap);
             QStringLiteral(
                 "选择充值金额"),
             walletCard);
+    amountTitle->setObjectName(
+    QStringLiteral("profileAmountTitle"));
+
 
     amountTitle->setStyleSheet(
         "border:none;"
@@ -357,6 +382,9 @@ avatar->setPixmap(avatarPixmap);
                     "￥%1")
                     .arg(amount),
                 walletCard);
+        btn->setObjectName(
+           QStringLiteral("profileQuickButton"));
+
 
         btn->setCursor(
             Qt::PointingHandCursor);
@@ -406,6 +434,9 @@ avatar->setPixmap(avatarPixmap);
             QStringLiteral(
                 "充值金额"),
             walletCard);
+    customLabel->setObjectName(
+    QStringLiteral("profileCustomLabel"));
+
 
     customLabel->setStyleSheet(
         "border:none;"
@@ -504,6 +535,8 @@ avatar->setPixmap(avatarPixmap);
             emit rechargeRequested(
                 amount);
         });
+applyResponsiveStyle();
+
 }
 
 void ProfilePage::setUserInfo(
@@ -546,4 +579,369 @@ void ProfilePage::setBalance(
                 0,
                 'f',
                 2));
+}
+void ProfilePage::resizeEvent(
+    QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+
+    applyResponsiveStyle();
+}
+
+
+void ProfilePage::applyResponsiveStyle()
+{
+    QWidget *scaleBase =
+        window()
+            ? window()
+            : this;
+
+    const int titleFont =
+        scaledUi(scaleBase, 24);
+
+    const int nicknameFont =
+        scaledUi(scaleBase, 18);
+
+    const int balanceFont =
+        scaledUi(scaleBase, 30);
+
+    const int normalFont =
+        scaledUi(scaleBase, 14);
+
+    const int smallFont =
+        scaledUi(scaleBase, 13);
+
+    const int tipFont =
+        scaledUi(scaleBase, 12);
+
+    // ============================================================
+    // 页面整体边距
+    // ============================================================
+    if (auto *pageLayout =
+            qobject_cast<QVBoxLayout *>(
+                layout())) {
+
+        const int margin =
+            scaledUi(scaleBase, 18);
+
+        pageLayout->setContentsMargins(
+            margin,
+            margin,
+            margin,
+            margin);
+
+        pageLayout->setSpacing(
+            scaledUi(scaleBase, 14));
+    }
+
+    // ============================================================
+    // 页面标题
+    // ============================================================
+    if (auto *title =
+            findChild<QLabel *>(
+                QStringLiteral(
+                    "profileTitle"))) {
+
+        title->setStyleSheet(
+            QStringLiteral(
+                "font-size:%1px;"
+                "font-weight:700;"
+                "color:#1f2329;")
+                .arg(titleFont));
+    }
+
+    if (auto *subtitle =
+            findChild<QLabel *>(
+                QStringLiteral(
+                    "profileSubtitle"))) {
+
+        subtitle->setStyleSheet(
+            QStringLiteral(
+                "color:#86909c;"
+                "font-size:%1px;")
+                .arg(smallFont));
+    }
+
+    // ============================================================
+    // 用户资料卡片
+    // ============================================================
+    if (auto *userCard =
+            findChild<QFrame *>(
+                QStringLiteral(
+                    "profileUserCard"))) {
+
+        userCard->setStyleSheet(
+            QStringLiteral(
+                "QFrame#profileUserCard{"
+                "background:#ffffff;"
+                "border:1px solid #d6e4ff;"
+                "border-radius:%1px;"
+                "}")
+                .arg(
+                    scaledUi(
+                        scaleBase,
+                        14)));
+
+        if (auto *userLayout =
+                qobject_cast<QHBoxLayout *>(
+                    userCard->layout())) {
+
+            const int margin =
+                scaledUi(
+                    scaleBase,
+                    18);
+
+            userLayout->setContentsMargins(
+                margin,
+                margin,
+                margin,
+                margin);
+
+            userLayout->setSpacing(
+                scaledUi(
+                    scaleBase,
+                    14));
+        }
+    }
+
+    // ============================================================
+    // 头像
+    // ============================================================
+    if (auto *avatar =
+            findChild<QLabel *>(
+                QStringLiteral(
+                    "profileAvatar"))) {
+
+        const int avatarSize =
+            scaledUi(scaleBase, 54);
+
+        avatar->setFixedSize(
+            avatarSize,
+            avatarSize);
+            avatar->setStyleSheet(
+        QStringLiteral(
+            "background:#e8f0ff;"
+            "color:#1d4ed8;"
+            "border:none;"
+            "border-radius:%1px;"
+            "font-size:%2px;"
+            "font-weight:700;")
+            .arg(avatarSize / 2)
+            .arg(
+                scaledUi(
+                    scaleBase,
+                    22)));
+
+    }
+
+    // ============================================================
+    // 昵称和手机号
+    // ============================================================
+    if (m_nicknameLabel) {
+
+        m_nicknameLabel->setStyleSheet(
+            QStringLiteral(
+                "border:none;"
+                "font-size:%1px;"
+                "font-weight:700;"
+                "color:#1f2329;")
+                .arg(nicknameFont));
+    }
+
+    if (m_phoneLabel) {
+
+        m_phoneLabel->setStyleSheet(
+            QStringLiteral(
+                "border:none;"
+                "font-size:%1px;"
+                "color:#86909c;")
+                .arg(smallFont));
+    }
+
+    // ============================================================
+    // 编辑昵称按钮
+    // ============================================================
+    if (m_editNickButton) {
+
+        m_editNickButton->setStyleSheet(
+            QStringLiteral(
+                "QPushButton{"
+                "background:#f5f8ff;"
+                "color:#1d4ed8;"
+                "border:1px solid #d6e4ff;"
+                "border-radius:%1px;"
+                "padding:%2px %3px;"
+                "font-size:%4px;"
+                "font-weight:600;"
+                "}"
+                "QPushButton:hover{"
+                "background:#e8f0ff;"
+                "border-color:#1d4ed8;"
+                "}")
+                .arg(
+                    scaledUi(
+                        scaleBase,
+                        8))
+                .arg(
+                    scaledUi(
+                        scaleBase,
+                        6))
+                .arg(
+                    scaledUi(
+                        scaleBase,
+                        14))
+                .arg(smallFont));
+    }
+
+    // ============================================================
+    // 钱包卡片
+    // ============================================================
+    if (auto *walletCard =
+            findChild<QFrame *>(
+                QStringLiteral(
+                    "profileWalletCard"))) {
+
+        walletCard->setStyleSheet(
+            QStringLiteral(
+                "QFrame#profileWalletCard{"
+                "background:#ffffff;"
+                "border:1px solid #d6e4ff;"
+                "border-radius:%1px;"
+                "}")
+                .arg(
+                    scaledUi(
+                        scaleBase,
+                        14)));
+
+        if (auto *walletLayout =
+                qobject_cast<QVBoxLayout *>(
+                    walletCard->layout())) {
+
+            const int margin =
+                scaledUi(scaleBase, 18);
+
+            walletLayout->setContentsMargins(
+                margin,
+                margin,
+                margin,
+                margin);
+
+            walletLayout->setSpacing(
+                scaledUi(scaleBase, 12));
+        }
+    }
+
+    // ============================================================
+    // 钱包标题
+    // ============================================================
+    if (auto *walletTitle =
+            findChild<QLabel *>(
+                QStringLiteral(
+                    "profileWalletTitle"))) {
+
+        walletTitle->setStyleSheet(
+            QStringLiteral(
+                "border:none;"
+                "color:#4e5969;"
+                "font-size:%1px;")
+                .arg(normalFont));
+    }
+
+    // ============================================================
+    // 余额
+    // ============================================================
+    if (m_balanceLabel) {
+
+        m_balanceLabel->setStyleSheet(
+            QStringLiteral(
+                "border:none;"
+                "color:#1d4ed8;"
+                "font-size:%1px;"
+                "font-weight:700;")
+                .arg(balanceFont));
+    }
+
+    // ============================================================
+    // 充值相关标题
+    // ============================================================
+    const QStringList labelNames = {
+        QStringLiteral("profileAmountTitle"),
+        QStringLiteral("profileCustomLabel")
+    };
+
+    for (const QString &name :
+         labelNames) {
+
+        if (auto *label =
+                findChild<QLabel *>(name)) {
+
+            label->setStyleSheet(
+                QStringLiteral(
+                    "border:none;"
+                    "font-size:%1px;"
+                    "font-weight:600;")
+                    .arg(normalFont));
+        }
+    }
+
+    // ============================================================
+    // 快捷充值按钮
+    // ============================================================
+    const auto quickButtons =
+        findChildren<QPushButton *>(
+            QStringLiteral(
+                "profileQuickButton"));
+
+    for (QPushButton *button :
+         quickButtons) {
+
+        button->setStyleSheet(
+            QStringLiteral(
+                "QPushButton{"
+                "background:#f5f8ff;"
+                "color:#1d4ed8;"
+                "border:1px solid #d6e4ff;"
+                "border-radius:%1px;"
+                "padding:%2px;"
+                "font-size:%3px;"
+                "font-weight:600;"
+                "}"
+                "QPushButton:hover{"
+                "background:#e8f0ff;"
+                "border-color:#1d4ed8;"
+                "}")
+                .arg(
+                    scaledUi(
+                        scaleBase,
+                        8))
+                .arg(
+                    scaledUi(
+                        scaleBase,
+                        9))
+                .arg(normalFont));
+    }
+
+    // ============================================================
+    // 充值金额输入框
+    // ============================================================
+    if (m_amountSpin) {
+
+        m_amountSpin->setMinimumWidth(
+            scaledUi(
+                scaleBase,
+                160));
+    }
+
+    // ============================================================
+    // 底部提示
+    // ============================================================
+    if (m_tipLabel) {
+
+        m_tipLabel->setStyleSheet(
+            QStringLiteral(
+                "border:none;"
+                "color:#86909c;"
+                "font-size:%1px;")
+                .arg(tipFont));
+    }
 }

@@ -3,6 +3,7 @@
 #include <QWidget>
 
 class QLabel;
+class QResizeEvent;
 
 class NavigationPage : public QWidget
 {
@@ -20,10 +21,16 @@ public:
         double targetLng,
         double distance);
 
+protected:
+    void resizeEvent(
+        QResizeEvent *event) override;
+
 signals:
     void back();
 
 private:
+    void applyResponsiveStyle();
+
     QLabel *m_stationLabel;
     QLabel *m_startLabel;
     QLabel *m_targetLabel;

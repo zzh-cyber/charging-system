@@ -22,7 +22,11 @@ class PileListPage;
 class ChargePage;
 class ProfilePage;
 class LocationManager;
+<<<<<<< HEAD
 class NavigationPage;
+=======
+class QResizeEvent;
+>>>>>>> f36b397 (feat: 优化用户端窗口自适应布局)
 
 
 class MainWindow : public QWidget
@@ -42,10 +46,16 @@ public:
     // 登录成功后写入会话 token；主窗口自建 NetClient，后续请求会自动附带
     void setSessionToken(const QString &token);
 
-private slots:
+protected:
+    void resizeEvent(
+        QResizeEvent *event) override;
+
+    private slots:
     void onSessionInvalid(const QString &msg);
 
 private:
+
+    void applyResponsiveStyle();
     NetClient        *m_net;
 
     QStackedWidget   *m_contentStack;

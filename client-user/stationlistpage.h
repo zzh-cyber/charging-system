@@ -16,6 +16,8 @@ class QStackedWidget;
 class QComboBox;
 class NetClient;
 class StationCardWidget;
+class QResizeEvent;
+
 
 
 class StationListPage : public QWidget
@@ -49,8 +51,12 @@ signals:
 protected:
     void showEvent(
         QShowEvent *event) override;
+    void resizeEvent(
+        QResizeEvent *event) override;
+
 
 private:
+    void applyResponsiveStyle();
     void loadStations();
     void clearList();
 

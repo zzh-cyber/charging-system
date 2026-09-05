@@ -15,6 +15,8 @@
 #include <QDebug>
 #include <QRegularExpression>
 #include <QRegularExpressionValidator>
+#include <QResizeEvent>
+
 
 
 // 服务器地址（本机联调用 127.0.0.1）
@@ -29,16 +31,26 @@ LoginWindow::LoginWindow(QWidget *parent)
     applyPhoneWindow(this);
 
     auto *brand = new QLabel(QStringLiteral("新能源充电"), this);
+    brand->setObjectName("loginBrand");
     brand->setAlignment(Qt::AlignCenter);
-    brand->setStyleSheet("font-size:26px;font-weight:bold;color:#1d4ed8;");
+    brand->setStyleSheet(
+        "font-weight:bold;"
+        "color:#1d4ed8;");
+
 
     auto *subTitle = new QLabel(QStringLiteral("让绿色出行更便捷"), this);
+    subTitle->setObjectName("loginSubTitle");
     subTitle->setAlignment(Qt::AlignCenter);
-    subTitle->setStyleSheet("font-size:14px;color:#86909c;");
+    subTitle->setStyleSheet(
+    "color:#86909c;");
+
 
     auto *tip = new QLabel(QStringLiteral("手机号免密登录 · 不发送验证码"), this);
+    tip->setObjectName("loginTip");
     tip->setAlignment(Qt::AlignCenter);
-    tip->setStyleSheet("font-size:12px;color:#c0c4cc;");
+    tip->setStyleSheet(
+    "color:#c0c4cc;");
+
 
     m_phoneEdit = new QLineEdit(this);
 
@@ -76,8 +88,11 @@ LoginWindow::LoginWindow(QWidget *parent)
 
 
     m_hint = new QLabel(QStringLiteral("演示账号：13800138001 / 13800138002"), this);
+    m_hint->setObjectName("loginHint");
     m_hint->setAlignment(Qt::AlignCenter);
-    m_hint->setStyleSheet("color:#c0c4cc;font-size:12px;");
+    m_hint->setStyleSheet(
+    "color:#c0c4cc;");
+
 
     auto *card = new QFrame(this);
     card->setObjectName("loginCard");
@@ -118,8 +133,111 @@ LoginWindow::LoginWindow(QWidget *parent)
 
             m_registerBtn->hide();
         });
+applyResponsiveStyle();
 
 
+}
+
+void LoginWindow::resizeEvent(
+    QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+
+    applyResponsiveStyle();
+}
+
+
+void LoginWindow::applyResponsiveStyle()
+{
+    const int brandFont =
+        scaledUi(this, 26);
+
+    const int normalFont =
+        scaledUi(this, 14);
+
+    const int tipFont =
+        scaledUi(this, 12);
+
+    const int controlFont =
+        scaledUi(this, 15);
+
+    const int paddingV =
+        scaledUi(this, 10);
+
+    const int paddingH =
+        scaledUi(this, 12);
+
+    const int buttonPaddingH =
+        scaledUi(this, 16);
+
+    setStyleSheet(
+        QStringLiteral(
+            "QLabel#loginBrand{"
+            "font-size:%1px;"
+            "}"
+
+            "QLabel#loginSubTitle{"
+            "font-size:%2px;"
+            "}"
+
+            "QLabel#loginTip,"
+            "QLabel#loginHint{"
+            "font-size:%3px;"
+            "}"
+
+            "QLineEdit{"
+            "font-size:%4px;"
+            "padding:%5px %6px;"
+            "}"
+
+            "QPushButton{"
+            "font-size:%4px;"
+            "padding:%5px %7px;"
+            "}")
+            .arg(brandFont)
+            .arg(normalFont)
+            .arg(tipFont)
+            .arg(controlFont)
+            .arg(paddingV)
+            .arg(paddingH)
+            .arg(buttonPaddingH));
+
+
+    // 登录卡片内部边距随窗口缩放
+    if (auto *card =
+            findChild<QFrame *>(
+                QStringLiteral("loginCard"))) {
+
+        if (auto *cardLayout =
+                qobject_cast<QVBoxLayout *>(
+                    card->layout())) {
+
+            cardLayout->setContentsMargins(
+                scaledUi(this, 36),
+                scaledUi(this, 40),
+                scaledUi(this, 36),
+                scaledUi(this, 36));
+
+            cardLayout->setSpacing(
+                scaledUi(this, 14));
+        }
+    }
+
+
+    // 页面外围边距随窗口缩放
+    if (auto *outerLayout =
+            qobject_cast<QVBoxLayout *>(
+                layout())) {
+
+        const int margin =
+            scaledUi(this, 20);
+
+        outerLayout->setContentsMargins(
+            margin,
+            margin,
+            margin,
+            margin);
+    }
 }
 
 void LoginWindow::onLoginClicked()
@@ -144,7 +262,7 @@ void LoginWindow::onLoginClicked()
         QStringLiteral("正在登录，请稍候…"));
 
     m_hint->setStyleSheet(
-        "color:#86909c;font-size:12px;");
+        "color:#86909c;");
 
     m_loginBtn->setEnabled(false);
 
@@ -174,7 +292,7 @@ void LoginWindow::onLoginClicked()
             QStringLiteral("连接服务器失败"));
 
         m_hint->setStyleSheet(
-            "color:#e5484d;font-size:12px;");
+            "color:#e5484d;");
 
         return;
     }
@@ -222,7 +340,7 @@ void LoginWindow::onLoginClicked()
 
             m_hint->setStyleSheet(
                 "color:#e6a23c;"
-                "font-size:12px;");
+                );
 
             m_registerBtn->show();
 

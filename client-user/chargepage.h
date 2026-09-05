@@ -7,6 +7,8 @@
 class QLabel;
 class QPushButton;
 class QDoubleSpinBox;
+class QResizeEvent;
+
 
 class ChargePage : public QWidget
 {
@@ -27,6 +29,10 @@ public:
     // 清空当前订单
     void reset();
 
+protected:
+    void resizeEvent(
+        QResizeEvent *event) override;
+
 signals:
     // 这里只发 Qt 信号，不创建新协议。
     // 后续由 MainWindow 使用现有 NetClient + start_charge 接口处理。
@@ -36,6 +42,7 @@ signals:
     void settleRequested(const QString &orderNo, double kwh);
 
 private:
+    void applyResponsiveStyle();
     enum class ChargeState
     {
         Empty,

@@ -12,6 +12,7 @@ class QLabel;
 class QPushButton;
 class QVBoxLayout;
 class NetClient;
+class QResizeEvent;
 
 class PileListPage : public QWidget
 {
@@ -23,6 +24,9 @@ public:
     void loadStation(qint64 stationId, const QString &name);
     void setUserId(qint64 userId);
 
+protected:
+    void resizeEvent(
+        QResizeEvent *event) override;
 
 signals:
     void back();
@@ -30,6 +34,7 @@ signals:
 
 
 private:
+    void applyResponsiveStyle();
     void clearList();
 
     NetClient     *m_net;
