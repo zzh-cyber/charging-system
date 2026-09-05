@@ -752,6 +752,8 @@ void StationListPage::buildCards(
                 double targetLng,
                 double distance) {
 
+                Q_UNUSED(stationId);
+
                 // 起点必须完整
                 if (!m_hasLocation ||
                     m_latitude < -90.0 ||
@@ -779,14 +781,18 @@ void StationListPage::buildCards(
                     return;
                 }
 
-                emit navigationRequested(
-                    stationId,
-                    name,
-                    m_latitude,
-                    m_longitude,
-                    targetLat,
-                    targetLng,
-                    distance);
+                RouteRequest request;
+                request.requestId = ++m_nextRouteRequestId;
+                request.fromLat = m_latitude;
+                request.fromLng = m_longitude;
+                request.toName = name;
+                request.toLat = targetLat;
+                request.toLng = targetLng;
+                request.distance = distance;
+                request.mode = QStringLiteral("driving");
+                if (!request.isValid())
+                    return;
+                emit navigationRequested(request);
             });
 
         m_listLayout->addWidget(

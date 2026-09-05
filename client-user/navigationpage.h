@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QWidget>
+#include "routerequest.h"
 
 class QLabel;
 
@@ -12,13 +13,7 @@ public:
     explicit NavigationPage(
         QWidget *parent = nullptr);
 
-    void setNavigationData(
-        const QString &stationName,
-        double startLat,
-        double startLng,
-        double targetLat,
-        double targetLng,
-        double distance);
+    void setNavigationData(const RouteRequest &request);
 
 signals:
     void back();

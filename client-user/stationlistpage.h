@@ -9,6 +9,7 @@
 
 #include <QJsonArray>
 #include <QWidget>
+#include "routerequest.h"
 
 class QLabel;
 class QVBoxLayout;
@@ -38,13 +39,7 @@ signals:
         const QString &name);
     
     void navigationRequested(
-        qint64 stationId,
-        const QString &name,
-        double startLatitude,
-        double startLongitude,
-        double targetLatitude,
-        double targetLongitude,
-        double distance);
+        const RouteRequest &request);
 
 protected:
     void showEvent(
@@ -84,4 +79,5 @@ private:
     double m_latitude = 0.0;
     double m_longitude = 0.0;
     bool m_hasLocation = false;
+    quint64 m_nextRouteRequestId = 0;
 };
