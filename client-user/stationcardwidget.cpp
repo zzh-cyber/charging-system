@@ -293,14 +293,30 @@ StationCardWidget::StationCardWidget(
             : QStringLiteral(
                   "距您 -- km");
 
-    auto *distanceLabel =
-        new QLabel(
+    // NO.8：距离为可点击入口（无有效终点坐标时不可点，避免只传显示文本）
+    auto *distanceButton =
+        new QPushButton(
             distanceText,
             this);
 
-    distanceLabel->setStyleSheet(
+    distanceButton->setFlat(true);
+
+    distanceButton->setCursor(
+        Qt::PointingHandCursor);
+
+    distanceButton->setStyleSheet(
+        "QPushButton{"
+        "border:none;"
+        "background:transparent;"
+        "padding:0px;"
         "font-size:12px;"
-        "color:#4e5969;");
+        "color:#1d4ed8;"
+        "text-decoration:underline;"
+        "}"
+        "QPushButton:disabled{"
+        "color:#4e5969;"
+        "text-decoration:none;"
+        "}");
 
     // 底部信息
     auto *infoRow =
@@ -312,7 +328,7 @@ StationCardWidget::StationCardWidget(
     infoRow->addStretch();
 
     infoRow->addWidget(
-        distanceLabel);
+        distanceButton);
 
     // =====================================================================
     // 操作按钮
@@ -367,10 +383,16 @@ StationCardWidget::StationCardWidget(
         !full &&
         m_stationId > 0);
 
-    // 没有目标坐标不能导航
-    navigationButton->setEnabled(
+    // 没有目标坐标不能导航（距离入口与按钮同一条件）
+    const bool canNavigate =
         m_stationId > 0 &&
-        m_hasCoordinate);
+        m_hasCoordinate;
+
+    navigationButton->setEnabled(
+        canNavigate);
+
+    distanceButton->setEnabled(
+        canNavigate);
 
     buttonRow->addWidget(
         pileButton);
@@ -404,11 +426,12 @@ StationCardWidget::StationCardWidget(
                 m_name);
         });
 
-    connect(
-        navigationButton,
-        &QPushButton::clicked,
-        this,
+    const auto requestNavigation =
         [this]() {
+
+            if (m_stationId <= 0 ||
+                !m_hasCoordinate)
+                return;
 
             emit navigationRequested(
                 m_stationId,
@@ -416,5 +439,17 @@ StationCardWidget::StationCardWidget(
                 m_latitude,
                 m_longitude,
                 m_distance);
-        });
+        };
+
+    connect(
+        navigationButton,
+        &QPushButton::clicked,
+        this,
+        requestNavigation);
+
+    connect(
+        distanceButton,
+        &QPushButton::clicked,
+        this,
+        requestNavigation);
 }
