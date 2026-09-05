@@ -45,7 +45,7 @@ LoginWindow::LoginWindow(QWidget *parent)
     "color:#86909c;");
 
 
-    auto *tip = new QLabel(QStringLiteral("手机号免密登录 · 不发送验证码"), this);
+    auto *tip = new QLabel(QStringLiteral("手机号免密 · 登录或注册 · 不发送验证码"), this);
     tip->setObjectName("loginTip");
     tip->setAlignment(Qt::AlignCenter);
     tip->setStyleSheet(
@@ -83,16 +83,13 @@ LoginWindow::LoginWindow(QWidget *parent)
             QStringLiteral("注 册"),
             this);
 
-    // 默认隐藏
-    m_registerBtn->hide();
-
-
-    m_hint = new QLabel(QStringLiteral("演示账号：13800138001 / 13800138002"), this);
+    m_hint = new QLabel(
+        QStringLiteral("已有账号点登录；新号点注册。演示：13800138001"),
+        this);
     m_hint->setObjectName("loginHint");
     m_hint->setAlignment(Qt::AlignCenter);
     m_hint->setStyleSheet(
     "color:#c0c4cc;");
-
 
     auto *card = new QFrame(this);
     card->setObjectName("loginCard");
@@ -125,17 +122,7 @@ LoginWindow::LoginWindow(QWidget *parent)
         &QPushButton::clicked,
         this,
         &LoginWindow::onRegisterClicked);
-    connect(
-        m_phoneEdit,
-        &QLineEdit::textChanged,
-        this,
-        [this]() {
-
-            m_registerBtn->hide();
-        });
-applyResponsiveStyle();
-
-
+    applyResponsiveStyle();
 }
 
 void LoginWindow::resizeEvent(
@@ -278,7 +265,6 @@ void LoginWindow::onLoginClicked()
             || msg.contains(QStringLiteral("不存在"))) {
             m_hint->setText(QStringLiteral("该手机号尚未注册，请点击下方注册"));
             m_hint->setStyleSheet("color:#e6a23c;");
-            m_registerBtn->show();
             return;
         }
         QMessageBox::warning(this, QStringLiteral("登录失败"), msg);
@@ -294,12 +280,14 @@ void LoginWindow::onRegisterClicked()
     const QRegularExpression phoneRegex(QStringLiteral("^1\\d{10}$"));
     if (!phoneRegex.match(phone).hasMatch()) {
         m_hint->setText(QStringLiteral("请输入正确的11位手机号"));
+        m_hint->setStyleSheet("color:#c0c4cc;");
         return;
     }
 
     m_registerBtn->setEnabled(false);
     m_loginBtn->setEnabled(false);
     m_hint->setText(QStringLiteral("正在注册，请稍候…"));
+    m_hint->setStyleSheet("color:#86909c;");
 
     const QJsonObject resp = sendLoginRequest(phone, true);
 
@@ -316,7 +304,6 @@ void LoginWindow::onRegisterClicked()
         return;
     }
 
-    m_registerBtn->hide();
     enterMainWindow(resp.value("data").toObject());
 }
 
