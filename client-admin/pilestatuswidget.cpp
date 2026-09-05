@@ -654,8 +654,37 @@ void PileStatusWidget::loadStatus()
     QJsonObject data =
         resp.value("data").toObject();
 
-    QJsonArray list =
-        data.value("list").toArray();
+    QJsonArray list = data.value("list").toArray();
+    const QJsonValue statsValue = data.value(QStringLiteral("stats"));
+    if (!statsValue.isObject()) {
+        m_lastUpdateLabel->setText(QStringLiteral("协议响应异常：电桩统计格式错误"));
+        return;
+    }
+    const QJsonObject stats = statsValue.toObject();
+    const QJsonValue totalValue = stats.value(QStringLiteral("total"));
+    const QJsonValue statTimeValue = stats.value(QStringLiteral("stat_time"));
+    const auto validState = [&stats](const QString &name) {
+        const QJsonValue value = stats.value(name);
+        if (!value.isObject())
+            return false;
+        const QJsonObject state = value.toObject();
+        return state.value(QStringLiteral("count")).isDouble()
+            && state.value(QStringLiteral("rate")).isDouble();
+    };
+    if (!totalValue.isDouble()
+        || !validState(QStringLiteral("idle"))
+        || !validState(QStringLiteral("busy"))
+        || !validState(QStringLiteral("fault"))
+        || !statTimeValue.isString()
+        || statTimeValue.toString().trimmed().isEmpty()) {
+        m_lastUpdateLabel->setText(QStringLiteral("协议响应异常：电桩统计格式错误"));
+        return;
+    }
+    const QDateTime statTime = parseDateTime(statTimeValue.toString());
+    if (!statTime.isValid()) {
+        m_lastUpdateLabel->setText(QStringLiteral("协议响应异常：电桩统计格式错误"));
+        return;
+    }
 
 
     QVector<PileStatusItem> items;
@@ -734,65 +763,23 @@ void PileStatusWidget::loadStatus()
     );
 
 
-    updateSummary(
-        items
-    );
-
-
-    m_lastUpdateLabel->setText(
-        QString(
-            "最后更新：%1"
-        ).arg(
-            QDateTime::currentDateTime()
-                .toString(
-                    "yyyy-MM-dd HH:mm:ss"
-                )
-        )
-    );
+    updateSummary(stats);
+    m_lastUpdateLabel->setText(QStringLiteral("统计时间：%1").arg(statTime.toString("yyyy-MM-dd HH:mm:ss")));
 }
 
 
-void PileStatusWidget::updateSummary(
-    const QVector<PileStatusItem> &items
-)
+void PileStatusWidget::updateSummary(const QJsonObject &stats)
 {
-    int idleCount = 0;
-    int busyCount = 0;
-    int faultCount = 0;
-
-
-    for (const PileStatusItem &item : items)
-    {
-        if (item.status == "idle")
-        {
-            ++idleCount;
-        }
-        else if (item.status == "busy")
-        {
-            ++busyCount;
-        }
-        else if (item.status == "fault")
-        {
-            ++faultCount;
-        }
-    }
-
-
-    int total =
-        items.size();
-
-
-    auto percentage =
-        [total](int count) -> double
-    {
-        if (total <= 0)
-            return 0.0;
-
-        return
-            static_cast<double>(count)
-            * 100.0
-            / total;
-    };
+    const int total = stats.value(QStringLiteral("total")).toInt();
+    const QJsonObject idle = stats.value(QStringLiteral("idle")).toObject();
+    const QJsonObject busy = stats.value(QStringLiteral("busy")).toObject();
+    const QJsonObject fault = stats.value(QStringLiteral("fault")).toObject();
+    const int idleCount = idle.value(QStringLiteral("count")).toInt();
+    const int busyCount = busy.value(QStringLiteral("count")).toInt();
+    const int faultCount = fault.value(QStringLiteral("count")).toInt();
+    const double idleRate = idle.value(QStringLiteral("rate")).toDouble();
+    const double busyRate = busy.value(QStringLiteral("rate")).toDouble();
+    const double faultRate = fault.value(QStringLiteral("rate")).toDouble();
 
 
     m_summaryLabel->setText(
@@ -806,7 +793,7 @@ void PileStatusWidget::updateSummary(
             .arg(idleCount)
             .arg(
                 QString::number(
-                    percentage(idleCount),
+                    idleRate,
                     'f',
                     1
                 )
@@ -814,7 +801,7 @@ void PileStatusWidget::updateSummary(
             .arg(busyCount)
             .arg(
                 QString::number(
-                    percentage(busyCount),
+                    busyRate,
                     'f',
                     1
                 )
@@ -822,7 +809,7 @@ void PileStatusWidget::updateSummary(
             .arg(faultCount)
             .arg(
                 QString::number(
-                    percentage(faultCount),
+                    faultRate,
                     'f',
                     1
                 )

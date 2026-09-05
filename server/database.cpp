@@ -1021,6 +1021,42 @@ QJsonArray Database::adminPileList(int &code, QString &msg)
     return arr;
 }
 
+QJsonObject Database::adminPileStats(int &code, QString &msg)
+{
+    QSqlQuery statsQuery(m_db);
+    if (!statsQuery.exec("SELECT status, COUNT(*) FROM pile WHERE enabled=1 GROUP BY status")) {
+        code = Protocol::DbError;
+        msg = statsQuery.lastError().text();
+        return {};
+    }
+
+    int idle = 0;
+    int busy = 0;
+    int fault = 0;
+    while (statsQuery.next()) {
+        const QString status = statsQuery.value(0).toString();
+        const int count = statsQuery.value(1).toInt();
+        if (status == QStringLiteral("idle")) idle = count;
+        else if (status == QStringLiteral("busy")) busy = count;
+        else if (status == QStringLiteral("fault")) fault = count;
+    }
+
+    const int total = idle + busy + fault;
+    const auto rate = [total](int count) {
+        return total > 0 ? std::round(count * 1000.0 / total) / 10.0 : 0.0;
+    };
+    const QJsonObject stats{
+        {QStringLiteral("idle"), QJsonObject{{QStringLiteral("count"), idle}, {QStringLiteral("rate"), rate(idle)}}},
+        {QStringLiteral("busy"), QJsonObject{{QStringLiteral("count"), busy}, {QStringLiteral("rate"), rate(busy)}}},
+        {QStringLiteral("fault"), QJsonObject{{QStringLiteral("count"), fault}, {QStringLiteral("rate"), rate(fault)}}},
+        {QStringLiteral("total"), total},
+        {QStringLiteral("stat_time"), QDateTime::currentDateTime().toString(Qt::ISODate)}
+    };
+    code = Protocol::Ok;
+    msg = "ok";
+    return stats;
+}
+
 QJsonObject Database::adminPileRestart(qint64 adminId, qint64 pileId, int &code, QString &msg)
 {
     QJsonObject data;
