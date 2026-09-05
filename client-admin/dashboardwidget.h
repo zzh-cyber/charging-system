@@ -13,6 +13,7 @@ class QChartView;
 class QDateTimeAxis;
 class QLineSeries;
 class QValueAxis;
+class QPieSeries;
 
 class DashboardWidget : public QWidget
 {
@@ -30,7 +31,7 @@ private slots:
 
 private:
     void initUi();
-    QWidget *createKpiCard(const QString &title, QLabel **valueLabel);
+    QWidget *createKpiCard(const QString &title, const QString &description, QLabel **valueLabel);
     void updateChart(const QJsonObject &data, int days);
     static double numberValue(const QJsonObject &object,
                               const QStringList &keys);
@@ -40,6 +41,10 @@ private:
     QLabel *m_todayRevenueLabel;
     QLabel *m_monthRevenueLabel;
     QLabel *m_totalRevenueLabel;
+    QLabel *m_todayOrdersLabel;
+    QLabel *m_chargingCountLabel;
+    QLabel *m_onlineRateLabel;
+    QLabel *m_faultCountLabel;
     QLabel *m_lastUpdateLabel;
     QLabel *m_loadingLabel;
     QPushButton *m_refreshButton;
@@ -50,6 +55,7 @@ private:
     QLineSeries *m_series;
     QDateTimeAxis *m_dateAxis;
     QValueAxis *m_valueAxis;
+    QPieSeries *m_statusSeries;
     bool m_loading;
     int m_currentDays;
 };
