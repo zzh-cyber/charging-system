@@ -1,13 +1,14 @@
 #include "chargepage.h"
 #include "windowhelper.h"
 
-#include <QDoubleSpinBox>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
 #include <QVBoxLayout>
 #include <QResizeEvent>
+#include <QTimer>
+
 
 
 ChargePage::ChargePage(QWidget *parent)
@@ -107,6 +108,115 @@ ChargePage::ChargePage(QWidget *parent)
     orderLayout->addWidget(m_stateTitle);
     orderLayout->addWidget(m_orderLabel);
     orderLayout->addWidget(m_statusLabel);
+        // ========================================================================
+    // 充电实时记录
+    // ========================================================================
+    m_chargingRecordCard =
+        new QFrame(orderCard);
+
+    m_chargingRecordCard->setObjectName(
+        QStringLiteral("chargingRecordCard"));
+
+    auto *recordLayout =
+        new QVBoxLayout(
+            m_chargingRecordCard);
+
+    recordLayout->setContentsMargins(
+        14, 12, 14, 12);
+
+    recordLayout->setSpacing(8);
+
+
+    // 已充时间
+    auto *elapsedRow =
+        new QHBoxLayout;
+
+    auto *elapsedTitle =
+        new QLabel(
+            QStringLiteral("已充时间"),
+            m_chargingRecordCard);
+
+    m_elapsedLabel =
+        new QLabel(
+            QStringLiteral("00:00:00"),
+            m_chargingRecordCard);
+
+    elapsedRow->addWidget(elapsedTitle);
+    elapsedRow->addStretch();
+    elapsedRow->addWidget(m_elapsedLabel);
+
+    recordLayout->addLayout(elapsedRow);
+
+
+    // 当前功率
+    auto *powerRow =
+        new QHBoxLayout;
+
+    auto *powerTitle =
+        new QLabel(
+            QStringLiteral("当前功率"),
+            m_chargingRecordCard);
+
+    m_powerLabel =
+        new QLabel(
+            QStringLiteral("-- kW"),
+            m_chargingRecordCard);
+
+    powerRow->addWidget(powerTitle);
+    powerRow->addStretch();
+    powerRow->addWidget(m_powerLabel);
+
+    recordLayout->addLayout(powerRow);
+
+
+    // 已充电量
+    auto *currentKwhRow =
+        new QHBoxLayout;
+
+    auto *currentKwhTitle =
+        new QLabel(
+            QStringLiteral("已充电量"),
+            m_chargingRecordCard);
+
+    m_currentKwhLabel =
+        new QLabel(
+            QStringLiteral("-- kWh"),
+            m_chargingRecordCard);
+
+    currentKwhRow->addWidget(currentKwhTitle);
+    currentKwhRow->addStretch();
+    currentKwhRow->addWidget(m_currentKwhLabel);
+
+    recordLayout->addLayout(currentKwhRow);
+
+
+    // 预估费用
+    auto *feeRow =
+        new QHBoxLayout;
+
+    auto *feeTitle =
+        new QLabel(
+            QStringLiteral("预估费用"),
+            m_chargingRecordCard);
+
+    m_estimatedFeeLabel =
+        new QLabel(
+            QStringLiteral("￥--"),
+            m_chargingRecordCard);
+
+    feeRow->addWidget(feeTitle);
+    feeRow->addStretch();
+    feeRow->addWidget(m_estimatedFeeLabel);
+
+    recordLayout->addLayout(feeRow);
+
+
+    // 默认隐藏，仅充电中显示
+    m_chargingRecordCard->hide();
+
+    orderLayout->addWidget(
+        m_chargingRecordCard);
+
 
     // ========================================================================
     // 开始充电
@@ -121,53 +231,15 @@ ChargePage::ChargePage(QWidget *parent)
 
     orderLayout->addWidget(m_startButton);
 
-    // ========================================================================
-    // 充电量输入
-    // ========================================================================
-    auto *kwhRow =
-        new QHBoxLayout;
-
-    auto *kwhTitle =
-        new QLabel(
-            QStringLiteral("本次充电量"),
-            orderCard);
-    kwhTitle->setObjectName(
-    QStringLiteral("chargeKwhTitle"));
-
-
-    kwhTitle->setStyleSheet(
-        "border:none;"
-        "font-size:14px;"
-        "font-weight:600;");
-
-    m_kwhSpin =
-        new QDoubleSpinBox(orderCard);
-
-    m_kwhSpin->setRange(
-        0.1,
-        999.9);
-
-    m_kwhSpin->setDecimals(1);
-    m_kwhSpin->setSingleStep(1.0);
-    m_kwhSpin->setValue(10.0);
-    m_kwhSpin->setSuffix(
-        QStringLiteral(" kWh"));
-
-    m_kwhSpin->setMinimumWidth(150);
-
-    kwhRow->addWidget(kwhTitle);
-    kwhRow->addStretch();
-    kwhRow->addWidget(m_kwhSpin);
-
-    orderLayout->addLayout(kwhRow);
 
     // ========================================================================
     // 结束并结算
     // ========================================================================
     m_settleButton =
-        new QPushButton(
-            QStringLiteral("结束并结算"),
-            orderCard);
+    new QPushButton(
+        QStringLiteral("结束充电"),
+        orderCard);
+
 
     m_settleButton->setCursor(
         Qt::PointingHandCursor);
@@ -192,6 +264,18 @@ ChargePage::ChargePage(QWidget *parent)
         "font-weight:600;");
 
     orderLayout->addWidget(m_resultLabel);
+    m_payButton =
+    new QPushButton(
+        QStringLiteral("确认支付"),
+        orderCard);
+
+m_payButton->setCursor(
+    Qt::PointingHandCursor);
+
+m_payButton->hide();
+
+orderLayout->addWidget(
+    m_payButton);
 
     layout->addWidget(orderCard);
 
@@ -217,6 +301,20 @@ ChargePage::ChargePage(QWidget *parent)
     layout->addWidget(m_tipLabel);
 
     layout->addStretch();
+        // ========================================================================
+    // 充电实时计时器
+    // ========================================================================
+    m_chargeTimer =
+        new QTimer(this);
+
+    m_chargeTimer->setInterval(1000);
+
+    connect(
+        m_chargeTimer,
+        &QTimer::timeout,
+        this,
+        &ChargePage::updateChargingInfo);
+
 
     // ========================================================================
     // 按钮事件
@@ -236,31 +334,37 @@ ChargePage::ChargePage(QWidget *parent)
                 m_orderNo);
         });
 
-    connect(
-        m_settleButton,
-        &QPushButton::clicked,
-        this,
-        [this]() {
+connect(
+    m_settleButton,
+    &QPushButton::clicked,
+    this,
+    [this]() {
 
-            if (m_state != ChargeState::Charging ||
-                m_orderNo.isEmpty()) {
-                return;
-            }
+        if (m_state != ChargeState::Charging ||
+            m_orderNo.isEmpty()) {
+            return;
+        }
 
-            const double kwh =
-                m_kwhSpin->value();
+        emit finishChargeRequested(
+            m_orderNo);
+    });
 
-            if (kwh <= 0.0) {
-                m_tipLabel->setText(
-                    QStringLiteral(
-                        "请输入有效的充电量"));
-                return;
-            }
+connect(
+    m_payButton,
+    &QPushButton::clicked,
+    this,
+    [this]() {
 
-            emit settleRequested(
-                m_orderNo,
-                kwh);
-        });
+        if (m_state !=
+                ChargeState::PendingPayment ||
+            m_orderNo.isEmpty()) {
+            return;
+        }
+
+        emit payChargeRequested(
+            m_orderNo);
+    });
+
 
     refreshUi();
 }
@@ -281,11 +385,29 @@ void ChargePage::setReservedOrder(
 
     m_settledKwh = 0.0;
     m_settledAmount = 0.0;
+    m_finalDurationSeconds = 0;
+m_finalBalance = 0.0;
+
+
+    stopChargeTimer();
+
+    m_chargeStartedAt =
+        QDateTime();
+
+    m_powerKw = 0.0;
+    m_unitPrice = 0.0;
+
+    m_currentKwh = 0.0;
+    m_estimatedAmount = 0.0;
 
     refreshUi();
+
 }
 
-void ChargePage::setChargingState()
+void ChargePage::setChargingState(
+    const QString &startTime,
+    double powerKw,
+    double unitPrice)
 {
     if (m_orderNo.isEmpty())
         return;
@@ -293,24 +415,129 @@ void ChargePage::setChargingState()
     m_state =
         ChargeState::Charging;
 
+    // ------------------------------------------------------------
+    // 优先使用服务端 start_time
+    // ------------------------------------------------------------
+    if (!startTime.trimmed().isEmpty()) {
+
+        QDateTime parsed =
+            QDateTime::fromString(
+                startTime,
+                Qt::ISODate);
+
+        // 兼容 MySQL 常见 DATETIME 格式
+        if (!parsed.isValid()) {
+
+            parsed =
+                QDateTime::fromString(
+                    startTime,
+                    QStringLiteral(
+                        "yyyy-MM-dd HH:mm:ss"));
+        }
+
+        if (parsed.isValid()) {
+
+            m_chargeStartedAt =
+                parsed;
+        }
+    }
+
+    // 服务端暂时没返回 start_time 时才使用本机当前时间
+    if (!m_chargeStartedAt.isValid()) {
+
+        m_chargeStartedAt =
+            QDateTime::currentDateTime();
+    }
+
+    // 当前服务端没有这两个字段时会得到 0，
+    // 等服务端补接口后这里无需再次修改。
+    if (powerKw > 0.0) {
+
+        m_powerKw =
+            powerKw;
+    }
+
+    if (unitPrice > 0.0) {
+
+        m_unitPrice =
+            unitPrice;
+    }
+
+    startChargeTimer();
+
     refreshUi();
 }
 
-void ChargePage::setSettledResult(
+void ChargePage::setPendingPaymentResult(
+    qint64 durationSeconds,
     double kwh,
     double amount)
 {
     if (m_orderNo.isEmpty())
         return;
 
-    m_state =
-        ChargeState::Settled;
+    stopChargeTimer();
 
-    m_settledKwh = kwh;
-    m_settledAmount = amount;
+    m_state =
+        ChargeState::PendingPayment;
+
+    m_finalDurationSeconds =
+        qMax<qint64>(
+            0,
+            durationSeconds);
+
+    m_settledKwh =
+        qMax(
+            0.0,
+            kwh);
+
+    m_settledAmount =
+        qMax(
+            0.0,
+            amount);
 
     refreshUi();
 }
+
+
+void ChargePage::setPaidResult(
+    qint64 durationSeconds,
+    double kwh,
+    double amount,
+    double balance)
+{
+    if (m_orderNo.isEmpty())
+        return;
+
+    stopChargeTimer();
+
+    m_state =
+        ChargeState::Paid;
+
+    m_finalDurationSeconds =
+        qMax<qint64>(
+            0,
+            durationSeconds);
+
+    m_settledKwh =
+        qMax(
+            0.0,
+            kwh);
+
+    m_settledAmount =
+        qMax(
+            0.0,
+            amount);
+
+    m_finalBalance =
+        qMax(
+            0.0,
+            balance);
+
+    refreshUi();
+}
+
+
 
 void ChargePage::reset()
 {
@@ -320,13 +547,51 @@ void ChargePage::reset()
     m_orderNo.clear();
 
     m_settledKwh = 0.0;
-    m_settledAmount = 0.0;
+m_settledAmount = 0.0;
 
-    refreshUi();
+stopChargeTimer();
+
+m_chargeStartedAt =
+    QDateTime();
+
+m_powerKw = 0.0;
+m_unitPrice = 0.0;
+
+m_currentKwh = 0.0;
+m_estimatedAmount = 0.0;
+m_finalDurationSeconds = 0;
+m_finalBalance = 0.0;
+
+
+refreshUi();
+
 }
 
 void ChargePage::refreshUi()
 {
+    const auto formatDuration =
+        [](qint64 totalSeconds) {
+
+            totalSeconds =
+                qMax<qint64>(
+                    0,
+                    totalSeconds);
+
+            const qint64 hours =
+                totalSeconds / 3600;
+
+            const qint64 minutes =
+                (totalSeconds % 3600) / 60;
+
+            const qint64 seconds =
+                totalSeconds % 60;
+
+            return QStringLiteral("%1:%2:%3")
+                .arg(hours, 2, 10, QChar('0'))
+                .arg(minutes, 2, 10, QChar('0'))
+                .arg(seconds, 2, 10, QChar('0'));
+        };
+
     switch (m_state) {
 
     case ChargeState::Empty:
@@ -343,17 +608,13 @@ void ChargePage::refreshUi()
             QStringLiteral(
                 "状态：等待预约"));
 
-        m_statusLabel->setStyleSheet(
-            "border:none;"
-            "color:#86909c;"
-            "font-size:14px;");
-
+        m_startButton->show();
         m_startButton->setEnabled(false);
 
-        m_kwhSpin->setEnabled(false);
+        m_settleButton->hide();
+        m_payButton->hide();
 
-        m_settleButton->setEnabled(false);
-
+        m_chargingRecordCard->hide();
         m_resultLabel->hide();
 
         m_tipLabel->setText(
@@ -361,6 +622,7 @@ void ChargePage::refreshUi()
                 "请先在首页选择充电桩并完成预约"));
 
         break;
+
 
     case ChargeState::Reserved:
 
@@ -377,18 +639,13 @@ void ChargePage::refreshUi()
             QStringLiteral(
                 "状态：已预约"));
 
-        m_statusLabel->setStyleSheet(
-            "border:none;"
-            "color:#d97706;"
-            "font-size:14px;"
-            "font-weight:600;");
-
+        m_startButton->show();
         m_startButton->setEnabled(true);
 
-        m_kwhSpin->setEnabled(false);
+        m_settleButton->hide();
+        m_payButton->hide();
 
-        m_settleButton->setEnabled(false);
-
+        m_chargingRecordCard->hide();
         m_resultLabel->hide();
 
         m_tipLabel->setText(
@@ -396,6 +653,7 @@ void ChargePage::refreshUi()
                 "预约成功，可以开始充电"));
 
         break;
+
 
     case ChargeState::Charging:
 
@@ -412,31 +670,31 @@ void ChargePage::refreshUi()
             QStringLiteral(
                 "状态：充电中"));
 
-        m_statusLabel->setStyleSheet(
-            "border:none;"
-            "color:#16a34a;"
-            "font-size:14px;"
-            "font-weight:600;");
+        m_startButton->hide();
 
-        m_startButton->setEnabled(false);
-
-        m_kwhSpin->setEnabled(true);
-
+        m_settleButton->show();
         m_settleButton->setEnabled(true);
+
+        m_payButton->hide();
 
         m_resultLabel->hide();
 
+        m_chargingRecordCard->show();
+
+        updateChargingInfo();
+
         m_tipLabel->setText(
             QStringLiteral(
-                "充电完成后请输入实际充电量并结算"));
+                "正在充电，可实时查看充电记录"));
 
         break;
 
-    case ChargeState::Settled:
 
+    case ChargeState::PendingPayment:
+    {
         m_stateTitle->setText(
             QStringLiteral(
-                "充电完成"));
+                "充电已结束"));
 
         m_orderLabel->setText(
             QStringLiteral(
@@ -445,31 +703,85 @@ void ChargePage::refreshUi()
 
         m_statusLabel->setText(
             QStringLiteral(
-                "状态：已结算"));
+                "状态：待支付"));
 
-        m_statusLabel->setStyleSheet(
-            "border:none;"
-            "color:#1d4ed8;"
-            "font-size:14px;"
-            "font-weight:600;");
+        m_startButton->hide();
+        m_settleButton->hide();
 
-        m_startButton->setEnabled(false);
+        m_chargingRecordCard->hide();
 
-        m_kwhSpin->setEnabled(false);
-
-        m_settleButton->setEnabled(false);
+        const QString duration =
+            formatDuration(
+                m_finalDurationSeconds);
 
         m_resultLabel->setText(
             QStringLiteral(
-                "本次充电 %1 kWh\n"
-                "结算金额 ￥%2")
+                "充电时长  %1\n"
+                "充电电量  %2 kWh\n"
+                "本次费用  ￥%3")
+                .arg(duration)
                 .arg(
                     m_settledKwh,
                     0,
                     'f',
-                    1)
+                    2)
                 .arg(
                     m_settledAmount,
+                    0,
+                    'f',
+                    2));
+
+        m_resultLabel->show();
+
+        m_payButton->show();
+        m_payButton->setEnabled(true);
+
+        m_tipLabel->setText(
+            QStringLiteral(
+                "请确认账单后完成支付"));
+
+        break;
+    }
+
+
+    case ChargeState::Paid:
+    {
+        m_stateTitle->setText(
+            QStringLiteral(
+                "支付成功"));
+
+        m_orderLabel->setText(
+            QStringLiteral(
+                "订单号：%1")
+                .arg(m_orderNo));
+
+        m_statusLabel->setText(
+            QStringLiteral(
+                "状态：已支付"));
+
+        m_startButton->hide();
+        m_settleButton->hide();
+        m_payButton->hide();
+
+        m_chargingRecordCard->hide();
+
+        const QString duration =
+            formatDuration(
+                m_finalDurationSeconds);
+
+        m_resultLabel->setText(
+            QStringLiteral(
+                "充电时长  %1\n"
+                "本次费用  ￥%2\n"
+                "当前余额  ￥%3")
+                .arg(duration)
+                .arg(
+                    m_settledAmount,
+                    0,
+                    'f',
+                    2)
+                .arg(
+                    m_finalBalance,
                     0,
                     'f',
                     2));
@@ -482,9 +794,11 @@ void ChargePage::refreshUi()
 
         break;
     }
-    applyResponsiveStyle();
+    }
 
+    applyResponsiveStyle();
 }
+
 void ChargePage::resizeEvent(
     QResizeEvent *event)
 {
@@ -663,12 +977,20 @@ void ChargePage::applyResponsiveStyle()
                 QStringLiteral("600");
             break;
 
-        case ChargeState::Settled:
+        case ChargeState::PendingPayment:
+            color =
+                QStringLiteral("#d97706");
+            weight =
+                QStringLiteral("600");
+            break;
+
+        case ChargeState::Paid:
             color =
                 QStringLiteral("#1d4ed8");
             weight =
                 QStringLiteral("600");
             break;
+
         }
 
         m_statusLabel->setStyleSheet(
@@ -682,58 +1004,7 @@ void ChargePage::applyResponsiveStyle()
                 .arg(weight));
     }
 
-    // ============================================================
-    // “本次充电量”
-    // ============================================================
-    if (auto *kwhTitle =
-            findChild<QLabel *>(
-                QStringLiteral(
-                    "chargeKwhTitle"))) {
 
-        kwhTitle->setStyleSheet(
-            QStringLiteral(
-                "border:none;"
-                "font-size:%1px;"
-                "font-weight:600;")
-                .arg(normalFont));
-    }
-
-    // ============================================================
-    // 充电量输入框
-    // ============================================================
-    if (m_kwhSpin) {
-
-        m_kwhSpin->setMinimumWidth(
-            scaledUi(
-                scaleBase,
-                150));
-
-        m_kwhSpin->setStyleSheet(
-            QStringLiteral(
-                "QDoubleSpinBox{"
-                "background:#ffffff;"
-                "border:1px solid #d6e4ff;"
-                "border-radius:%1px;"
-                "padding:%2px %3px;"
-                "font-size:%4px;"
-                "}"
-                "QDoubleSpinBox:focus{"
-                "border-color:#1d4ed8;"
-                "}")
-                .arg(
-                    scaledUi(
-                        scaleBase,
-                        8))
-                .arg(
-                    scaledUi(
-                        scaleBase,
-                        8))
-                .arg(
-                    scaledUi(
-                        scaleBase,
-                        10))
-                .arg(normalFont));
-    }
 
     // ============================================================
     // 结算结果
@@ -775,5 +1046,224 @@ void ChargePage::applyResponsiveStyle()
                     scaledUi(
                         scaleBase,
                         8)));
+    }
+        // ============================================================
+    // 充电实时记录卡
+    // ============================================================
+    if (m_chargingRecordCard) {
+
+        m_chargingRecordCard->setStyleSheet(
+            QStringLiteral(
+                "QFrame#chargingRecordCard{"
+                "background:#f7faff;"
+                "border:1px solid #d6e4ff;"
+                "border-radius:%1px;"
+                "}"
+                "QFrame#chargingRecordCard QLabel{"
+                "border:none;"
+                "font-size:%2px;"
+                "}")
+                .arg(
+                    scaledUi(
+                        scaleBase,
+                        10))
+                .arg(normalFont));
+
+        if (auto *recordLayout =
+                qobject_cast<QVBoxLayout *>(
+                    m_chargingRecordCard->layout())) {
+
+            recordLayout->setContentsMargins(
+                scaledUi(scaleBase, 14),
+                scaledUi(scaleBase, 12),
+                scaledUi(scaleBase, 14),
+                scaledUi(scaleBase, 12));
+
+            recordLayout->setSpacing(
+                scaledUi(
+                    scaleBase,
+                    8));
+        }
+    }
+
+    if (m_elapsedLabel) {
+
+        m_elapsedLabel->setStyleSheet(
+            QStringLiteral(
+                "border:none;"
+                "font-size:%1px;"
+                "font-weight:700;"
+                "color:#1d4ed8;")
+                .arg(normalFont));
+    }
+
+    if (m_powerLabel) {
+
+        m_powerLabel->setStyleSheet(
+            QStringLiteral(
+                "border:none;"
+                "font-size:%1px;"
+                "font-weight:600;"
+                "color:#1f2329;")
+                .arg(normalFont));
+    }
+
+    if (m_currentKwhLabel) {
+
+        m_currentKwhLabel->setStyleSheet(
+            QStringLiteral(
+                "border:none;"
+                "font-size:%1px;"
+                "font-weight:600;"
+                "color:#1f2329;")
+                .arg(normalFont));
+    }
+
+    if (m_estimatedFeeLabel) {
+
+        m_estimatedFeeLabel->setStyleSheet(
+            QStringLiteral(
+                "border:none;"
+                "font-size:%1px;"
+                "font-weight:700;"
+                "color:#ff6a00;")
+                .arg(normalFont));
+    }
+
+}
+void ChargePage::startChargeTimer()
+{
+    if (!m_chargeTimer)
+        return;
+
+    if (!m_chargeStartedAt.isValid()) {
+
+        m_chargeStartedAt =
+            QDateTime::currentDateTime();
+    }
+
+    updateChargingInfo();
+
+    if (!m_chargeTimer->isActive()) {
+
+        m_chargeTimer->start();
+    }
+}
+
+
+void ChargePage::stopChargeTimer()
+{
+    if (!m_chargeTimer)
+        return;
+
+    if (m_chargeTimer->isActive()) {
+
+        m_chargeTimer->stop();
+    }
+}
+
+
+void ChargePage::updateChargingInfo()
+{
+    if (m_state != ChargeState::Charging)
+        return;
+
+    if (!m_chargeStartedAt.isValid())
+        return;
+
+    qint64 elapsedSeconds =
+        m_chargeStartedAt.secsTo(
+            QDateTime::currentDateTime());
+
+    if (elapsedSeconds < 0)
+        elapsedSeconds = 0;
+
+    // 已充时间
+    const qint64 hours =
+        elapsedSeconds / 3600;
+
+    const qint64 minutes =
+        (elapsedSeconds % 3600) / 60;
+
+    const qint64 seconds =
+        elapsedSeconds % 60;
+
+    if (m_elapsedLabel) {
+
+        m_elapsedLabel->setText(
+            QStringLiteral("%1:%2:%3")
+                .arg(hours, 2, 10, QChar('0'))
+                .arg(minutes, 2, 10, QChar('0'))
+                .arg(seconds, 2, 10, QChar('0')));
+    }
+
+    // 当前功率 + 已充电量
+    if (m_powerKw > 0.0) {
+
+        if (m_powerLabel) {
+
+            m_powerLabel->setText(
+                QStringLiteral("%1 kW")
+                    .arg(
+                        m_powerKw,
+                        0,
+                        'f',
+                        1));
+        }
+
+        m_currentKwh =
+            m_powerKw *
+            static_cast<double>(
+                elapsedSeconds) /
+            3600.0;
+
+        if (m_currentKwhLabel) {
+
+            m_currentKwhLabel->setText(
+                QStringLiteral("%1 kWh")
+                    .arg(
+                        m_currentKwh,
+                        0,
+                        'f',
+                        2));
+        }
+
+    } else {
+
+        if (m_powerLabel)
+            m_powerLabel->setText(
+                QStringLiteral("-- kW"));
+
+        if (m_currentKwhLabel)
+            m_currentKwhLabel->setText(
+                QStringLiteral("-- kWh"));
+    }
+
+    // 预估费用
+    if (m_powerKw > 0.0 &&
+        m_unitPrice > 0.0) {
+
+        m_estimatedAmount =
+            m_currentKwh *
+            m_unitPrice;
+
+        if (m_estimatedFeeLabel) {
+
+            m_estimatedFeeLabel->setText(
+                QStringLiteral("￥%1")
+                    .arg(
+                        m_estimatedAmount,
+                        0,
+                        'f',
+                        2));
+        }
+
+    } else {
+
+        if (m_estimatedFeeLabel) {
+
+            m_estimatedFeeLabel->setText(
+                QStringLiteral("￥--"));
+        }
     }
 }
