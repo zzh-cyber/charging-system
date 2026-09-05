@@ -36,7 +36,7 @@ bool Database::open()
     m_db.setPort(ServerConfig::DbPort);
     m_db.setDatabaseName(ServerConfig::DbName);
     m_db.setUserName(ServerConfig::DbUser);
-    m_db.setPassword(ServerConfig::DbPassword);
+    m_db.setPassword(ServerConfig::DbPassword());
 
     if (!m_db.open()) {
         m_lastError = m_db.lastError().text();
@@ -466,80 +466,80 @@ QJsonObject Database::reserve(qint64 userId, qint64 pileId, int &code, QString &
         return data;
     }
 
-    if (!m_db.transaction()) {
-        code = Protocol::DbError;
-        msg = m_db.lastError().text();
-        return data;
-    }
+    QString orderNo;
 
-    const auto fail = [this, &code, &msg, &data](int errorCode,
-                                                 const QString &errorMessage) {
-        m_db.rollback();
-        code = errorCode;
-        msg = errorMessage;
-        return data;
-    };
+    // NO.59：用 runInTransaction 包装，死锁/锁等待超时时自动重试
+    const bool ok = runInTransaction([&]() -> bool {
+        const auto fail = [&](int errorCode, const QString &errorMessage) -> bool {
+            code = errorCode;
+            msg = errorMessage;
+            return false;
+        };
 
-    QSqlQuery userQuery(m_db);
-    userQuery.prepare("SELECT status FROM `user` WHERE id = ? FOR UPDATE");
-    userQuery.addBindValue(userId);
-    if (!userQuery.exec())
-        return fail(Protocol::DbError, userQuery.lastError().text());
-    if (!userQuery.next())
-        return fail(Protocol::NotFound, "用户不存在");
-    if (userQuery.value("status").toString() == "frozen")
-        return fail(Protocol::Frozen, "账号已被冻结");
+        QSqlQuery userQuery(m_db);
+        userQuery.prepare("SELECT status FROM `user` WHERE id = ? FOR UPDATE");
+        userQuery.addBindValue(userId);
+        if (!userQuery.exec())
+            return fail(Protocol::DbError, userQuery.lastError().text());
+        if (!userQuery.next())
+            return fail(Protocol::NotFound, "用户不存在");
+        if (userQuery.value("status").toString() == "frozen")
+            return fail(Protocol::Frozen, "账号已被冻结");
 
-    QSqlQuery orderQuery(m_db);
-    orderQuery.prepare("SELECT id FROM charge_order "
-                       "WHERE user_id = ? AND status IN ('reserved','charging') "
-                       "LIMIT 1 FOR UPDATE");
-    orderQuery.addBindValue(userId);
-    if (!orderQuery.exec())
-        return fail(Protocol::DbError, orderQuery.lastError().text());
-    if (orderQuery.next())
-        return fail(Protocol::HasUnfinishedOrder, "存在未完成订单");
+        QSqlQuery orderQuery(m_db);
+        orderQuery.prepare("SELECT id FROM charge_order "
+                           "WHERE user_id = ? AND status IN ('reserved','charging') "
+                           "LIMIT 1 FOR UPDATE");
+        orderQuery.addBindValue(userId);
+        if (!orderQuery.exec())
+            return fail(Protocol::DbError, orderQuery.lastError().text());
+        if (orderQuery.next())
+            return fail(Protocol::HasUnfinishedOrder, "存在未完成订单");
 
-    QSqlQuery pileQuery(m_db);
-    pileQuery.prepare("SELECT p.status, p.station_id, s.price "
-                      "FROM pile p JOIN station s ON s.id = p.station_id "
-                      "WHERE p.id = ? FOR UPDATE");
-    pileQuery.addBindValue(pileId);
-    if (!pileQuery.exec())
-        return fail(Protocol::DbError, pileQuery.lastError().text());
-    if (!pileQuery.next())
-        return fail(Protocol::NotFound, "电桩不存在");
-    if (pileQuery.value("status").toString() != "idle")
-        return fail(Protocol::InvalidRequest, "电桩当前不可预约");
-    const qint64 stationId = pileQuery.value("station_id").toLongLong();
-    const double unitPrice = pileQuery.value("price").toDouble();
+        QSqlQuery pileQuery(m_db);
+        pileQuery.prepare("SELECT p.status, p.station_id, s.price "
+                          "FROM pile p JOIN station s ON s.id = p.station_id "
+                          "WHERE p.id = ? FOR UPDATE");
+        pileQuery.addBindValue(pileId);
+        if (!pileQuery.exec())
+            return fail(Protocol::DbError, pileQuery.lastError().text());
+        if (!pileQuery.next())
+            return fail(Protocol::NotFound, "电桩不存在");
+        if (pileQuery.value("status").toString() != "idle")
+            return fail(Protocol::InvalidRequest, "电桩当前不可预约");
+        const qint64 stationId = pileQuery.value("station_id").toLongLong();
+        const double unitPrice = pileQuery.value("price").toDouble();
 
-    const QString orderNo = QUuid::createUuid().toString(QUuid::Id128);
-    QSqlQuery insertQuery(m_db);
-    insertQuery.prepare("INSERT INTO charge_order "
-                        "(order_no, user_id, station_id, pile_id, status, unit_price, reserve_time) "
-                        "VALUES (?, ?, ?, ?, 'reserved', ?, NOW())");
-    insertQuery.addBindValue(orderNo);
-    insertQuery.addBindValue(userId);
-    insertQuery.addBindValue(stationId);
-    insertQuery.addBindValue(pileId);
-    insertQuery.addBindValue(unitPrice);
-    if (!insertQuery.exec())
-        return fail(Protocol::DbError, insertQuery.lastError().text());
+        orderNo = QUuid::createUuid().toString(QUuid::Id128);
+        QSqlQuery insertQuery(m_db);
+        insertQuery.prepare("INSERT INTO charge_order "
+                            "(order_no, user_id, station_id, pile_id, status, unit_price, reserve_time) "
+                            "VALUES (?, ?, ?, ?, 'reserved', ?, NOW())");
+        insertQuery.addBindValue(orderNo);
+        insertQuery.addBindValue(userId);
+        insertQuery.addBindValue(stationId);
+        insertQuery.addBindValue(pileId);
+        insertQuery.addBindValue(unitPrice);
+        if (!insertQuery.exec())
+            return fail(Protocol::DbError, insertQuery.lastError().text());
 
-    QSqlQuery updateQuery(m_db);
-    updateQuery.prepare("UPDATE pile SET status = 'busy' WHERE id = ? AND status = 'idle'");
-    updateQuery.addBindValue(pileId);
-    if (!updateQuery.exec())
-        return fail(Protocol::DbError, updateQuery.lastError().text());
-    if (updateQuery.numRowsAffected() != 1)
-        return fail(Protocol::DbError, "更新电桩状态失败");
+        QSqlQuery updateQuery(m_db);
+        updateQuery.prepare("UPDATE pile SET status = 'busy' WHERE id = ? AND status = 'idle'");
+        updateQuery.addBindValue(pileId);
+        if (!updateQuery.exec())
+            return fail(Protocol::DbError, updateQuery.lastError().text());
+        if (updateQuery.numRowsAffected() != 1)
+            return fail(Protocol::DbError, "更新电桩状态失败");
 
-    if (!m_db.commit()) {
-        const QString errorMessage = m_db.lastError().text();
-        m_db.rollback();
-        code = Protocol::DbError;
-        msg = errorMessage;
+        return true;
+    });
+
+    if (!ok) {
+        // body 未设置错误（如事务开启/提交失败）时兜底为 DbError
+        if (code == Protocol::Unknown)
+            code = Protocol::DbError;
+        if (msg.isEmpty())
+            msg = m_lastError;
         return data;
     }
 
@@ -1359,6 +1359,34 @@ bool Database::logOperation(qint64 adminId, const QString &action, const QString
         return false;
     }
     return true;
+}
+
+// ============================================================================
+// 事务包装（NO.59）：死锁(1213)/锁等待超时(1205)时有限重试
+// ============================================================================
+
+bool Database::runInTransaction(std::function<bool()> body, int maxRetries)
+{
+    for (int attempt = 0; attempt <= maxRetries; ++attempt) {
+        if (!m_db.transaction()) {
+            m_lastError = m_db.lastError().text();
+            return false;
+        }
+        if (body()) {
+            if (m_db.commit())
+                return true;
+            m_lastError = m_db.lastError().text();
+            m_db.rollback();
+            return false;
+        }
+        // body 返回 false：仅死锁/锁等待超时可重试，其余直接失败
+        const QString nativeCode = m_db.lastError().nativeErrorCode();
+        m_db.rollback();
+        if (nativeCode != QLatin1String("1213") && nativeCode != QLatin1String("1205"))
+            return false;
+        // 可重试，继续下一轮
+    }
+    return false;
 }
 
 bool Database::updateStation(qint64 stationId, const QString &name, const QString &address,
