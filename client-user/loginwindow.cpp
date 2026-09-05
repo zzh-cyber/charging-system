@@ -174,12 +174,24 @@ void LoginWindow::onLoginClicked()
 
     // 登录成功 → 进入主界面，并把用户信息传进去（供「我的」页显示）
     const QJsonObject u = resp.value("data").toObject();
+
+    const QString token = u.value("token").toString();
+
+    if (token.isEmpty()) {
+        QMessageBox::warning(
+            this,
+            QStringLiteral("登录失败"),
+            QStringLiteral("服务器未返回 token"));
+        return;
+    }
+
     auto *mainWin = new MainWindow(
         u.value("id").toVariant().toLongLong(),
         u.value("nickname").toString(),
         u.value("phone").toString(),
         u.value("balance").toDouble(),
-        u.value("token").toString());
+        token);
+
 
     mainWin->setAttribute(Qt::WA_DeleteOnClose);
     mainWin->show();
