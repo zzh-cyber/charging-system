@@ -10,6 +10,8 @@
 // 其余接口留给对应同学在此按同样的模式补充。
 // ============================================================================
 
+#include <functional>
+
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QSqlDatabase>
@@ -104,6 +106,9 @@ public:
 
 private:
     bool executeScript(const QString &sql);  // 逐条执行 SQL 脚本
+
+    // NO.59：事务包装，死锁(1213)/锁等待超时(1205)时有限重试
+    bool runInTransaction(std::function<bool()> body, int maxRetries = 3);
 
     // NO.58：写操作日志（operation_logs）
     bool logOperation(qint64 adminId, const QString &action, const QString &targetType,
