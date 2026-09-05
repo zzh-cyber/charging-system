@@ -367,25 +367,8 @@ MainWindow::MainWindow(
         m_stationPage,
         &StationListPage::navigationRequested,
         this,
-        [this, locationPanel](
-            qint64 stationId,
-            const QString &name,
-            double startLat,
-            double startLng,
-            double targetLat,
-            double targetLng,
-            double distance) {
-
-            Q_UNUSED(stationId);
-
-            m_navigationPage
-                ->setNavigationData(
-                    name,
-                    startLat,
-                    startLng,
-                    targetLat,
-                    targetLng,
-                    distance);
+        [this, locationPanel](const RouteRequest &request) {
+            m_navigationPage->setNavigationData(request);
 
             m_homeStack->setCurrentWidget(
                 m_navigationPage);

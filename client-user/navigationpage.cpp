@@ -213,27 +213,20 @@ applyResponsiveStyle();
 
 }
 
-void NavigationPage::setNavigationData(
-    const QString &stationName,
-    double startLat,
-    double startLng,
-    double targetLat,
-    double targetLng,
-    double distance)
+void NavigationPage::setNavigationData(const RouteRequest &request)
 {
-    m_stationLabel->setText(
-        stationName);
+    m_stationLabel->setText(request.toName);
 
     m_startLabel->setText(
         QStringLiteral(
             "%1, %2")
             .arg(
-                startLat,
+                request.fromLat,
                 0,
                 'f',
                 6)
             .arg(
-                startLng,
+                request.fromLng,
                 0,
                 'f',
                 6));
@@ -242,16 +235,17 @@ void NavigationPage::setNavigationData(
         QStringLiteral(
             "%1, %2")
             .arg(
-                targetLat,
+                request.toLat,
                 0,
                 'f',
                 6)
             .arg(
-                targetLng,
+                request.toLng,
                 0,
                 'f',
                 6));
 
+    const double distance = request.distance;
     if (distance >= 0.0) {
 
         m_distanceLabel->setText(
