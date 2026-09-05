@@ -488,7 +488,7 @@ QJsonObject Database::reserve(qint64 userId, qint64 pileId, int &code, QString &
 
         QSqlQuery orderQuery(m_db);
         orderQuery.prepare("SELECT id FROM charge_order "
-                           "WHERE user_id = ? AND status IN ('reserved','charging') "
+                           "WHERE user_id = ? AND status IN ('reserved','charging','pending_payment') "
                            "LIMIT 1 FOR UPDATE");
         orderQuery.addBindValue(userId);
         if (!orderQuery.exec())
@@ -684,108 +684,110 @@ QJsonObject Database::settle(const QString &orderNo, qint64 userId, double kwh, 
         return data;
     }
 
-    if (!m_db.transaction()) {
-        code = Protocol::DbError;
-        msg = m_db.lastError().text();
+    double settledAmount = 0;
+    double newBalance = 0;
+
+    // NO.59：用 runInTransaction 包装，死锁/锁等待超时时自动重试
+    const bool ok = runInTransaction([&]() -> bool {
+        const auto fail = [&](int errorCode, const QString &errorMessage) -> bool {
+            code = errorCode;
+            msg = errorMessage;
+            return false;
+        };
+
+        QSqlQuery query(m_db);
+        query.prepare("SELECT o.id AS order_id, o.user_id, o.pile_id, o.status, o.start_time, "
+                      "o.unit_price, u.balance, p.status AS pile_status "
+                      "FROM charge_order o "
+                      "JOIN `user` u ON u.id = o.user_id "
+                      "JOIN pile p ON p.id = o.pile_id "
+                      "WHERE o.order_no = ? AND o.user_id = ? FOR UPDATE");
+        query.addBindValue(trimmedOrderNo);
+        query.addBindValue(userId);
+        if (!query.exec())
+            return fail(Protocol::DbError, query.lastError().text());
+        if (!query.next())
+            return fail(Protocol::NotFound, "订单不存在");
+        if (query.value("status").toString() != "charging")
+            return fail(Protocol::InvalidRequest, "订单当前状态不能结算");
+        if (query.value("pile_status").toString() == "fault")
+            return fail(Protocol::InvalidRequest, "故障电桩不能结算");
+
+        const double unitPrice = query.value("unit_price").toDouble();
+        const double amount = kwh * unitPrice;
+        const double balance = query.value("balance").toDouble();
+        if (balance < amount)
+            return fail(Protocol::InsufficientBalance, "余额不足");
+
+        QSqlQuery updateUser(m_db);
+        updateUser.prepare("UPDATE `user` SET balance = balance - ? WHERE id = ?");
+        updateUser.addBindValue(amount);
+        updateUser.addBindValue(query.value("user_id").toLongLong());
+        if (!updateUser.exec() || updateUser.numRowsAffected() != 1)
+            return fail(Protocol::DbError, updateUser.lastError().text());
+
+        // 写钱包流水（NO.52：扣款留痕）
+        QSqlQuery txn(m_db);
+        txn.prepare("INSERT INTO wallet_transactions "
+                    "(transaction_no, user_id, type, amount, balance_before, balance_after, order_id) "
+                    "VALUES (?, ?, 'charge_pay', ?, ?, ?, ?)");
+        txn.addBindValue(QUuid::createUuid().toString(QUuid::Id128));
+        txn.addBindValue(query.value("user_id").toLongLong());
+        txn.addBindValue(amount);
+        txn.addBindValue(balance);
+        txn.addBindValue(balance - amount);
+        txn.addBindValue(query.value("order_id").toLongLong());
+        if (!txn.exec())
+            return fail(Protocol::DbError, txn.lastError().text());
+
+        const qint64 durationSeconds =
+            query.value("start_time").toDateTime().secsTo(QDateTime::currentDateTime());
+
+        QSqlQuery updateOrder(m_db);
+        updateOrder.prepare("UPDATE charge_order SET status = 'settled', end_time = NOW(), "
+                            "kwh = ?, amount = ?, duration_seconds = ?, pay_request_id = ? "
+                            "WHERE order_no = ? AND user_id = ? AND status = 'charging'");
+        updateOrder.addBindValue(kwh);
+        updateOrder.addBindValue(amount);
+        updateOrder.addBindValue(durationSeconds);
+        updateOrder.addBindValue(QUuid::createUuid().toString(QUuid::WithoutBraces));
+        updateOrder.addBindValue(trimmedOrderNo);
+        updateOrder.addBindValue(userId);
+        if (!updateOrder.exec() || updateOrder.numRowsAffected() != 1)
+            return fail(Protocol::DbError, updateOrder.lastError().text());
+
+        QSqlQuery updatePile(m_db);
+        updatePile.prepare("UPDATE pile p JOIN charge_order o ON o.pile_id = p.id "
+                           "SET p.status = 'idle', p.total_count = p.total_count + 1, "
+                           "p.total_hours = p.total_hours + "
+                           "TIMESTAMPDIFF(SECOND, o.start_time, NOW()) / 3600.0 "
+                           "WHERE p.id = ? AND o.order_no = ?");
+        updatePile.addBindValue(query.value("pile_id").toLongLong());
+        updatePile.addBindValue(trimmedOrderNo);
+        if (!updatePile.exec() || updatePile.numRowsAffected() != 1)
+            return fail(Protocol::DbError, updatePile.lastError().text());
+
+        QSqlQuery balanceQuery(m_db);
+        balanceQuery.prepare("SELECT balance FROM `user` WHERE id = ?");
+        balanceQuery.addBindValue(query.value("user_id").toLongLong());
+        if (!balanceQuery.exec() || !balanceQuery.next())
+            return fail(Protocol::DbError, balanceQuery.lastError().text());
+
+        settledAmount = amount;
+        newBalance = balanceQuery.value("balance").toDouble();
+        return true;
+    });
+
+    if (!ok) {
+        if (code == Protocol::Unknown)
+            code = Protocol::DbError;
+        if (msg.isEmpty())
+            msg = m_lastError;
         return data;
     }
 
-    const auto fail = [this, &code, &msg, &data](int errorCode,
-                                                 const QString &errorMessage) {
-        m_db.rollback();
-        code = errorCode;
-        msg = errorMessage;
-        return data;
-    };
-
-    QSqlQuery query(m_db);
-    query.prepare("SELECT o.id AS order_id, o.user_id, o.pile_id, o.status, o.start_time, "
-                  "o.unit_price, u.balance, p.status AS pile_status "
-                  "FROM charge_order o "
-                  "JOIN `user` u ON u.id = o.user_id "
-                  "JOIN pile p ON p.id = o.pile_id "
-                  "WHERE o.order_no = ? AND o.user_id = ? FOR UPDATE");
-    query.addBindValue(trimmedOrderNo);
-    query.addBindValue(userId);
-    if (!query.exec())
-        return fail(Protocol::DbError, query.lastError().text());
-    if (!query.next())
-        return fail(Protocol::NotFound, "订单不存在");
-    if (query.value("status").toString() != "charging")
-        return fail(Protocol::InvalidRequest, "订单当前状态不能结算");
-    if (query.value("pile_status").toString() == "fault")
-        return fail(Protocol::InvalidRequest, "故障电桩不能结算");
-
-    const double unitPrice = query.value("unit_price").toDouble();
-    const double amount = kwh * unitPrice;
-    const double balance = query.value("balance").toDouble();
-    if (balance < amount)
-        return fail(Protocol::InsufficientBalance, "余额不足");
-
-    QSqlQuery updateUser(m_db);
-    updateUser.prepare("UPDATE `user` SET balance = balance - ? WHERE id = ?");
-    updateUser.addBindValue(amount);
-    updateUser.addBindValue(query.value("user_id").toLongLong());
-    if (!updateUser.exec() || updateUser.numRowsAffected() != 1)
-        return fail(Protocol::DbError, updateUser.lastError().text());
-
-    // 写钱包流水（NO.52：扣款留痕）
-    QSqlQuery txn(m_db);
-    txn.prepare("INSERT INTO wallet_transactions "
-                "(transaction_no, user_id, type, amount, balance_before, balance_after, order_id) "
-                "VALUES (?, ?, 'charge_pay', ?, ?, ?, ?)");
-    txn.addBindValue(QUuid::createUuid().toString(QUuid::Id128));
-    txn.addBindValue(query.value("user_id").toLongLong());
-    txn.addBindValue(amount);
-    txn.addBindValue(balance);
-    txn.addBindValue(balance - amount);
-    txn.addBindValue(query.value("order_id").toLongLong());
-    if (!txn.exec())
-        return fail(Protocol::DbError, txn.lastError().text());
-
-    const qint64 durationSeconds =
-        query.value("start_time").toDateTime().secsTo(QDateTime::currentDateTime());
-
-    QSqlQuery updateOrder(m_db);
-    updateOrder.prepare("UPDATE charge_order SET status = 'settled', end_time = NOW(), "
-                        "kwh = ?, amount = ?, duration_seconds = ?, pay_request_id = ? "
-                        "WHERE order_no = ? AND user_id = ? AND status = 'charging'");
-    updateOrder.addBindValue(kwh);
-    updateOrder.addBindValue(amount);
-    updateOrder.addBindValue(durationSeconds);
-    updateOrder.addBindValue(QUuid::createUuid().toString(QUuid::WithoutBraces));
-    updateOrder.addBindValue(trimmedOrderNo);
-    updateOrder.addBindValue(userId);
-    if (!updateOrder.exec() || updateOrder.numRowsAffected() != 1)
-        return fail(Protocol::DbError, updateOrder.lastError().text());
-
-    QSqlQuery updatePile(m_db);
-    updatePile.prepare("UPDATE pile p JOIN charge_order o ON o.pile_id = p.id "
-                       "SET p.status = 'idle', p.total_count = p.total_count + 1, "
-                       "p.total_hours = p.total_hours + "
-                       "TIMESTAMPDIFF(SECOND, o.start_time, NOW()) / 3600.0 "
-                       "WHERE p.id = ? AND o.order_no = ?");
-    updatePile.addBindValue(query.value("pile_id").toLongLong());
-    updatePile.addBindValue(trimmedOrderNo);
-    if (!updatePile.exec() || updatePile.numRowsAffected() != 1)
-        return fail(Protocol::DbError, updatePile.lastError().text());
-
-    QSqlQuery balanceQuery(m_db);
-    balanceQuery.prepare("SELECT balance FROM `user` WHERE id = ?");
-    balanceQuery.addBindValue(query.value("user_id").toLongLong());
-    if (!balanceQuery.exec() || !balanceQuery.next())
-        return fail(Protocol::DbError, balanceQuery.lastError().text());
-
-    if (!m_db.commit()) {
-        const QString errorMessage = m_db.lastError().text();
-        m_db.rollback();
-        code = Protocol::DbError;
-        msg = errorMessage;
-        return data;
-    }
-
-    data["amount"] = amount;
-    data["balance"] = balanceQuery.value("balance").toDouble();
+    data["amount"] = settledAmount;
+    data["balance"] = newBalance;
     code = Protocol::Ok;
     msg = "结算成功";
     return data;
@@ -801,66 +803,66 @@ QJsonObject Database::recharge(qint64 userId, double amount, int &code, QString 
         return data;
     }
 
-    if (!m_db.transaction()) {
-        code = Protocol::DbError;
-        msg = m_db.lastError().text();
+    double newBalance = 0;
+
+    // NO.59：用 runInTransaction 包装，死锁/锁等待超时时自动重试
+    const bool ok = runInTransaction([&]() -> bool {
+        const auto fail = [&](int errorCode, const QString &errorMessage) -> bool {
+            code = errorCode;
+            msg = errorMessage;
+            return false;
+        };
+
+        QSqlQuery userQuery(m_db);
+        userQuery.prepare("SELECT status, balance FROM `user` WHERE id = ? FOR UPDATE");
+        userQuery.addBindValue(userId);
+        if (!userQuery.exec())
+            return fail(Protocol::DbError, userQuery.lastError().text());
+        if (!userQuery.next())
+            return fail(Protocol::NotFound, "用户不存在");
+        if (userQuery.value("status").toString() == "frozen")
+            return fail(Protocol::Frozen, "账号已被冻结，无法充值");
+        const double balanceBefore = userQuery.value("balance").toDouble();
+
+        QSqlQuery updateQuery(m_db);
+        updateQuery.prepare("UPDATE `user` SET balance = balance + ? WHERE id = ?");
+        updateQuery.addBindValue(amount);
+        updateQuery.addBindValue(userId);
+        if (!updateQuery.exec() || updateQuery.numRowsAffected() != 1)
+            return fail(Protocol::DbError, updateQuery.lastError().text());
+
+        // 写钱包流水（NO.52：余额变化必须留痕）
+        QSqlQuery insertQuery(m_db);
+        insertQuery.prepare("INSERT INTO wallet_transactions "
+                            "(transaction_no, user_id, type, amount, balance_before, balance_after) "
+                            "VALUES (?, ?, 'recharge', ?, ?, ?)");
+        insertQuery.addBindValue(QUuid::createUuid().toString(QUuid::Id128));
+        insertQuery.addBindValue(userId);
+        insertQuery.addBindValue(amount);
+        insertQuery.addBindValue(balanceBefore);
+        insertQuery.addBindValue(balanceBefore + amount);
+        if (!insertQuery.exec())
+            return fail(Protocol::DbError, insertQuery.lastError().text());
+
+        QSqlQuery balanceQuery(m_db);
+        balanceQuery.prepare("SELECT balance FROM `user` WHERE id = ?");
+        balanceQuery.addBindValue(userId);
+        if (!balanceQuery.exec() || !balanceQuery.next())
+            return fail(Protocol::DbError, balanceQuery.lastError().text());
+
+        newBalance = balanceQuery.value("balance").toDouble();
+        return true;
+    });
+
+    if (!ok) {
+        if (code == Protocol::Unknown)
+            code = Protocol::DbError;
+        if (msg.isEmpty())
+            msg = m_lastError;
         return data;
     }
 
-    const auto fail = [this, &code, &msg, &data](int errorCode,
-                                                 const QString &errorMessage) {
-        m_db.rollback();
-        code = errorCode;
-        msg = errorMessage;
-        return data;
-    };
-
-    QSqlQuery userQuery(m_db);
-    userQuery.prepare("SELECT status, balance FROM `user` WHERE id = ? FOR UPDATE");
-    userQuery.addBindValue(userId);
-    if (!userQuery.exec())
-        return fail(Protocol::DbError, userQuery.lastError().text());
-    if (!userQuery.next())
-        return fail(Protocol::NotFound, "用户不存在");
-    if (userQuery.value("status").toString() == "frozen")
-        return fail(Protocol::Frozen, "账号已被冻结，无法充值");
-    const double balanceBefore = userQuery.value("balance").toDouble();
-
-    QSqlQuery updateQuery(m_db);
-    updateQuery.prepare("UPDATE `user` SET balance = balance + ? WHERE id = ?");
-    updateQuery.addBindValue(amount);
-    updateQuery.addBindValue(userId);
-    if (!updateQuery.exec() || updateQuery.numRowsAffected() != 1)
-        return fail(Protocol::DbError, updateQuery.lastError().text());
-
-    // 写钱包流水（NO.52：余额变化必须留痕）
-    QSqlQuery insertQuery(m_db);
-    insertQuery.prepare("INSERT INTO wallet_transactions "
-                        "(transaction_no, user_id, type, amount, balance_before, balance_after) "
-                        "VALUES (?, ?, 'recharge', ?, ?, ?)");
-    insertQuery.addBindValue(QUuid::createUuid().toString(QUuid::Id128));
-    insertQuery.addBindValue(userId);
-    insertQuery.addBindValue(amount);
-    insertQuery.addBindValue(balanceBefore);
-    insertQuery.addBindValue(balanceBefore + amount);
-    if (!insertQuery.exec())
-        return fail(Protocol::DbError, insertQuery.lastError().text());
-
-    QSqlQuery balanceQuery(m_db);
-    balanceQuery.prepare("SELECT balance FROM `user` WHERE id = ?");
-    balanceQuery.addBindValue(userId);
-    if (!balanceQuery.exec() || !balanceQuery.next())
-        return fail(Protocol::DbError, balanceQuery.lastError().text());
-
-    if (!m_db.commit()) {
-        const QString errorMessage = m_db.lastError().text();
-        m_db.rollback();
-        code = Protocol::DbError;
-        msg = errorMessage;
-        return data;
-    }
-
-    data["balance"] = balanceQuery.value("balance").toDouble();
+    data["balance"] = newBalance;
     code = Protocol::Ok;
     msg = "充值成功";
     return data;
