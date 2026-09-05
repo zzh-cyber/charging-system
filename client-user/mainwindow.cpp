@@ -22,6 +22,7 @@
 #include <QVBoxLayout>
 #include <QJsonObject>
 #include <QMessageBox>
+#include <QTimer>
 
 
 // 服务器地址（与登录页保持一致）
@@ -732,15 +733,45 @@ MainWindow::MainWindow(
 
             if (!orderNo.isEmpty()) {
 
+                // 先把订单交给充电页并置好状态：
+                // charging / pending_payment 都要显示结算入口（待支付可再次结算补款）。
                 m_chargePage->setReservedOrder(
                     orderNo);
 
-                if (status ==
-                    QStringLiteral("charging")) {
+                const bool charging =
+                    status == QStringLiteral("charging");
+                const bool pending =
+                    status == QStringLiteral("pending_payment");
 
+                if (charging || pending) {
                     m_chargePage
                         ->setChargingState();
                 }
+
+                // NO.20：有未完成订单时弹窗提示，并切到充电页。
+                // 用 singleShot(0) 延后到构造完成、窗口显示后再弹，
+                // 避免在构造函数里进嵌套事件循环。
+                QString tip;
+                if (pending)
+                    tip = QStringLiteral(
+                        "您有一个待支付的订单，请前往充电页完成支付。");
+                else if (charging)
+                    tip = QStringLiteral(
+                        "您有一个正在充电的订单，已为您跳转到充电页。");
+                else
+                    tip = QStringLiteral(
+                        "您有一个已预约的订单，请前往充电页开始充电。");
+
+                QTimer::singleShot(0, this,
+                    [this, tip]() {
+                        m_contentStack->setCurrentIndex(1);
+                        if (auto *b = m_navGroup->button(1))
+                            b->setChecked(true);
+                        QMessageBox::information(
+                            this,
+                            QStringLiteral("未完成订单"),
+                            tip);
+                    });
             }
         }
     }

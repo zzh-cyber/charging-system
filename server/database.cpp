@@ -560,9 +560,11 @@ QJsonObject Database::unfinishedOrder(qint64 userId, int &code, QString &msg)
     }
 
     QSqlQuery q(m_db);
+    // 未完成订单含三种状态：已预约、充电中、待支付（余额不足结算未完成）。
+    // 三者都应把用户导回充电/结算页，缺一会漏掉待补款的单。
     q.prepare("SELECT order_no, pile_id, status, reserve_time, start_time "
               "FROM charge_order "
-              "WHERE user_id = ? AND status IN ('reserved','charging') "
+              "WHERE user_id = ? AND status IN ('reserved','charging','pending_payment') "
               "ORDER BY id DESC LIMIT 1");
     q.addBindValue(userId);
     if (!q.exec()) {
