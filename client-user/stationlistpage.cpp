@@ -3,6 +3,7 @@
 #include "netclient.h"
 #include "protocol.h"
 
+#include <QComboBox>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QJsonArray>
@@ -13,6 +14,10 @@
 #include <QShowEvent>
 #include <QStackedWidget>
 #include <QVBoxLayout>
+
+#include <algorithm>
+#include <cmath>
+#include <QSet>
 
 StationListPage::StationListPage(
     NetClient *net,
@@ -65,9 +70,56 @@ StationListPage::StationListPage(
         this,
         &StationListPage::loadStations);
 
+    // -------------------------------------------------------------------------
+    // NO.4：显示条数切换（最近 5 / 10 条）
+    // 切换时从已缓存的排序结果即时截取，保留当前地址，无需重新定位/请求。
+    // -------------------------------------------------------------------------
+    m_limitCombo = new QComboBox(this);
+
+    m_limitCombo->addItem(
+        QStringLiteral("最近 5 个"),
+        5);
+
+    m_limitCombo->addItem(
+        QStringLiteral("最近 10 个"),
+        10);
+
+    m_limitCombo->setCurrentIndex(0);
+
+    m_limitCombo->setCursor(
+        Qt::PointingHandCursor);
+
+    m_limitCombo->setStyleSheet(
+        "QComboBox{"
+        "border:1px solid #d6e4ff;"
+        "border-radius:6px;"
+        "padding:4px 8px;"
+        "font-size:13px;"
+        "background:#ffffff;"
+        "}");
+
+    connect(
+        m_limitCombo,
+        QOverload<int>::of(
+            &QComboBox::currentIndexChanged),
+        this,
+        [this](int) {
+            m_limit =
+                m_limitCombo
+                    ->currentData()
+                    .toInt();
+
+            // 已有缓存则即时重渲染；无缓存时静默，等下次加载。
+            if (!m_cachedList.isEmpty())
+                renderStations();
+        });
+
     header->addWidget(
         title,
         1);
+
+    header->addWidget(
+        m_limitCombo);
 
     header->addWidget(
         refreshBtn);
@@ -439,15 +491,11 @@ void StationListPage::loadStations()
 
         if (!m_cachedList.isEmpty()) {
 
-            buildCards(
-                m_cachedList);
+            renderStations();
 
             m_tip->setText(
                 QStringLiteral(
                     "网络异常，当前为缓存数据"));
-
-            m_stack->setCurrentIndex(
-                1);
 
             return;
         }
@@ -477,20 +525,176 @@ void StationListPage::loadStations()
     }
 
     // -------------------------------------------------------------------------
-    // 成功
+    // 成功：先按距离稳定排序并去重，缓存完整结果，再按 5/10 条截取展示（NO.4）
     // -------------------------------------------------------------------------
-    m_cachedList = list;
+    m_cachedList = sortStations(list);
 
-    buildCards(list);
+    renderStations();
+}
+
+// =============================================================================
+// NO.4：按距离升序稳定排序 + 去重 + distance 兜底
+// -----------------------------------------------------------------------------
+// - 服务端已返回 distance，但客户端仍做一次防御：distance 缺失/为负时用
+//   Haversine 依据站点经纬度与当前定位兜底计算，保证排序稳定可靠。
+// - 以 station id 去重，避免重复卡片。
+// - 同距离时：空闲桩多者靠前；再同则按站名升序，保证顺序稳定确定。
+// =============================================================================
+QJsonArray StationListPage::sortStations(
+    const QJsonArray &raw) const
+{
+    constexpr double kEarthRadiusKm = 6371.0;
+
+    const auto toRad = [](double deg) {
+        return deg * M_PI / 180.0;
+    };
+
+    QVector<QJsonObject> items;
+    items.reserve(raw.size());
+
+    QSet<qint64> seen;
+
+    for (const QJsonValue &v : raw) {
+
+        QJsonObject s = v.toObject();
+
+        const qint64 id =
+            s.value(QStringLiteral("id"))
+                .toVariant()
+                .toLongLong();
+
+        // 去重：同一站点只保留首个
+        if (seen.contains(id))
+            continue;
+
+        seen.insert(id);
+
+        // distance 兜底
+        double distance =
+            s.value(QStringLiteral("distance"))
+                .toDouble(-1.0);
+
+        const bool needCalc =
+            !s.contains(QStringLiteral("distance")) ||
+            distance < 0.0;
+
+        if (needCalc && m_hasLocation &&
+            s.contains(QStringLiteral("latitude")) &&
+            s.contains(QStringLiteral("longitude"))) {
+
+            const double sLat =
+                s.value(QStringLiteral("latitude"))
+                    .toDouble();
+
+            const double sLng =
+                s.value(QStringLiteral("longitude"))
+                    .toDouble();
+
+            const double dLat =
+                toRad(sLat - m_latitude);
+
+            const double dLng =
+                toRad(sLng - m_longitude);
+
+            const double a =
+                std::sin(dLat / 2) *
+                    std::sin(dLat / 2) +
+                std::cos(toRad(m_latitude)) *
+                    std::cos(toRad(sLat)) *
+                    std::sin(dLng / 2) *
+                    std::sin(dLng / 2);
+
+            distance =
+                2 * kEarthRadiusKm *
+                std::atan2(
+                    std::sqrt(a),
+                    std::sqrt(1 - a));
+
+            s[QStringLiteral("distance")] =
+                distance;
+
+        } else if (distance < 0.0) {
+
+            // 无法兜底时置 0，避免负值污染排序
+            distance = 0.0;
+            s[QStringLiteral("distance")] =
+                distance;
+        }
+
+        items.append(s);
+    }
+
+    std::stable_sort(
+        items.begin(),
+        items.end(),
+        [](const QJsonObject &a,
+           const QJsonObject &b) {
+
+            const double da =
+                a.value(QStringLiteral("distance"))
+                    .toDouble();
+            const double db =
+                b.value(QStringLiteral("distance"))
+                    .toDouble();
+
+            if (!qFuzzyCompare(da + 1.0, db + 1.0))
+                return da < db;
+
+            const int ia =
+                a.value(QStringLiteral("idle")).toInt();
+            const int ib =
+                b.value(QStringLiteral("idle")).toInt();
+
+            if (ia != ib)
+                return ia > ib;
+
+            return a.value(QStringLiteral("name"))
+                       .toString() <
+                   b.value(QStringLiteral("name"))
+                       .toString();
+        });
+
+    QJsonArray sorted;
+
+    for (const QJsonObject &o : items)
+        sorted.append(o);
+
+    return sorted;
+}
+
+// =============================================================================
+// NO.4：按当前 5/10 条限制，从已排序缓存截取并渲染
+// =============================================================================
+void StationListPage::renderStations()
+{
+    const int total = m_cachedList.size();
+
+    if (total == 0) {
+
+        m_tip->setText(
+            QStringLiteral("附近暂无充电站"));
+
+        m_stack->setCurrentIndex(2);
+
+        return;
+    }
+
+    const int shown = qMin(m_limit, total);
+
+    QJsonArray view;
+
+    for (int i = 0; i < shown; ++i)
+        view.append(m_cachedList.at(i));
+
+    buildCards(view);
 
     m_tip->setText(
         QStringLiteral(
-            "附近共 %1 个充电站")
-            .arg(
-                list.size()));
+            "附近共 %1 个，按距离显示最近 %2 个")
+            .arg(total)
+            .arg(shown));
 
-    m_stack->setCurrentIndex(
-        1);
+    m_stack->setCurrentIndex(1);
 }
 
 // =============================================================================

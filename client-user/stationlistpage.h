@@ -13,6 +13,7 @@
 class QLabel;
 class QVBoxLayout;
 class QStackedWidget;
+class QComboBox;
 class NetClient;
 
 class StationListPage : public QWidget
@@ -45,14 +46,25 @@ private:
     void buildCards(
         const QJsonArray &list);
 
+    // NO.4：按距离升序稳定排序 + 去重 + distance 兜底
+    QJsonArray sortStations(
+        const QJsonArray &raw) const;
+
+    // NO.4：按当前 5/10 条限制，从排序结果截取并渲染
+    void renderStations();
+
     NetClient      *m_net;
     QStackedWidget *m_stack;
     QVBoxLayout    *m_listLayout;
     QLabel         *m_tip;
+    QComboBox      *m_limitCombo;
 
     bool            m_loaded = false;
 
-    // 最近一次成功列表缓存（NO.7）
+    // 展示条数上限（NO.4：5 或 10）
+    int             m_limit = 5;
+
+    // 最近一次成功、已排序的完整列表缓存（NO.7 离线展示 + NO.4 切换即时截取）
     QJsonArray      m_cachedList;
 
     // ------------------------------------------------------------------------
