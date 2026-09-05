@@ -1,10 +1,11 @@
 #include "profilepage.h"
 
+#include <QDialog>
+#include <QDialogButtonBox>
 #include <QDoubleSpinBox>
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
-#include <QInputDialog>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
@@ -196,7 +197,8 @@ avatar->setPixmap(avatarPixmap);
         userCard);
 
     // ------------------------------------------------------------------------
-    // 点击编辑昵称：弹输入框 → 本地校验 2~20 → 发信号交 MainWindow 处理
+    // 点击编辑昵称：自绘对话框（不用 QInputDialog，其嵌套事件循环在
+    // WSL/X11 上经常接不住中文输入法）→ 本地校验 2~20 → 发信号
     // ------------------------------------------------------------------------
     connect(
         m_editNickButton,
@@ -204,22 +206,47 @@ avatar->setPixmap(avatarPixmap);
         this,
         [this]() {
 
-            bool ok = false;
+            QDialog dlg(this);
+            dlg.setWindowTitle(QStringLiteral("修改昵称"));
+            dlg.setModal(true);
+            dlg.setAttribute(Qt::WA_InputMethodEnabled, true);
 
-            const QString input =
-                QInputDialog::getText(
-                    this,
-                    QStringLiteral("修改昵称"),
-                    QStringLiteral("请输入新的昵称（2～20 个字符）："),
-                    QLineEdit::Normal,
-                    m_nickname,
-                    &ok);
+            auto *label = new QLabel(
+                QStringLiteral("请输入新的昵称（2～20 个字符）："),
+                &dlg);
 
-            if (!ok)
+            auto *edit = new QLineEdit(&dlg);
+            edit->setText(m_nickname);
+            edit->setMaxLength(20);
+            edit->setAttribute(Qt::WA_InputMethodEnabled, true);
+            edit->setInputMethodHints(Qt::ImhNone);
+            edit->setFocus();
+
+            auto *buttons = new QDialogButtonBox(
+                QDialogButtonBox::Ok | QDialogButtonBox::Cancel,
+                &dlg);
+            buttons->button(QDialogButtonBox::Ok)->setText(
+                QStringLiteral("确定"));
+            buttons->button(QDialogButtonBox::Cancel)->setText(
+                QStringLiteral("取消"));
+
+            auto *box = new QVBoxLayout(&dlg);
+            box->addWidget(label);
+            box->addWidget(edit);
+            box->addWidget(buttons);
+
+            QObject::connect(
+                buttons, &QDialogButtonBox::accepted,
+                &dlg, &QDialog::accept);
+            QObject::connect(
+                buttons, &QDialogButtonBox::rejected,
+                &dlg, &QDialog::reject);
+
+            if (dlg.exec() != QDialog::Accepted)
                 return;
 
             const QString nickname =
-                input.trimmed();
+                edit->text().trimmed();
 
             if (nickname.size() < 2 ||
                 nickname.size() > 20) {
