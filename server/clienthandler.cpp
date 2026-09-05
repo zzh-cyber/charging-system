@@ -269,8 +269,15 @@ void ClientHandler::dispatch(const QJsonObject &req)
     if (type == MsgType::AdminPileList) {
         QJsonObject out;
         out["list"] = m_db->adminPileList(code, msg);
-        if (code == Ok)
-            out["stats"] = m_db->adminPileStats(code, msg);
+        if (code == Ok) {
+            int statsCode = Ok;
+            QString statsMsg;
+            const QJsonObject stats = m_db->adminPileStats(statsCode, statsMsg);
+            if (statsCode == Ok)
+                out["stats"] = stats;
+            else
+                qWarning() << "admin_pile_list stats failed:" << statsMsg;
+        }
         reply(makeResponse(type, code, msg, out));
         return;
     }

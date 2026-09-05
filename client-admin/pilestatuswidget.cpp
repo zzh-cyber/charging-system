@@ -643,49 +643,10 @@ void PileStatusWidget::loadStatus()
     }
 
 
-    /*
-     * 当前 AdminPileList 格式：
-     *
-     * data : {
-     *     "list" : [...]
-     * }
-     */
-
     QJsonObject data =
         resp.value("data").toObject();
 
     QJsonArray list = data.value("list").toArray();
-    const QJsonValue statsValue = data.value(QStringLiteral("stats"));
-    if (!statsValue.isObject()) {
-        m_lastUpdateLabel->setText(QStringLiteral("协议响应异常：电桩统计格式错误"));
-        return;
-    }
-    const QJsonObject stats = statsValue.toObject();
-    const QJsonValue totalValue = stats.value(QStringLiteral("total"));
-    const QJsonValue statTimeValue = stats.value(QStringLiteral("stat_time"));
-    const auto validState = [&stats](const QString &name) {
-        const QJsonValue value = stats.value(name);
-        if (!value.isObject())
-            return false;
-        const QJsonObject state = value.toObject();
-        return state.value(QStringLiteral("count")).isDouble()
-            && state.value(QStringLiteral("rate")).isDouble();
-    };
-    if (!totalValue.isDouble()
-        || !validState(QStringLiteral("idle"))
-        || !validState(QStringLiteral("busy"))
-        || !validState(QStringLiteral("fault"))
-        || !statTimeValue.isString()
-        || statTimeValue.toString().trimmed().isEmpty()) {
-        m_lastUpdateLabel->setText(QStringLiteral("协议响应异常：电桩统计格式错误"));
-        return;
-    }
-    const QDateTime statTime = parseDateTime(statTimeValue.toString());
-    if (!statTime.isValid()) {
-        m_lastUpdateLabel->setText(QStringLiteral("协议响应异常：电桩统计格式错误"));
-        return;
-    }
-
 
     QVector<PileStatusItem> items;
 
@@ -762,6 +723,30 @@ void PileStatusWidget::loadStatus()
         items
     );
 
+    const QJsonValue statsValue = data.value(QStringLiteral("stats"));
+    const QJsonObject stats = statsValue.toObject();
+    const QJsonValue totalValue = stats.value(QStringLiteral("total"));
+    const QJsonValue statTimeValue = stats.value(QStringLiteral("stat_time"));
+    const auto validState = [&stats](const QString &name) {
+        const QJsonValue value = stats.value(name);
+        if (!value.isObject())
+            return false;
+        const QJsonObject state = value.toObject();
+        return state.value(QStringLiteral("count")).isDouble()
+            && state.value(QStringLiteral("rate")).isDouble();
+    };
+    const QDateTime statTime = parseDateTime(statTimeValue.toString());
+    if (!statsValue.isObject()
+        || !totalValue.isDouble()
+        || !validState(QStringLiteral("idle"))
+        || !validState(QStringLiteral("busy"))
+        || !validState(QStringLiteral("fault"))
+        || !statTimeValue.isString()
+        || statTimeValue.toString().trimmed().isEmpty()
+        || !statTime.isValid()) {
+        m_lastUpdateLabel->setText(QStringLiteral("电桩列表已更新，统计暂不可用"));
+        return;
+    }
 
     updateSummary(stats);
     m_lastUpdateLabel->setText(QStringLiteral("统计时间：%1").arg(statTime.toString("yyyy-MM-dd HH:mm:ss")));
