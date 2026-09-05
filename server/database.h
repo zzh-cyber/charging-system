@@ -72,6 +72,8 @@ public:
 
     // 全部电桩列表（含所属电站名、累计次数/时长）
     QJsonArray adminPileList(int &code, QString &msg);
+    // 启用电桩状态数量及占比统计
+    QJsonObject adminPileStats(int &code, QString &msg);
 
     // 远程重启电桩：fault/busy → idle，返回新状态
     QJsonObject adminPileRestart(qint64 adminId, qint64 pileId, int &code, QString &msg);

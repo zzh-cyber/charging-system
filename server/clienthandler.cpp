@@ -266,6 +266,8 @@ void ClientHandler::dispatch(const QJsonObject &req)
     if (type == MsgType::AdminPileList) {
         QJsonObject out;
         out["list"] = m_db->adminPileList(code, msg);
+        if (code == Ok)
+            out["stats"] = m_db->adminPileStats(code, msg);
         reply(makeResponse(type, code, msg, out));
         return;
     }
