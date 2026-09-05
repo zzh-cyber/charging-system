@@ -485,7 +485,17 @@ MainWindow::MainWindow(
 
         // 服务端 start_charge 成功，
         // 将充电页切换到“充电中”状态
-        m_chargePage->setChargingState();
+        const QJsonObject chargeData =
+    resp.value("data").toObject();
+
+m_chargePage->setChargingState(
+    chargeData.value(
+        "start_time").toString(),
+    chargeData.value(
+        "power_kw").toDouble(),
+    chargeData.value(
+        "unit_price").toDouble());
+
 
         QMessageBox::information(
             this,
@@ -495,19 +505,16 @@ MainWindow::MainWindow(
     
     connect(
     m_chargePage,
-    &ChargePage::settleRequested,
+    &ChargePage::finishChargeRequested,
     this,
-    [this](const QString &orderNo,
-           double kwh) {
+    [this](const QString &orderNo) {
 
-        if (orderNo.trimmed().isEmpty() ||
-            kwh <= 0.0) {
+        if (orderNo.trimmed().isEmpty()) {
 
             QMessageBox::warning(
                 this,
-                QStringLiteral("结算失败"),
-                QStringLiteral(
-                    "订单或充电量无效"));
+                QStringLiteral("结束充电失败"),
+                QStringLiteral("订单号无效"));
 
             return;
         }
@@ -517,13 +524,10 @@ MainWindow::MainWindow(
         data["order_no"] =
             orderNo;
 
-        data["kwh"] =
-            kwh;
-
         const QJsonObject resp =
             m_net->request(
                 Protocol::makeRequest(
-                    Protocol::MsgType::Settle,
+                    "finish_charge",
                     data));
 
         const int code =
@@ -536,7 +540,7 @@ MainWindow::MainWindow(
 
             QMessageBox::warning(
                 this,
-                QStringLiteral("结算失败"),
+                QStringLiteral("结束充电失败"),
                 msg);
 
             return;
@@ -546,6 +550,83 @@ MainWindow::MainWindow(
             resp.value("data")
                 .toObject();
 
+        const qint64 durationSeconds =
+            result.value(
+                "duration_seconds")
+                .toVariant()
+                .toLongLong();
+
+        const double kwh =
+            result.value("kwh")
+                .toDouble();
+
+        const double amount =
+            result.value("amount")
+                .toDouble();
+
+        m_chargePage
+            ->setPendingPaymentResult(
+                durationSeconds,
+                kwh,
+                amount);
+    });
+    connect(
+    m_chargePage,
+    &ChargePage::payChargeRequested,
+    this,
+    [this](const QString &orderNo) {
+
+        if (orderNo.trimmed().isEmpty()) {
+
+            QMessageBox::warning(
+                this,
+                QStringLiteral("支付失败"),
+                QStringLiteral("订单号无效"));
+
+            return;
+        }
+
+        QJsonObject data;
+
+        data["order_no"] =
+            orderNo;
+
+        const QJsonObject resp =
+            m_net->request(
+                Protocol::makeRequest(
+                    "pay_charge",
+                    data));
+
+        const int code =
+            resp.value("code").toInt();
+
+        const QString msg =
+            resp.value("msg").toString();
+
+        if (code != Protocol::Ok) {
+
+            QMessageBox::warning(
+                this,
+                QStringLiteral("支付失败"),
+                msg);
+
+            return;
+        }
+
+        const QJsonObject result =
+            resp.value("data")
+                .toObject();
+
+        const qint64 durationSeconds =
+            result.value(
+                "duration_seconds")
+                .toVariant()
+                .toLongLong();
+
+        const double kwh =
+            result.value("kwh")
+                .toDouble();
+
         const double amount =
             result.value("amount")
                 .toDouble();
@@ -554,36 +635,19 @@ MainWindow::MainWindow(
             result.value("balance")
                 .toDouble();
 
-        // 充电页展示结果
-        m_chargePage->setSettledResult(
-            kwh,
-            amount);
-
-        // 服务端已经扣余额，
-        // 客户端只更新显示
         m_balance =
             newBalance;
 
         m_profilePage->setBalance(
             m_balance);
 
-        QMessageBox::information(
-            this,
-            QStringLiteral("结算成功"),
-            QStringLiteral(
-                "本次费用：￥%1\n"
-                "当前余额：￥%2")
-                .arg(
-                    amount,
-                    0,
-                    'f',
-                    2)
-                .arg(
-                    newBalance,
-                    0,
-                    'f',
-                    2));
+        m_chargePage->setPaidResult(
+            durationSeconds,
+            kwh,
+            amount,
+            newBalance);
     });
+
 
     // =========================================================================
     // 修改昵称 → update_profile（NO.18）
@@ -740,15 +804,36 @@ MainWindow::MainWindow(
                 m_chargePage->setReservedOrder(
                     orderNo);
 
-                const bool charging =
-                    status == QStringLiteral("charging");
-                const bool pending =
-                    status == QStringLiteral("pending_payment");
+                    const bool charging =
+                        status == QStringLiteral("charging");
 
-                if (charging || pending) {
+                    const bool pending =
+                        status == QStringLiteral("pending_payment");
+
+                    if (charging) {
+
+                        m_chargePage->setChargingState(
+                            order.value("start_time").toString(),
+                            order.value("power_kw").toDouble(),
+                            order.value("unit_price").toDouble());
+                    }
+                    else if (pending) {
+
                     m_chargePage
-                        ->setChargingState();
+                        ->setPendingPaymentResult(
+                            order.value(
+                                "duration_seconds")
+                                .toVariant()
+                                .toLongLong(),
+                            order.value(
+                                "kwh")
+                                .toDouble(),
+                            order.value(
+                                "amount")
+                                .toDouble());
                 }
+
+
 
                 // NO.20：有未完成订单时弹窗提示，并切到充电页。
                 // 用 singleShot(0) 延后到构造完成、窗口显示后再弹，
