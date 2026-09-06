@@ -6,10 +6,13 @@
 #include <QDialog>
 #include <QFrame>
 #include <QGraphicsDropShadowEffect>
+#include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QScreen>
 #include <QShowEvent>
+#include <QTimer>
 #include <QVBoxLayout>
 
 class AppMessageBox : public QDialog
@@ -465,23 +468,62 @@ protected:
         QDialog::showEvent(event);
 
         adjustSize();
+        recenterOnParentWindow();
 
-        // 在父窗口正中显示
-        if (parentWidget()) {
+        // WSLg / 无边框窗体有时会在首次映射后再把窗口挪回 (0,0)
+        QTimer::singleShot(
+            0,
+            this,
+            [this]() {
+                recenterOnParentWindow();
+            });
+    }
 
-            const QRect parentRect =
-                parentWidget()
-                    ->frameGeometry();
+private:
+    void recenterOnParentWindow()
+    {
+        QWidget *anchor = parentWidget();
+        if (anchor)
+            anchor = anchor->window();
 
-            const QPoint center =
-                parentRect.center();
-
-            move(
-                center.x() -
-                    width() / 2,
-                center.y() -
-                    height() / 2);
+        QPoint center;
+        if (anchor) {
+            // 子页面 frameGeometry 是相对坐标，不能直接 move。
+            // 顶层窗口或 mapToGlobal 才是屏幕坐标。
+            center = anchor->mapToGlobal(
+                anchor->rect().center());
+        } else if (QScreen *screen =
+                       QGuiApplication::primaryScreen()) {
+            center = screen->availableGeometry().center();
+        } else {
+            return;
         }
+
+        QRect geo(
+            center.x() - width() / 2,
+            center.y() - height() / 2,
+            width(),
+            height());
+
+        if (QScreen *screen =
+                QGuiApplication::screenAt(center)) {
+            const QRect avail =
+                screen->availableGeometry();
+
+            geo.moveLeft(
+                qBound(
+                    avail.left(),
+                    geo.left(),
+                    avail.right() - geo.width() + 1));
+
+            geo.moveTop(
+                qBound(
+                    avail.top(),
+                    geo.top(),
+                    avail.bottom() - geo.height() + 1));
+        }
+
+        move(geo.topLeft());
     }
 };
 
