@@ -62,6 +62,7 @@ inline constexpr const char *AdminPileRestart  = "admin_pile_restart";  // 远�
 inline constexpr const char *AdminStationList  = "admin_station_list";
 inline constexpr const char *AdminStationAdd   = "admin_station_add";
 inline constexpr const char *AdminOrderList    = "admin_order_list";
+inline constexpr const char *AdminOrderDetail  = "admin_order_detail";
 inline constexpr const char *AdminRevenueTrend = "admin_revenue_trend"; // 营收趋势（须 admin_ 前缀过鉴权门）
 } // namespace MsgType
 

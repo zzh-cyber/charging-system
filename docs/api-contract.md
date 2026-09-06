@@ -65,7 +65,8 @@
 | `admin_pile_restart` | 远程重启电桩（fault/busy→idle） | `{pile_id}` | `{id,status}` | 服务器A(组长) / 管理端C | ✅ 已实现 |
 | `admin_station_list` | 电站列表（含桩数、在线率） | `{}` | `{list:[{id,name,address,longitude,latitude,total,online_rate}]}` | 服务器A(组长) / 管理端C | ✅ 已实现 |
 | `admin_station_add` | 新增电站 | `{name,address,longitude,latitude,price}` | `{id}` | 管理端C | ⬜ |
-| `admin_order_list` | 订单列表 | `{keyword?,status?}` | `{list:[{order_no,user_phone,pile_code,status,...}]}` | 管理端C | ⬜ |
+| `admin_order_list` | 订单列表（筛选+分页；仪表盘今日单量/最近订单复用本接口） | 空字段/`0` 表示不筛。`{order_no?,phone?,user_id?,station_id?,pile_id?,pile_code?,keyword?,status?,start_time?,end_time?,page?,page_size?}`。`keyword` 匹配订单号/手机号/桩编号；`start_time`/`end_time` 按 `COALESCE(start_time,reserve_time,created_at)` 过滤（可只传 `yyyy-MM-dd`）。`page` 从 1，`page_size` 默认 20、最大 50。`status` 须为 `reserved/charging/pending_payment/settled/cancelled` | `{list:[{id,order_no,user_id,nickname,phone,station_id,station_name,pile_id,pile_code,status,kwh,duration_seconds,unit_price,amount,reserve_time,start_time,end_time,created_at,updated_at}],total,page,page_size}`。默认 `created_at DESC`。金额/电量/时长取库中值 | 服务器A(组长) / 管理端C | ✅ 已实现 |
+| `admin_order_detail` | 订单详情（只读） | `{order_no}` | 与列表单行相同字段（包在 `data` 根上）。不存在 `code=4`。不做删单/改金额/改状态/退款 | 服务器A(组长) / 管理端C | ✅ 已实现 |
 
 ---
 

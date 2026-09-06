@@ -3,8 +3,11 @@
 #include "protocol.h"
 
 #include <QCryptographicHash>
+#include <QDate>
 #include <QDateTime>
 #include <QFile>
+#include <QJsonArray>
+#include <QJsonValue>
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QStringList>
@@ -38,6 +41,197 @@ double chargeKwh(double powerKw, qint64 durationSeconds)
 double chargeAmount(double kwh, double unitPrice)
 {
     return round2(kwh * unitPrice);
+}
+
+qint64 jsonInt64(const QJsonObject &obj, const QString &key)
+{
+    const QJsonValue v = obj.value(key);
+    if (v.isUndefined() || v.isNull())
+        return 0;
+    if (v.isDouble())
+        return static_cast<qint64>(v.toDouble());
+    if (v.isString())
+        return v.toString().trimmed().toLongLong();
+    return v.toVariant().toLongLong();
+}
+
+QString escapeLike(QString value)
+{
+    value.replace(QLatin1Char('|'), QStringLiteral("||"));
+    value.replace(QLatin1Char('%'), QStringLiteral("|%"));
+    value.replace(QLatin1Char('_'), QStringLiteral("|_"));
+    return value;
+}
+
+bool isOrderStatus(const QString &status)
+{
+    return status == QLatin1String("reserved")
+        || status == QLatin1String("charging")
+        || status == QLatin1String("pending_payment")
+        || status == QLatin1String("settled")
+        || status == QLatin1String("cancelled");
+}
+
+QString formatSqlDateTime(const QVariant &value)
+{
+    const QDateTime dt = value.toDateTime();
+    if (dt.isValid())
+        return dt.toString(QStringLiteral("yyyy-MM-dd HH:mm:ss"));
+    return value.toString();
+}
+
+// 允许 yyyy-MM-dd HH:mm:ss、ISO、或仅 yyyy-MM-dd（endOfDay 时补 23:59:59）
+QString normalizeFilterTime(const QString &raw, bool endOfDay, bool *ok)
+{
+    const QString s = raw.trimmed();
+    if (s.isEmpty()) {
+        *ok = true;
+        return {};
+    }
+    if (s.size() == 10 && QDate::fromString(s, QStringLiteral("yyyy-MM-dd")).isValid()) {
+        *ok = true;
+        return s + (endOfDay ? QStringLiteral(" 23:59:59") : QStringLiteral(" 00:00:00"));
+    }
+    QDateTime dt = QDateTime::fromString(s, QStringLiteral("yyyy-MM-dd HH:mm:ss"));
+    if (!dt.isValid())
+        dt = QDateTime::fromString(s, Qt::ISODate);
+    if (!dt.isValid()) {
+        *ok = false;
+        return {};
+    }
+    *ok = true;
+    return dt.toString(QStringLiteral("yyyy-MM-dd HH:mm:ss"));
+}
+
+const QString kOrderSelectSql =
+    QStringLiteral(
+        "SELECT o.id, o.order_no, o.user_id, o.station_id, o.pile_id, o.status, "
+        "o.unit_price, o.kwh, o.duration_seconds, o.amount, "
+        "o.reserve_time, o.start_time, o.end_time, o.created_at, o.updated_at, "
+        "u.nickname, u.phone, s.name AS station_name, p.code AS pile_code "
+        "FROM charge_order o "
+        "LEFT JOIN `user` u ON o.user_id = u.id "
+        "LEFT JOIN station s ON o.station_id = s.id "
+        "LEFT JOIN pile p ON o.pile_id = p.id");
+
+QJsonObject orderRowToJson(const QSqlQuery &q)
+{
+    QJsonObject o;
+    o["id"] = q.value("id").toLongLong();
+    o["order_no"] = q.value("order_no").toString();
+    o["user_id"] = q.value("user_id").toLongLong();
+    o["nickname"] = q.value("nickname").toString();
+    o["phone"] = q.value("phone").toString();
+    o["station_id"] = q.value("station_id").toLongLong();
+    o["station_name"] = q.value("station_name").toString();
+    o["pile_id"] = q.value("pile_id").toLongLong();
+    o["pile_code"] = q.value("pile_code").toString();
+    o["status"] = q.value("status").toString();
+    o["kwh"] = q.value("kwh").toDouble();
+    o["duration_seconds"] = q.value("duration_seconds").toInt();
+    o["unit_price"] = q.value("unit_price").toDouble();
+    o["amount"] = q.value("amount").toDouble();
+    o["reserve_time"] = formatSqlDateTime(q.value("reserve_time"));
+    o["start_time"] = formatSqlDateTime(q.value("start_time"));
+    o["end_time"] = formatSqlDateTime(q.value("end_time"));
+    o["created_at"] = formatSqlDateTime(q.value("created_at"));
+    o["updated_at"] = formatSqlDateTime(q.value("updated_at"));
+    return o;
+}
+
+bool buildOrderFilters(const QJsonObject &input, QStringList *conds, QVariantList *binds, QString *err)
+{
+    const QString orderNo = input.value(QStringLiteral("order_no")).toString().trimmed();
+    if (!orderNo.isEmpty()) {
+        conds->append(QStringLiteral("o.order_no LIKE ? ESCAPE '|'"));
+        binds->append(QStringLiteral("%") + escapeLike(orderNo) + QLatin1Char('%'));
+    }
+
+    const QString phone = input.value(QStringLiteral("phone")).toString().trimmed();
+    if (!phone.isEmpty()) {
+        conds->append(QStringLiteral("u.phone LIKE ? ESCAPE '|'"));
+        binds->append(QStringLiteral("%") + escapeLike(phone) + QLatin1Char('%'));
+    }
+
+    const qint64 userId = jsonInt64(input, QStringLiteral("user_id"));
+    if (userId > 0) {
+        conds->append(QStringLiteral("o.user_id = ?"));
+        binds->append(userId);
+    }
+
+    const qint64 stationId = jsonInt64(input, QStringLiteral("station_id"));
+    if (stationId > 0) {
+        conds->append(QStringLiteral("o.station_id = ?"));
+        binds->append(stationId);
+    }
+
+    const qint64 pileId = jsonInt64(input, QStringLiteral("pile_id"));
+    if (pileId > 0) {
+        conds->append(QStringLiteral("o.pile_id = ?"));
+        binds->append(pileId);
+    }
+
+    const QString pileCode = input.value(QStringLiteral("pile_code")).toString().trimmed();
+    if (!pileCode.isEmpty()) {
+        conds->append(QStringLiteral("p.code LIKE ? ESCAPE '|'"));
+        binds->append(QStringLiteral("%") + escapeLike(pileCode) + QLatin1Char('%'));
+    }
+
+    const QString keyword = input.value(QStringLiteral("keyword")).toString().trimmed();
+    if (!keyword.isEmpty()) {
+        const QString like = QStringLiteral("%") + escapeLike(keyword) + QLatin1Char('%');
+        conds->append(QStringLiteral(
+            "(o.order_no LIKE ? ESCAPE '|' OR u.phone LIKE ? ESCAPE '|' "
+            "OR p.code LIKE ? ESCAPE '|')"));
+        binds->append(like);
+        binds->append(like);
+        binds->append(like);
+    }
+
+    const QString status = input.value(QStringLiteral("status")).toString().trimmed();
+    if (!status.isEmpty()) {
+        if (!isOrderStatus(status)) {
+            *err = QStringLiteral("status 取值无效");
+            return false;
+        }
+        conds->append(QStringLiteral("o.status = ?"));
+        binds->append(status);
+    }
+
+    bool timeOk = true;
+    const QString startTime = normalizeFilterTime(
+        input.value(QStringLiteral("start_time")).toString(), false, &timeOk);
+    if (!timeOk) {
+        *err = QStringLiteral("start_time 格式无效，需 yyyy-MM-dd 或 yyyy-MM-dd HH:mm:ss");
+        return false;
+    }
+    const QString endTime = normalizeFilterTime(
+        input.value(QStringLiteral("end_time")).toString(), true, &timeOk);
+    if (!timeOk) {
+        *err = QStringLiteral("end_time 格式无效，需 yyyy-MM-dd 或 yyyy-MM-dd HH:mm:ss");
+        return false;
+    }
+    if (!startTime.isEmpty() && !endTime.isEmpty() && startTime > endTime) {
+        *err = QStringLiteral("start_time 不能晚于 end_time");
+        return false;
+    }
+    if (!startTime.isEmpty()) {
+        conds->append(QStringLiteral(
+            "COALESCE(o.start_time, o.reserve_time, o.created_at) >= ?"));
+        binds->append(startTime);
+    }
+    if (!endTime.isEmpty()) {
+        conds->append(QStringLiteral(
+            "COALESCE(o.start_time, o.reserve_time, o.created_at) <= ?"));
+        binds->append(endTime);
+    }
+    return true;
+}
+
+void bindAll(QSqlQuery *query, const QVariantList &binds)
+{
+    for (const QVariant &v : binds)
+        query->addBindValue(v);
 }
 
 } // namespace
@@ -1287,6 +1481,102 @@ QJsonObject Database::adminPileRestart(qint64 adminId, qint64 pileId, int &code,
     code = Protocol::Ok;
     msg = "重启成功";
     return data;
+}
+
+QJsonObject Database::adminOrderList(const QJsonObject &input, int &code, QString &msg)
+{
+    QJsonObject out;
+    QStringList conds;
+    QVariantList binds;
+    QString err;
+    if (!buildOrderFilters(input, &conds, &binds, &err)) {
+        code = Protocol::InvalidRequest;
+        msg = err;
+        return out;
+    }
+
+    int page = input.value(QStringLiteral("page")).toInt(1);
+    int pageSize = input.value(QStringLiteral("page_size")).toInt(20);
+    if (page < 1)
+        page = 1;
+    if (pageSize < 1)
+        pageSize = 20;
+    if (pageSize > 50)
+        pageSize = 50;
+
+    QString where;
+    if (!conds.isEmpty())
+        where = QStringLiteral(" WHERE ") + conds.join(QStringLiteral(" AND "));
+
+    QSqlQuery countQuery(m_db);
+    countQuery.prepare(
+        QStringLiteral(
+            "SELECT COUNT(*) FROM charge_order o "
+            "LEFT JOIN `user` u ON o.user_id = u.id "
+            "LEFT JOIN station s ON o.station_id = s.id "
+            "LEFT JOIN pile p ON o.pile_id = p.id")
+        + where);
+    bindAll(&countQuery, binds);
+    if (!countQuery.exec() || !countQuery.next()) {
+        code = Protocol::DbError;
+        msg = countQuery.lastError().text();
+        return out;
+    }
+    const int total = countQuery.value(0).toInt();
+
+    QSqlQuery q(m_db);
+    q.prepare(kOrderSelectSql + where
+              + QStringLiteral(" ORDER BY o.created_at DESC, o.id DESC LIMIT ? OFFSET ?"));
+    bindAll(&q, binds);
+    q.addBindValue(pageSize);
+    q.addBindValue((page - 1) * pageSize);
+    if (!q.exec()) {
+        code = Protocol::DbError;
+        msg = q.lastError().text();
+        return out;
+    }
+
+    QJsonArray list;
+    while (q.next())
+        list.append(orderRowToJson(q));
+
+    out["list"] = list;
+    out["total"] = total;
+    out["page"] = page;
+    out["page_size"] = pageSize;
+    code = Protocol::Ok;
+    msg = "ok";
+    return out;
+}
+
+QJsonObject Database::adminOrderDetail(const QString &orderNo, int &code, QString &msg)
+{
+    QJsonObject out;
+    const QString trimmed = orderNo.trimmed();
+    if (trimmed.isEmpty()) {
+        code = Protocol::InvalidRequest;
+        msg = "缺少 order_no";
+        return out;
+    }
+
+    QSqlQuery q(m_db);
+    q.prepare(kOrderSelectSql + QStringLiteral(" WHERE o.order_no = ? LIMIT 1"));
+    q.addBindValue(trimmed);
+    if (!q.exec()) {
+        code = Protocol::DbError;
+        msg = q.lastError().text();
+        return out;
+    }
+    if (!q.next()) {
+        code = Protocol::NotFound;
+        msg = "订单不存在";
+        return out;
+    }
+
+    out = orderRowToJson(q);
+    code = Protocol::Ok;
+    msg = "ok";
+    return out;
 }
 
 QJsonArray Database::adminStationList(int &code, QString &msg)

@@ -298,6 +298,17 @@ void ClientHandler::dispatch(const QJsonObject &req)
         reply(makeResponse(type, code, msg, out));
         return;
     }
+    if (type == MsgType::AdminOrderList) {
+        const QJsonObject out = m_db->adminOrderList(data, code, msg);
+        reply(makeResponse(type, code, msg, out));
+        return;
+    }
+    if (type == MsgType::AdminOrderDetail) {
+        const QJsonObject out = m_db->adminOrderDetail(
+            data.value("order_no").toString(), code, msg);
+        reply(makeResponse(type, code, msg, out));
+        return;
+    }
     if (type == MsgType::AdminStationList) {
         QJsonObject out;
         out["list"] = m_db->adminStationList(code, msg);
