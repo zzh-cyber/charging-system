@@ -208,12 +208,23 @@ void ClientHandler::dispatch(const QJsonObject &req)
         reply(makeResponse(type, code, msg, out));
         return;
     }
-    if (type == MsgType::Settle) {
-        const QJsonObject out = m_db->settle(
-            data.value("order_no").toString(),
-            sess.userId,
-            data.value("kwh").toDouble(), code, msg);
+    if (type == MsgType::FinishCharge) {
+        const QJsonObject out = m_db->finishCharge(
+            data.value("order_no").toString(), sess.userId, code, msg);
         reply(makeResponse(type, code, msg, out));
+        return;
+    }
+    if (type == MsgType::PayCharge) {
+        const QJsonObject out = m_db->payCharge(
+            data.value("order_no").toString(), sess.userId, code, msg);
+        reply(makeResponse(type, code, msg, out));
+        return;
+    }
+    if (type == MsgType::Settle) {
+        reply(makeResponse(
+            type,
+            InvalidRequest,
+            "settle 已停用，请使用 finish_charge 结束充电，再使用 pay_charge 确认支付"));
         return;
     }
     if (type == MsgType::Recharge) {

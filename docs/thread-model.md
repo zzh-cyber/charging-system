@@ -241,6 +241,33 @@
 
 ---
 
+## 服务器 - finish_charge / pay_charge 拆分出账与扣款 - 2026-09-06 - 组长
+
+### 线程职责
+
+| 线程 | 职责 |
+|------|------|
+| **ClientHandler 线程** | `dispatch` 校验 token 后把 `sess.userId` 传入 `finishCharge` / `payCharge`；SQL 按 `order_no + user_id` 锁定订单 |
+
+### 跨线程通信
+
+- 无新增跨线程对象；未改 `TcpServer` / `NetClient`
+- 旧 `settle` 在分发层直接 `code=2`，不再进 DAO
+
+### 共享资源与锁
+
+| 资源 | 保护方式 | 访问线程 |
+|------|----------|----------|
+| 订单/用户/电桩行 | `runInTransaction` + `FOR UPDATE` | 该连接所在 Handler 线程 |
+
+### 验证
+
+- `finish_charge` 后订单 `pending_payment`、桩释放、余额不变
+- `pay_charge` 余额不足 `code=7` 且订单仍待支付；足则 `settled` 并写流水
+- `start_charge` 返回 `power_kw`、`unit_price`；`unfinished_order` 对充电中现算电量金额
+
+---
+
 ## 客户端 - NetClient - 2026-09-01 - 组长（地基）
 
 ### 线程职责

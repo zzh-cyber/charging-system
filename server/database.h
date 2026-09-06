@@ -57,8 +57,11 @@ public:
     // 开始充电
     QJsonObject startCharge(const QString &orderNo, qint64 userId, int &code, QString &msg);
 
-    // 结算订单
-    QJsonObject settle(const QString &orderNo, qint64 userId, double kwh, int &code, QString &msg);
+    // 结束充电出账（不扣款）
+    QJsonObject finishCharge(const QString &orderNo, qint64 userId, int &code, QString &msg);
+
+    // 确认支付扣款
+    QJsonObject payCharge(const QString &orderNo, qint64 userId, int &code, QString &msg);
 
     // 用户充值
     QJsonObject recharge(qint64 userId, double amount,int &code, QString &msg);
