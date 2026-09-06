@@ -104,6 +104,9 @@ CREATE TABLE charge_order (
     pile_id          BIGINT        NOT NULL,
     status           ENUM('reserved','charging','pending_payment','settled','cancelled') NOT NULL DEFAULT 'reserved',
     unit_price       DECIMAL(6,2)  NOT NULL DEFAULT 0.00,   -- 下单时固化的单价（元/度）
+    start_soc              DECIMAL(5,2) NULL,               -- 开始充电时模拟初始电量 %，仅展示
+    battery_capacity_kwh   DECIMAL(6,2) NULL,               -- 模拟电池容量，仅展示
+    target_soc             DECIMAL(5,2) NULL,               -- 模拟目标电量 %，仅展示
     reserve_time     DATETIME      NULL,
     start_time       DATETIME      NULL,
     end_time         DATETIME      NULL,
@@ -189,7 +192,8 @@ CREATE TABLE operation_logs (
 
 INSERT INTO schema_version (version, description) VALUES
 (1, 'PR#11 基线：核心表 + wallet_transactions + 管理员加盐哈希'),
-(2, '补齐 device_commands / operation_logs，pile 占用与心跳字段，charge_order pending_payment');
+(2, '补齐 device_commands / operation_logs，pile 占用与心跳字段，charge_order pending_payment'),
+(3, 'charge_order 增加模拟 SOC：start_soc / battery_capacity_kwh / target_soc');
 
 -- ===================== 初始 / 测试数据 =====================
 

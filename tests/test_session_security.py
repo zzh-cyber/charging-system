@@ -162,6 +162,41 @@ def main():
     clear_unfinished(idb)
     db(f"UPDATE pile SET status='idle', current_user_id=NULL WHERE id={pile_id}")
 
+    # ---- pending_payment 与 unfinished_order 对齐：禁止再预约 ----
+    db("DELETE FROM charge_order WHERE order_no='T59PEND'")
+    db("INSERT INTO charge_order (order_no,user_id,station_id,pile_id,status,unit_price,reserve_time,start_time,end_time,kwh,amount) "
+       f"VALUES ('T59PEND',{ida},1,1,'pending_payment',1.20,NOW(),NOW(),NOW(),10.0,12.00)")
+    idle_pile = int(db("SELECT id FROM pile WHERE status='idle' ORDER BY id LIMIT 1"))
+    tokenPend = login(PHONE_A)
+    r = request({"type": "reserve", "token": tokenPend,
+                 "data": {"pile_id": idle_pile}})
+    check("pending_payment 再预约返回 code=8", r.get("code") == 8, f"{r}")
+    db("DELETE FROM charge_order WHERE order_no='T59PEND'")
+
+    # ---- 并发充值：同一用户 FOR UPDATE + runInTransaction，余额累加正确 ----
+    balBefore = balance(ida)
+    tokenR = login(PHONE_A)
+    recharge_codes = []
+
+    def do_recharge():
+        rr = request({"type": "recharge", "token": tokenR, "data": {"amount": 1.0}})
+        with lock:
+            recharge_codes.append(rr.get("code"))
+
+    rthreads = [threading.Thread(target=do_recharge) for _ in range(5)]
+    for t in rthreads:
+        t.start()
+    for t in rthreads:
+        t.join()
+    balAfter = balance(ida)
+    check("并发 5 次充值全部 code=0",
+          len(recharge_codes) == 5 and all(c == 0 for c in recharge_codes),
+          f"codes={recharge_codes}")
+    check("并发充值后余额恰好 +5", abs(balAfter - (balBefore + 5.0)) < 1e-6,
+          f"{balBefore}->{balAfter}")
+    # 回退本节充值副作用（含开头伪造充值的 7 元）
+    db(f"UPDATE `user` SET balance={balA0} WHERE id={ida}")
+
     # ---- 3) 冻结后旧 token 立即失效 ----
     tokenA3 = login(PHONE_A)
     # 确认冻结前可用

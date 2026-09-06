@@ -241,6 +241,62 @@
 
 ---
 
+## 服务器 - finish_charge / pay_charge 拆分出账与扣款 - 2026-09-06 - 组长
+
+### 线程职责
+
+| 线程 | 职责 |
+|------|------|
+| **ClientHandler 线程** | `dispatch` 校验 token 后把 `sess.userId` 传入 `finishCharge` / `payCharge`；SQL 按 `order_no + user_id` 锁定订单 |
+
+### 跨线程通信
+
+- 无新增跨线程对象；未改 `TcpServer` / `NetClient`
+- 旧 `settle` 在分发层直接 `code=2`，不再进 DAO
+
+### 共享资源与锁
+
+| 资源 | 保护方式 | 访问线程 |
+|------|----------|----------|
+| 订单/用户/电桩行 | `runInTransaction` + `FOR UPDATE` | 该连接所在 Handler 线程 |
+
+### 验证
+
+- `finish_charge` 后订单 `pending_payment`、桩释放、余额不变
+- `pay_charge` 余额不足 `code=7` 且订单仍待支付；足则 `settled` 并写流水
+- `start_charge` 返回 `power_kw`、`unit_price` 以及写入订单的模拟 SOC；`unfinished_order` 对充电中现算电量金额并带回 SOC
+
+---
+
+## 服务器 - admin_order_list / admin_order_detail - 2026-09-06 - 组长
+
+### 线程职责
+
+| 线程 | 职责 |
+|------|------|
+| **ClientHandler 线程** | `dispatch` 校验管理员 token 后调用 `adminOrderList` / `adminOrderDetail`；只读 JOIN 查询 |
+
+### 跨线程通信
+
+- 无新增跨线程对象；未改 `TcpServer` / `NetClient` / 帧格式
+- 未做删单、改金额、改状态、退款
+
+### 共享资源与锁
+
+| 资源 | 保护方式 | 访问线程 |
+|------|----------|----------|
+| `charge_order` 及 JOIN 表 | 每连接独立 `Database`；本接口只读，无事务锁 | 该连接所在 Handler 线程 |
+
+### 验证
+
+- 无 token / 用户 token 调 `admin_*` → `code=9`
+- `admin_order_list` 返回 `list/total/page/page_size`，默认按 `created_at` 倒序
+- `status=settled`、`order_no` 模糊、`page_size=2` 分页可用
+- `admin_order_detail` 命中返回与列表同行字段；不存在 `code=4`
+- 非法 `status` → `code=2`
+
+---
+
 ## 客户端 - NetClient - 2026-09-01 - 组长（地基）
 
 ### 线程职责

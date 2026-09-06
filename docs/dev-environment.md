@@ -17,6 +17,7 @@
 | Ninja | 1.x | 1.10.1 |
 | Qt | **6.2.4**（不升级） | 6.2.4 |
 | Qt Charts | 6.2.4（`libqt6charts6-dev`，管理端营收折线图 NO.33 依赖） | 6.2.4 |
+| Qt WebEngine | 6.2.4（`qt6-webengine-dev`，用户端内嵌腾讯地图 NO.9～12；未做真地图前可不装） | 6.2.4 |
 | MySQL Server | 8.0.x | 8.0.46 |
 | 开发方式 | WSL2 + Cursor / Qt Creator | WSLg GUI 可用 |
 
@@ -234,6 +235,7 @@ charging-system/
 |------|------|------|
 | CMake 报 `WrapOpenGL not found` | 缺 OpenGL 开发头文件 | `sudo apt install libgl1-mesa-dev` |
 | CMake 报 `Failed to find Qt component "Charts"` | 缺 Qt Charts 开发包（`client-admin` 依赖） | `sudo apt install libqt6charts6-dev`，再 `rm -rf build` 重新 cmake |
+| CMake 报 `Failed to find Qt component "WebEngineWidgets"` | 缺 Qt WebEngine 开发包（用户端导航真地图） | `sudo apt install qt6-webengine-dev`（**不是** `libqt6webengine6-dev`，该包名在 22.04 不存在） |
 | `QMYSQL` 驱动不可用 | 缺 MySQL 驱动包 | `sudo apt install libqt6sql6-mysql` |
 | `designer: could not find Qt installation` | 用了 qtchooser 软链 | 改用 `/usr/lib/qt6/bin/designer` |
 | 客户端连不上服务器 | 服务器未启动 | 先运行 `./build/server/charging-server` |
@@ -251,7 +253,8 @@ charging-system/
 本期仍可选、二期再装：
 
 ```bash
-# 腾讯地图导航 QWebEngineView（NO.8~12，界面待补时再装）
+# 腾讯地图导航 QWebEngineView（NO.8~12）
+# Ubuntu 22.04 仓库包名是 qt6-webengine-dev，不是 libqt6webengine6-dev（后者不存在）
 sudo apt install -y qt6-webengine-dev
 ```
 

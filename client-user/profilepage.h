@@ -6,6 +6,7 @@
 class QLabel;
 class QPushButton;
 class QDoubleSpinBox;
+class QResizeEvent;
 
 class ProfilePage : public QWidget
 {
@@ -21,29 +22,45 @@ public:
         double balance);
 
     // recharge 成功后调用
-    void setBalance(double balance);
+    void setBalance(
+        double balance);
 
-    // update_profile 改昵称成功后调用，仅刷新昵称显示
-    void setNickname(const QString &nickname);
+    // update_profile 改昵称成功后调用
+    void setNickname(
+        const QString &nickname);
+
+    // 从其它页面跳转到充值区域
+    void openRechargeSection();
+
+protected:
+    void resizeEvent(
+        QResizeEvent *event) override;
 
 signals:
-    // 后续 MainWindow 使用现有 recharge 接口处理
-    void rechargeRequested(double amount);
+    // MainWindow 使用现有 recharge 接口处理
+    void rechargeRequested(
+        double amount);
 
-    // 用户在界面确认新昵称后发出，由 MainWindow 走 update_profile 接口
-    void nicknameChangeRequested(const QString &nickname);
+    // 用户确认新昵称后发出，
+    // MainWindow 继续走 update_profile 接口
+    void nicknameChangeRequested(
+        const QString &nickname);
 
 private:
+    void applyResponsiveStyle();
+
     QLabel *m_nicknameLabel = nullptr;
     QLabel *m_phoneLabel = nullptr;
     QLabel *m_balanceLabel = nullptr;
     QLabel *m_tipLabel = nullptr;
 
     QDoubleSpinBox *m_amountSpin = nullptr;
+
     QPushButton *m_rechargeButton = nullptr;
     QPushButton *m_editNickButton = nullptr;
 
     QString m_nickname;
+
     double m_balance = 0.0;
 };
 

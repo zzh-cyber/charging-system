@@ -1,5 +1,10 @@
 #include "profilepage.h"
 
+#include "appmessagebox.h"
+#include "uitheme.h"
+#include "windowhelper.h"
+
+#include <QColor>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
@@ -8,146 +13,254 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
-#include <QMessageBox>
-#include <QPushButton>
-#include <QVBoxLayout>
 #include <QPainter>
 #include <QPixmap>
+#include <QPushButton>
+#include <QResizeEvent>
+#include <QScrollArea>
+#include <QVBoxLayout>
 
 
+// ============================================================================
+// 构造函数
+// ============================================================================
 ProfilePage::ProfilePage(
     QWidget *parent)
     : QWidget(parent)
 {
-    auto *layout =
+    setObjectName(
+        QStringLiteral("profilePage"));
+
+
+    // =========================================================================
+    // 页面根布局
+    // =========================================================================
+    auto *rootLayout =
         new QVBoxLayout(this);
 
+    rootLayout->setContentsMargins(
+        0,
+        0,
+        0,
+        0);
+
+    rootLayout->setSpacing(
+        0);
+
+
+    // =========================================================================
+    // 滚动区域
+    // =========================================================================
+    auto *scrollArea =
+        new QScrollArea(this);
+
+    scrollArea->setObjectName(
+        QStringLiteral("profileScrollArea"));
+
+    scrollArea->setWidgetResizable(
+        true);
+
+    scrollArea->setFrameShape(
+        QFrame::NoFrame);
+
+    scrollArea->setHorizontalScrollBarPolicy(
+        Qt::ScrollBarAlwaysOff);
+
+
+    auto *content =
+        new QWidget;
+
+    content->setObjectName(
+        QStringLiteral("profileContent"));
+
+
+    auto *layout =
+        new QVBoxLayout(content);
+
+    layout->setObjectName(
+        QStringLiteral("profileContentLayout"));
+
     layout->setContentsMargins(
-        18, 18, 18, 18);
+        18,
+        18,
+        18,
+        18);
 
-    layout->setSpacing(14);
+    layout->setSpacing(
+        14);
 
-    // ========================================================================
-    // 标题
-    // ========================================================================
+
+    // =========================================================================
+    // 页面标题
+    // =========================================================================
     auto *title =
         new QLabel(
             QStringLiteral("我的"),
-            this);
+            content);
 
-    title->setStyleSheet(
-        "font-size:24px;"
-        "font-weight:700;"
-        "color:#1f2329;");
+    title->setObjectName(
+        QStringLiteral("profileTitle"));
+
 
     auto *subtitle =
         new QLabel(
-            QStringLiteral(
-                "个人资料与钱包管理"),
-            this);
+            QStringLiteral("个人资料与钱包管理"),
+            content);
 
-    subtitle->setStyleSheet(
-        "color:#86909c;"
-        "font-size:13px;");
+    subtitle->setObjectName(
+        QStringLiteral("profileSubtitle"));
 
-    layout->addWidget(title);
-    layout->addWidget(subtitle);
+    subtitle->setWordWrap(
+        true);
 
-    // ========================================================================
-    // 用户资料卡片
-    // ========================================================================
+
+    layout->addWidget(
+        title);
+
+    layout->addWidget(
+        subtitle);
+
+
+    // =========================================================================
+    // 用户资料卡
+    // =========================================================================
     auto *userCard =
-        new QFrame(this);
+        new QFrame(content);
 
-    userCard->setStyleSheet(
-        "QFrame{"
-        "background:#ffffff;"
-        "border:1px solid #d6e4ff;"
-        "border-radius:14px;"
-        "}");
+    userCard->setObjectName(
+        QStringLiteral("profileUserCard"));
+
+    UiTheme::applyCardShadow(
+        userCard,
+        18,
+        4);
+
 
     auto *userLayout =
         new QHBoxLayout(userCard);
 
+    userLayout->setObjectName(
+        QStringLiteral("profileUserLayout"));
+
     userLayout->setContentsMargins(
-        18, 18, 18, 18);
+        18,
+        18,
+        18,
+        18);
 
-    userLayout->setSpacing(14);
-
-    // 简单头像
-    // 默认灰色头像
-auto *avatar = new QLabel(userCard);
-
-avatar->setFixedSize(64, 64);
-avatar->setAlignment(Qt::AlignCenter);
-avatar->setStyleSheet(
-    "border:none;"
-    "background:transparent;");
-
-// 创建头像画布
-QPixmap avatarPixmap(64, 64);
-avatarPixmap.fill(Qt::transparent);
-
-QPainter painter(&avatarPixmap);
-painter.setRenderHint(QPainter::Antialiasing, true);
-
-// 灰色圆形背景
-painter.setBrush(QColor("#e5e6eb"));
-painter.setPen(Qt::NoPen);
-painter.drawEllipse(0, 0, 64, 64);
-
-// 头像头部
-painter.setBrush(QColor("#86909c"));
-painter.drawEllipse(23, 14, 18, 18);
-
-// 头像身体
-painter.drawEllipse(15, 34, 34, 26);
-
-painter.end();
-
-avatar->setPixmap(avatarPixmap);
+    userLayout->setSpacing(
+        14);
 
 
+    // =========================================================================
+    // 头像
+    // =========================================================================
+    auto *avatar =
+        new QLabel(userCard);
 
-    avatar->setFixedSize(
-        54, 54);
+    avatar->setObjectName(
+        QStringLiteral("profileAvatar"));
 
     avatar->setAlignment(
         Qt::AlignCenter);
 
-    avatar->setStyleSheet(
-        "background:#e8f0ff;"
-        "color:#1d4ed8;"
-        "border:none;"
-        "border-radius:27px;"
-        "font-size:22px;"
-        "font-weight:700;");
+    avatar->setScaledContents(
+        true);
 
+
+    QPixmap avatarPixmap(
+        64,
+        64);
+
+    avatarPixmap.fill(
+        Qt::transparent);
+
+
+    QPainter painter(
+        &avatarPixmap);
+
+    painter.setRenderHint(
+        QPainter::Antialiasing,
+        true);
+
+    painter.setBrush(
+        QColor("#E7EFEA"));
+
+    painter.setPen(
+        Qt::NoPen);
+
+    painter.drawEllipse(
+        0,
+        0,
+        64,
+        64);
+
+    painter.setBrush(
+        QColor("#315B4D"));
+
+    painter.drawEllipse(
+        23,
+        13,
+        18,
+        18);
+
+    painter.drawEllipse(
+        14,
+        34,
+        36,
+        27);
+
+    painter.end();
+
+
+    avatar->setPixmap(
+        avatarPixmap);
+
+
+    // =========================================================================
+    // 用户信息
+    // =========================================================================
     auto *infoLayout =
         new QVBoxLayout;
 
-    infoLayout->setSpacing(4);
+    infoLayout->setSpacing(
+        5);
 
+
+    auto *userCaption =
+        new QLabel(
+            QStringLiteral("账户信息"),
+            userCard);
+
+    userCaption->setObjectName(
+        QStringLiteral("profileUserCaption"));
+
+
+    // 保留原默认值：用户
     m_nicknameLabel =
         new QLabel(
             QStringLiteral("用户"),
             userCard);
 
-    m_nicknameLabel->setStyleSheet(
-        "border:none;"
-        "font-size:18px;"
-        "font-weight:700;"
-        "color:#1f2329;");
+    m_nicknameLabel->setObjectName(
+        QStringLiteral("profileNicknameLabel"));
 
+
+    // 保留原默认值：手机号：--
     m_phoneLabel =
         new QLabel(
             QStringLiteral("手机号：--"),
             userCard);
 
-    m_phoneLabel->setStyleSheet(
-        "border:none;"
-        "font-size:13px;"
-        "color:#86909c;");
+    m_phoneLabel->setObjectName(
+        QStringLiteral("profilePhoneLabel"));
+
+    m_phoneLabel->setWordWrap(
+        true);
+
+
+    infoLayout->addWidget(
+        userCaption);
 
     infoLayout->addWidget(
         m_nicknameLabel);
@@ -155,31 +268,21 @@ avatar->setPixmap(avatarPixmap);
     infoLayout->addWidget(
         m_phoneLabel);
 
-    // ------------------------------------------------------------------------
-    // 编辑昵称按钮（NO.18）
-    // ------------------------------------------------------------------------
+
+    // =========================================================================
+    // 编辑昵称按钮
+    // =========================================================================
     m_editNickButton =
         new QPushButton(
-            QStringLiteral("编辑"),
+            QStringLiteral("编辑昵称"),
             userCard);
+
+    m_editNickButton->setObjectName(
+        QStringLiteral("profileEditButton"));
 
     m_editNickButton->setCursor(
         Qt::PointingHandCursor);
 
-    m_editNickButton->setStyleSheet(
-        "QPushButton{"
-        "background:#f5f8ff;"
-        "color:#1d4ed8;"
-        "border:1px solid #d6e4ff;"
-        "border-radius:8px;"
-        "padding:6px 14px;"
-        "font-size:13px;"
-        "font-weight:600;"
-        "}"
-        "QPushButton:hover{"
-        "background:#e8f0ff;"
-        "border-color:#1d4ed8;"
-        "}");
 
     userLayout->addWidget(
         avatar);
@@ -193,99 +296,432 @@ avatar->setPixmap(avatarPixmap);
         0,
         Qt::AlignVCenter);
 
+
     layout->addWidget(
         userCard);
 
-    // ------------------------------------------------------------------------
-    // 点击编辑昵称：自绘对话框（不用 QInputDialog，其嵌套事件循环在
-    // WSL/X11 上经常接不住中文输入法）→ 本地校验 2~20 → 发信号
-    // ------------------------------------------------------------------------
+
+    // =========================================================================
+    // 修改昵称
+    //
+    // 业务逻辑保持不变：
+    // - 初始值仍使用当前昵称
+    // - 最长 20
+    // - 校验仍为 2～20
+    // - 确认后仍 emit nicknameChangeRequested
+    //
+    // UI 改为：
+    // - 无系统标题栏
+    // - 透明外层
+    // - 米白圆角卡片
+    // =========================================================================
     connect(
         m_editNickButton,
         &QPushButton::clicked,
         this,
         [this]() {
 
-            QDialog dlg(this);
-            dlg.setWindowTitle(QStringLiteral("修改昵称"));
-            dlg.setModal(true);
-            dlg.setAttribute(Qt::WA_InputMethodEnabled, true);
+            QDialog dialog(this);
 
-            auto *label = new QLabel(
-                QStringLiteral("请输入新的昵称（2～20 个字符）："),
-                &dlg);
+            dialog.setObjectName(
+                QStringLiteral("nicknameDialog"));
 
-            auto *edit = new QLineEdit(&dlg);
-            edit->setText(m_nickname);
-            edit->setMaxLength(20);
-            edit->setAttribute(Qt::WA_InputMethodEnabled, true);
-            edit->setInputMethodHints(Qt::ImhNone);
-            edit->setFocus();
+            dialog.setWindowTitle(
+                QStringLiteral("修改昵称"));
 
-            auto *buttons = new QDialogButtonBox(
-                QDialogButtonBox::Ok | QDialogButtonBox::Cancel,
-                &dlg);
-            buttons->button(QDialogButtonBox::Ok)->setText(
+            dialog.setModal(
+                true);
+
+            // 去掉系统最外层窗口边框
+            dialog.setWindowFlags(
+                Qt::Dialog |
+                Qt::FramelessWindowHint);
+
+            // 允许真正透明的圆角外围
+            dialog.setAttribute(
+                Qt::WA_TranslucentBackground,
+                true);
+
+            dialog.setAttribute(
+                Qt::WA_InputMethodEnabled,
+                true);
+
+            dialog.setMinimumWidth(
+                390);
+
+
+            // -----------------------------------------------------------------
+            // 透明外层
+            // -----------------------------------------------------------------
+            auto *outerLayout =
+                new QVBoxLayout(
+                    &dialog);
+
+            outerLayout->setContentsMargins(
+                18,
+                18,
+                18,
+                18);
+
+            outerLayout->setSpacing(
+                0);
+
+
+            // -----------------------------------------------------------------
+            // 米白圆角主体
+            // -----------------------------------------------------------------
+            auto *dialogCard =
+                new QFrame(
+                    &dialog);
+
+            dialogCard->setObjectName(
+                QStringLiteral(
+                    "nicknameDialogCard"));
+
+            dialogCard->setAttribute(
+                Qt::WA_StyledBackground,
+                true);
+
+            UiTheme::applyCardShadow(
+                dialogCard,
+                24,
+                6);
+
+
+            auto *dialogLayout =
+                new QVBoxLayout(
+                    dialogCard);
+
+            dialogLayout->setContentsMargins(
+                22,
+                20,
+                22,
+                20);
+
+            dialogLayout->setSpacing(
+                13);
+
+
+            // -----------------------------------------------------------------
+            // 标题
+            // -----------------------------------------------------------------
+            auto *dialogTitle =
+                new QLabel(
+                    QStringLiteral("修改昵称"),
+                    dialogCard);
+
+            dialogTitle->setObjectName(
+                QStringLiteral(
+                    "nicknameDialogTitle"));
+
+
+            // -----------------------------------------------------------------
+            // 提示
+            // -----------------------------------------------------------------
+            auto *label =
+                new QLabel(
+                    QStringLiteral(
+                        "请输入新的昵称（2～20 个字符）："),
+                    dialogCard);
+
+            label->setObjectName(
+                QStringLiteral(
+                    "nicknameDialogTip"));
+
+            label->setWordWrap(
+                true);
+
+
+            // -----------------------------------------------------------------
+            // 输入框
+            // -----------------------------------------------------------------
+            auto *edit =
+                new QLineEdit(
+                    dialogCard);
+
+            edit->setObjectName(
+                QStringLiteral(
+                    "nicknameEdit"));
+
+            edit->setText(
+                m_nickname);
+
+            edit->setMaxLength(
+                20);
+
+            edit->setAttribute(
+                Qt::WA_InputMethodEnabled,
+                true);
+
+            edit->setInputMethodHints(
+                Qt::ImhNone);
+
+            edit->setMinimumHeight(
+                42);
+
+
+            // -----------------------------------------------------------------
+            // 按钮
+            // -----------------------------------------------------------------
+            auto *buttons =
+                new QDialogButtonBox(
+                    QDialogButtonBox::Ok |
+                    QDialogButtonBox::Cancel,
+                    dialogCard);
+
+            buttons->setObjectName(
+                QStringLiteral(
+                    "nicknameDialogButtons"));
+
+
+            auto *okButton =
+                buttons->button(
+                    QDialogButtonBox::Ok);
+
+            okButton->setText(
                 QStringLiteral("确定"));
-            buttons->button(QDialogButtonBox::Cancel)->setText(
+
+            okButton->setObjectName(
+                QStringLiteral(
+                    "nicknameOkButton"));
+
+            okButton->setCursor(
+                Qt::PointingHandCursor);
+
+            okButton->setMinimumWidth(
+                90);
+
+            okButton->setMinimumHeight(
+                40);
+
+
+            auto *cancelButton =
+                buttons->button(
+                    QDialogButtonBox::Cancel);
+
+            cancelButton->setText(
                 QStringLiteral("取消"));
 
-            auto *box = new QVBoxLayout(&dlg);
-            box->addWidget(label);
-            box->addWidget(edit);
-            box->addWidget(buttons);
+            cancelButton->setObjectName(
+                QStringLiteral(
+                    "nicknameCancelButton"));
+
+            cancelButton->setCursor(
+                Qt::PointingHandCursor);
+
+            cancelButton->setMinimumWidth(
+                90);
+
+            cancelButton->setMinimumHeight(
+                40);
+
+
+            dialogLayout->addWidget(
+                dialogTitle);
+
+            dialogLayout->addWidget(
+                label);
+
+            dialogLayout->addWidget(
+                edit);
+
+            dialogLayout->addSpacing(
+                4);
+
+            dialogLayout->addWidget(
+                buttons);
+
+
+            outerLayout->addWidget(
+                dialogCard);
+
+
+            // -----------------------------------------------------------------
+            // 无边框圆角样式
+            // -----------------------------------------------------------------
+            dialog.setStyleSheet(
+                QStringLiteral(
+
+                    "QDialog#nicknameDialog{"
+                    "background:transparent;"
+                    "}"
+
+                    "QFrame#nicknameDialogCard{"
+                    "background:#F7F4EE;"
+                    "border:1px solid #E2DBD0;"
+                    "border-radius:20px;"
+                    "}"
+
+                    "QLabel#nicknameDialogTitle{"
+                    "background:transparent;"
+                    "border:none;"
+                    "color:#202824;"
+                    "font-size:19px;"
+                    "font-weight:800;"
+                    "}"
+
+                    "QLabel#nicknameDialogTip{"
+                    "background:transparent;"
+                    "border:none;"
+                    "color:#7A837E;"
+                    "font-size:13px;"
+                    "}"
+
+                    "QLineEdit#nicknameEdit{"
+                    "background:#FFFFFF;"
+                    "color:#202824;"
+                    "border:1px solid #E1DDD4;"
+                    "border-radius:11px;"
+                    "padding:9px 12px;"
+                    "font-size:14px;"
+                    "selection-background-color:#315B4D;"
+                    "selection-color:#FFFFFF;"
+                    "}"
+
+                    "QLineEdit#nicknameEdit:focus{"
+                    "border:1px solid #315B4D;"
+                    "}"
+
+                    "QDialogButtonBox#nicknameDialogButtons{"
+                    "background:transparent;"
+                    "border:none;"
+                    "}"
+
+                    "QPushButton#nicknameCancelButton{"
+                    "background:#ECE8E0;"
+                    "color:#202824;"
+                    "border:1px solid #DDD6CA;"
+                    "border-radius:12px;"
+                    "font-size:14px;"
+                    "font-weight:650;"
+                    "padding:8px 16px;"
+                    "}"
+
+                    "QPushButton#nicknameCancelButton:hover{"
+                    "background:#E4DFD5;"
+                    "}"
+
+                    "QPushButton#nicknameCancelButton:pressed{"
+                    "background:#DCD6CB;"
+                    "}"
+
+                    "QPushButton#nicknameOkButton{"
+                    "background:#315B4D;"
+                    "color:#FFFFFF;"
+                    "border:none;"
+                    "border-radius:12px;"
+                    "font-size:14px;"
+                    "font-weight:700;"
+                    "padding:8px 16px;"
+                    "}"
+
+                    "QPushButton#nicknameOkButton:hover{"
+                    "background:#284C41;"
+                    "}"
+
+                    "QPushButton#nicknameOkButton:pressed{"
+                    "background:#203F36;"
+                    "}"));
+
 
             QObject::connect(
-                buttons, &QDialogButtonBox::accepted,
-                &dlg, &QDialog::accept);
+                buttons,
+                &QDialogButtonBox::accepted,
+                &dialog,
+                &QDialog::accept);
+
             QObject::connect(
-                buttons, &QDialogButtonBox::rejected,
-                &dlg, &QDialog::reject);
+                buttons,
+                &QDialogButtonBox::rejected,
+                &dialog,
+                &QDialog::reject);
 
-            if (dlg.exec() != QDialog::Accepted)
-                return;
 
-            const QString nickname =
-                edit->text().trimmed();
+            edit->setFocus(
+                Qt::OtherFocusReason);
 
-            if (nickname.size() < 2 ||
-                nickname.size() > 20) {
+            edit->selectAll();
 
-                QMessageBox::warning(
-                    this,
-                    QStringLiteral("昵称无效"),
-                    QStringLiteral("昵称长度需为 2～20 个字符"));
+
+            if (dialog.exec() !=
+                QDialog::Accepted) {
 
                 return;
             }
 
-            if (nickname == m_nickname)
+
+            const QString nickname =
+                edit->text()
+                    .trimmed();
+
+
+            // 保留原昵称校验：2 ～ 20
+            if (nickname.size() < 2 ||
+                nickname.size() > 20) {
+
+                AppMessageBox::warning(
+                    this,
+                    QStringLiteral("昵称无效"),
+                    QStringLiteral(
+                        "昵称长度需为 2～20 个字符"));
+
                 return;
+            }
+
+
+            if (nickname ==
+                m_nickname) {
+
+                return;
+            }
+
 
             emit nicknameChangeRequested(
                 nickname);
         });
 
-    // ========================================================================
-    // 钱包卡片
-    // ========================================================================
-    auto *walletCard =
-        new QFrame(this);
 
-    walletCard->setStyleSheet(
-        "QFrame{"
-        "background:#ffffff;"
-        "border:1px solid #d6e4ff;"
-        "border-radius:14px;"
-        "}");
+    // =========================================================================
+    // 钱包卡
+    // =========================================================================
+    auto *walletCard =
+        new QFrame(
+            content);
+
+    walletCard->setObjectName(
+        QStringLiteral(
+            "profileWalletCard"));
+
+    UiTheme::applyCardShadow(
+        walletCard,
+        18,
+        4);
+
 
     auto *walletLayout =
-        new QVBoxLayout(walletCard);
+        new QVBoxLayout(
+            walletCard);
+
+    walletLayout->setObjectName(
+        QStringLiteral(
+            "profileWalletLayout"));
 
     walletLayout->setContentsMargins(
-        18, 18, 18, 18);
+        18,
+        18,
+        18,
+        18);
 
-    walletLayout->setSpacing(12);
+    walletLayout->setSpacing(
+        13);
+
+
+    // =========================================================================
+    // 钱包顶部
+    // =========================================================================
+    auto *walletHeader =
+        new QHBoxLayout;
+
 
     auto *walletTitle =
         new QLabel(
@@ -293,52 +729,140 @@ avatar->setPixmap(avatarPixmap);
                 "钱包余额"),
             walletCard);
 
-    walletTitle->setStyleSheet(
-        "border:none;"
-        "color:#4e5969;"
-        "font-size:14px;");
+    walletTitle->setObjectName(
+        QStringLiteral(
+            "profileWalletTitle"));
 
+
+    auto *walletBadge =
+        new QLabel(
+            QStringLiteral(
+                "账户余额"),
+            walletCard);
+
+    walletBadge->setObjectName(
+        QStringLiteral(
+            "profileWalletBadge"));
+
+    walletBadge->setAlignment(
+        Qt::AlignCenter);
+
+
+    walletHeader->addWidget(
+        walletTitle);
+
+    walletHeader->addStretch();
+
+    walletHeader->addWidget(
+        walletBadge);
+
+
+    walletLayout->addLayout(
+        walletHeader);
+
+
+    // =========================================================================
+    // 当前余额
+    // =========================================================================
+    auto *balanceCaption =
+        new QLabel(
+            QStringLiteral(
+                "当前余额"),
+            walletCard);
+
+    balanceCaption->setObjectName(
+        QStringLiteral(
+            "profileBalanceCaption"));
+
+
+    // 保留原默认值：￥0.00
     m_balanceLabel =
         new QLabel(
             QStringLiteral(
                 "￥0.00"),
             walletCard);
 
-    m_balanceLabel->setStyleSheet(
-        "border:none;"
-        "color:#1d4ed8;"
-        "font-size:30px;"
-        "font-weight:700;");
+    m_balanceLabel->setObjectName(
+        QStringLiteral(
+            "profileBalanceLabel"));
+
 
     walletLayout->addWidget(
-        walletTitle);
+        balanceCaption);
 
     walletLayout->addWidget(
         m_balanceLabel);
 
-    // ========================================================================
+
+    // =========================================================================
+    // 分隔线
+    // =========================================================================
+    auto *divider =
+        new QFrame(
+            walletCard);
+
+    divider->setObjectName(
+        QStringLiteral(
+            "profileDivider"));
+
+    divider->setFrameShape(
+        QFrame::HLine);
+
+
+    walletLayout->addWidget(
+        divider);
+
+
+    // =========================================================================
     // 快捷充值
-    // ========================================================================
+    // =========================================================================
     auto *amountTitle =
         new QLabel(
             QStringLiteral(
                 "选择充值金额"),
             walletCard);
 
-    amountTitle->setStyleSheet(
-        "border:none;"
-        "font-size:14px;"
-        "font-weight:600;");
+    amountTitle->setObjectName(
+        QStringLiteral(
+            "profileAmountTitle"));
+
+
+    auto *amountSubtitle =
+        new QLabel(
+            QStringLiteral(
+                "可选择常用金额，也可以输入自定义金额"),
+            walletCard);
+
+    amountSubtitle->setObjectName(
+        QStringLiteral(
+            "profileAmountSubtitle"));
+
+    amountSubtitle->setWordWrap(
+        true);
+
 
     walletLayout->addWidget(
         amountTitle);
 
+    walletLayout->addWidget(
+        amountSubtitle);
+
+
     auto *quickLayout =
         new QGridLayout;
 
-    quickLayout->setHorizontalSpacing(8);
-    quickLayout->setVerticalSpacing(8);
+    quickLayout->setObjectName(
+        QStringLiteral(
+            "profileQuickLayout"));
 
+    quickLayout->setHorizontalSpacing(
+        8);
+
+    quickLayout->setVerticalSpacing(
+        8);
+
+
+    // 保留原快捷金额
     const int amounts[] = {
         50,
         100,
@@ -346,38 +870,31 @@ avatar->setPixmap(avatarPixmap);
         500
     };
 
-    for (int i = 0; i < 4; ++i) {
+
+    for (int i = 0;
+         i < 4;
+         ++i) {
 
         const int amount =
             amounts[i];
 
-        auto *btn =
+
+        auto *button =
             new QPushButton(
-                QStringLiteral(
-                    "￥%1")
+                QStringLiteral("￥%1")
                     .arg(amount),
                 walletCard);
 
-        btn->setCursor(
+        button->setObjectName(
+            QStringLiteral(
+                "profileQuickButton"));
+
+        button->setCursor(
             Qt::PointingHandCursor);
 
-        btn->setStyleSheet(
-            "QPushButton{"
-            "background:#f5f8ff;"
-            "color:#1d4ed8;"
-            "border:1px solid #d6e4ff;"
-            "border-radius:8px;"
-            "padding:9px;"
-            "font-size:14px;"
-            "font-weight:600;"
-            "}"
-            "QPushButton:hover{"
-            "background:#e8f0ff;"
-            "border-color:#1d4ed8;"
-            "}");
 
         connect(
-            btn,
+            button,
             &QPushButton::clicked,
             this,
             [this, amount]() {
@@ -386,103 +903,235 @@ avatar->setPixmap(avatarPixmap);
                     amount);
             });
 
+
         quickLayout->addWidget(
-            btn,
+            button,
             i / 2,
             i % 2);
     }
 
+
     walletLayout->addLayout(
         quickLayout);
 
-    // ========================================================================
+
+    // =========================================================================
     // 自定义充值金额
-    // ========================================================================
-    auto *customRow =
-        new QHBoxLayout;
+    // =========================================================================
+    auto *customCard =
+        new QFrame(
+            walletCard);
+
+    customCard->setObjectName(
+        QStringLiteral(
+            "profileCustomCard"));
+
+
+    auto *customLayout =
+        new QHBoxLayout(
+            customCard);
+
+    customLayout->setObjectName(
+        QStringLiteral(
+            "profileCustomLayout"));
+
+    customLayout->setContentsMargins(
+        13,
+        10,
+        13,
+        10);
+
+    customLayout->setSpacing(
+        10);
+
 
     auto *customLabel =
         new QLabel(
             QStringLiteral(
                 "充值金额"),
-            walletCard);
+            customCard);
 
-    customLabel->setStyleSheet(
-        "border:none;"
-        "font-size:14px;");
+    customLabel->setObjectName(
+        QStringLiteral(
+            "profileCustomLabel"));
+
 
     m_amountSpin =
         new QDoubleSpinBox(
-            walletCard);
+            customCard);
 
+    m_amountSpin->setObjectName(
+        QStringLiteral(
+            "profileAmountSpin"));
+
+
+    // 保留原充值范围
     m_amountSpin->setRange(
         1.0,
         10000.0);
 
-    m_amountSpin->setDecimals(2);
-    m_amountSpin->setSingleStep(10.0);
-    m_amountSpin->setValue(100.0);
+    // 保留原小数位
+    m_amountSpin->setDecimals(
+        2);
 
+    // 保留原步进
+    m_amountSpin->setSingleStep(
+        10.0);
+
+    // 保留原默认充值金额
+    m_amountSpin->setValue(
+        100.0);
+
+    // 保留原前缀
     m_amountSpin->setPrefix(
         QStringLiteral("￥"));
 
     m_amountSpin->setMinimumWidth(
         160);
 
-    customRow->addWidget(
+
+    customLayout->addWidget(
         customLabel);
 
-    customRow->addStretch();
+    customLayout->addStretch();
 
-    customRow->addWidget(
+    customLayout->addWidget(
         m_amountSpin);
 
-    walletLayout->addLayout(
-        customRow);
 
-    // ========================================================================
+    walletLayout->addWidget(
+        customCard);
+
+
+    // =========================================================================
     // 充值按钮
-    // ========================================================================
+    // =========================================================================
     m_rechargeButton =
         new QPushButton(
             QStringLiteral(
                 "立即充值"),
             walletCard);
 
+    m_rechargeButton->setObjectName(
+        QStringLiteral(
+            "profileRechargeButton"));
+
     m_rechargeButton->setCursor(
         Qt::PointingHandCursor);
+
 
     walletLayout->addWidget(
         m_rechargeButton);
 
-    // ========================================================================
+
+    // =========================================================================
     // 状态提示
-    // ========================================================================
+    // =========================================================================
+    // 保留原提示文案
     m_tipLabel =
         new QLabel(
             QStringLiteral(
                 "充值金额将通过系统充值接口处理"),
             walletCard);
 
+    m_tipLabel->setObjectName(
+        QStringLiteral(
+            "profileTipLabel"));
+
     m_tipLabel->setAlignment(
         Qt::AlignCenter);
 
-    m_tipLabel->setStyleSheet(
-        "border:none;"
-        "color:#86909c;"
-        "font-size:12px;");
+    m_tipLabel->setWordWrap(
+        true);
+
 
     walletLayout->addWidget(
         m_tipLabel);
 
+
     layout->addWidget(
         walletCard);
 
+
+    // =========================================================================
+    // 页面说明卡
+    // =========================================================================
+    auto *noteCard =
+        new QFrame(
+            content);
+
+    noteCard->setObjectName(
+        QStringLiteral(
+            "profileNoteCard"));
+
+
+    auto *noteLayout =
+        new QVBoxLayout(
+            noteCard);
+
+    noteLayout->setObjectName(
+        QStringLiteral(
+            "profileNoteLayout"));
+
+    noteLayout->setContentsMargins(
+        16,
+        14,
+        16,
+        14);
+
+    noteLayout->setSpacing(
+        6);
+
+
+    auto *noteTitle =
+        new QLabel(
+            QStringLiteral(
+                "账户说明"),
+            noteCard);
+
+    noteTitle->setObjectName(
+        QStringLiteral(
+            "profileNoteTitle"));
+
+
+    auto *noteText =
+        new QLabel(
+            QStringLiteral(
+                "账户余额会在充值成功或充电支付完成后同步更新。"),
+            noteCard);
+
+    noteText->setObjectName(
+        QStringLiteral(
+            "profileNoteText"));
+
+    noteText->setWordWrap(
+        true);
+
+
+    noteLayout->addWidget(
+        noteTitle);
+
+    noteLayout->addWidget(
+        noteText);
+
+
+    layout->addWidget(
+        noteCard);
+
     layout->addStretch();
 
-    // ========================================================================
+
+    scrollArea->setWidget(
+        content);
+
+    rootLayout->addWidget(
+        scrollArea);
+
+
+    // =========================================================================
     // 点击充值
-    // ========================================================================
+    // 原业务逻辑保持不变
+    // =========================================================================
     connect(
         m_rechargeButton,
         &QPushButton::clicked,
@@ -491,6 +1140,7 @@ avatar->setPixmap(avatarPixmap);
 
             const double amount =
                 m_amountSpin->value();
+
 
             if (amount <= 0.0) {
 
@@ -501,49 +1151,617 @@ avatar->setPixmap(avatarPixmap);
                 return;
             }
 
+
             emit rechargeRequested(
                 amount);
         });
+
+
+    applyResponsiveStyle();
 }
 
+
+// ============================================================================
+// 更新完整用户信息
+// ============================================================================
 void ProfilePage::setUserInfo(
     const QString &nickname,
     const QString &phone,
     double balance)
 {
-    setNickname(nickname);
+    // 原逻辑保持不变
+    setNickname(
+        nickname);
 
+
+    // 原手机号显示逻辑保持不变
     m_phoneLabel->setText(
-        QStringLiteral(
-            "手机号：%1")
+        QStringLiteral("手机号：%1")
             .arg(phone));
 
-    setBalance(balance);
+
+    // 原余额更新逻辑保持不变
+    setBalance(
+        balance);
 }
 
+
+// ============================================================================
+// 更新昵称
+// ============================================================================
 void ProfilePage::setNickname(
     const QString &nickname)
 {
-    m_nickname = nickname;
+    m_nickname =
+        nickname;
 
+
+    // 保留原逻辑：
+    // 服务器昵称为空时显示“用户”
     m_nicknameLabel->setText(
         nickname.isEmpty()
             ? QStringLiteral("用户")
             : nickname);
 }
 
+
+// ============================================================================
+// 从其它页面跳转到充值区域
+// ============================================================================
+void ProfilePage::openRechargeSection()
+{
+    if (!m_amountSpin)
+        return;
+
+
+    if (auto *scrollArea =
+            findChild<QScrollArea *>(
+                QStringLiteral(
+                    "profileScrollArea"))) {
+
+        scrollArea->ensureWidgetVisible(
+            m_amountSpin,
+            30,
+            80);
+    }
+
+
+    m_amountSpin->setFocus(
+        Qt::OtherFocusReason);
+
+    m_amountSpin->selectAll();
+}
+
+
+// ============================================================================
+// 更新余额
+// ============================================================================
 void ProfilePage::setBalance(
     double balance)
 {
     m_balance =
         balance;
 
+
+    // 保留原金额格式
     m_balanceLabel->setText(
-        QStringLiteral(
-            "￥%1")
+        QStringLiteral("￥%1")
             .arg(
                 m_balance,
                 0,
                 'f',
                 2));
+}
+
+
+// ============================================================================
+// Resize
+// ============================================================================
+void ProfilePage::resizeEvent(
+    QResizeEvent *event)
+{
+    QWidget::resizeEvent(
+        event);
+
+    applyResponsiveStyle();
+}
+
+
+// ============================================================================
+// 响应式样式
+// ============================================================================
+void ProfilePage::applyResponsiveStyle()
+{
+    QWidget *scaleBase =
+        window()
+            ? window()
+            : this;
+
+
+    const int titleFont =
+        scaledUi(
+            scaleBase,
+            24);
+
+    const int nicknameFont =
+        scaledUi(
+            scaleBase,
+            19);
+
+    const int balanceFont =
+        scaledUi(
+            scaleBase,
+            31);
+
+    const int normalFont =
+        scaledUi(
+            scaleBase,
+            14);
+
+    const int smallFont =
+        scaledUi(
+            scaleBase,
+            12);
+
+    const int tinyFont =
+        scaledUi(
+            scaleBase,
+            11);
+
+    const int buttonFont =
+        scaledUi(
+            scaleBase,
+            13);
+
+    const int cardRadius =
+        scaledUi(
+            scaleBase,
+            18);
+
+    const int smallRadius =
+        scaledUi(
+            scaleBase,
+            10);
+
+
+    setStyleSheet(
+        QStringLiteral(
+
+            // ================================================================
+            // 页面
+            // ================================================================
+            "QWidget#profilePage{"
+            "background:transparent;"
+            "color:#202824;"
+            "}"
+
+            "QWidget#profileContent{"
+            "background:transparent;"
+            "}"
+
+            "QScrollArea#profileScrollArea{"
+            "background:transparent;"
+            "border:none;"
+            "}"
+
+            // ================================================================
+            // 页面标题
+            // ================================================================
+            "QLabel#profileTitle{"
+            "background:transparent;"
+            "color:#202824;"
+            "font-size:%1px;"
+            "font-weight:800;"
+            "}"
+
+            "QLabel#profileSubtitle{"
+            "background:transparent;"
+            "color:#7A837E;"
+            "font-size:%2px;"
+            "}"
+
+            // ================================================================
+            // 用户卡
+            // ================================================================
+            "QFrame#profileUserCard{"
+            "background:#FFFFFF;"
+            "border:1px solid #E7E3DA;"
+            "border-radius:%3px;"
+            "}"
+
+            "QLabel#profileAvatar{"
+            "background:transparent;"
+            "border:none;"
+            "}"
+
+            "QLabel#profileUserCaption{"
+            "background:transparent;"
+            "color:#7A837E;"
+            "font-size:%4px;"
+            "}"
+
+            "QLabel#profileNicknameLabel{"
+            "background:transparent;"
+            "color:#202824;"
+            "font-size:%5px;"
+            "font-weight:800;"
+            "}"
+
+            "QLabel#profilePhoneLabel{"
+            "background:transparent;"
+            "color:#7A837E;"
+            "font-size:%2px;"
+            "}"
+
+            // ================================================================
+            // 编辑昵称按钮
+            // ================================================================
+            "QPushButton#profileEditButton{"
+            "background:#E9F0EC;"
+            "color:#315B4D;"
+            "border:1px solid #D6E1DA;"
+            "border-radius:%6px;"
+            "font-size:%7px;"
+            "font-weight:700;"
+            "padding:8px 13px;"
+            "}"
+
+            "QPushButton#profileEditButton:hover{"
+            "background:#DFE9E3;"
+            "}"
+
+            // ================================================================
+            // 钱包卡
+            // ================================================================
+            "QFrame#profileWalletCard{"
+            "background:#FFFFFF;"
+            "border:1px solid #E7E3DA;"
+            "border-radius:%3px;"
+            "}"
+
+            "QLabel#profileWalletTitle{"
+            "background:transparent;"
+            "color:#202824;"
+            "font-size:%8px;"
+            "font-weight:800;"
+            "}"
+
+            "QLabel#profileWalletBadge{"
+            "background:#E9F0EC;"
+            "color:#315B4D;"
+            "border:none;"
+            "border-radius:%6px;"
+            "font-size:%4px;"
+            "font-weight:700;"
+            "padding:4px 9px;"
+            "}"
+
+            "QLabel#profileBalanceCaption{"
+            "background:transparent;"
+            "color:#7A837E;"
+            "font-size:%2px;"
+            "}"
+
+            "QLabel#profileBalanceLabel{"
+            "background:transparent;"
+            "color:#315B4D;"
+            "font-size:%9px;"
+            "font-weight:800;"
+            "}"
+
+            // ================================================================
+            // 分隔线
+            // ================================================================
+            "QFrame#profileDivider{"
+            "background:#E7E3DA;"
+            "border:none;"
+            "max-height:1px;"
+            "}"
+
+            // ================================================================
+            // 充值文字
+            // ================================================================
+            "QLabel#profileAmountTitle{"
+            "background:transparent;"
+            "color:#202824;"
+            "font-size:%10px;"
+            "font-weight:700;"
+            "}"
+
+            "QLabel#profileAmountSubtitle{"
+            "background:transparent;"
+            "color:#7A837E;"
+            "font-size:%4px;"
+            "}"
+
+            // ================================================================
+            // 快捷充值
+            // ================================================================
+            "QPushButton#profileQuickButton{"
+            "background:#FAF8F3;"
+            "color:#315B4D;"
+            "border:1px solid #E1E5DF;"
+            "border-radius:%6px;"
+            "font-size:%10px;"
+            "font-weight:700;"
+            "padding:10px;"
+            "}"
+
+            "QPushButton#profileQuickButton:hover{"
+            "background:#E9F0EC;"
+            "border-color:#C9D8CF;"
+            "}"
+
+            "QPushButton#profileQuickButton:pressed{"
+            "background:#DFE9E3;"
+            "}"
+
+            // ================================================================
+            // 自定义金额
+            // ================================================================
+            "QFrame#profileCustomCard{"
+            "background:#FAF8F3;"
+            "border:1px solid #E7E3DA;"
+            "border-radius:%6px;"
+            "}"
+
+            "QLabel#profileCustomLabel{"
+            "background:transparent;"
+            "color:#202824;"
+            "font-size:%10px;"
+            "font-weight:600;"
+            "}"
+
+            "QDoubleSpinBox#profileAmountSpin{"
+            "background:#FFFFFF;"
+            "color:#202824;"
+            "border:1px solid #E1DDD4;"
+            "border-radius:%6px;"
+            "font-size:%10px;"
+            "padding:8px 10px;"
+            "}"
+
+            "QDoubleSpinBox#profileAmountSpin:focus{"
+            "border:1px solid #315B4D;"
+            "}"
+
+            // ================================================================
+            // 充值按钮
+            // ================================================================
+            "QPushButton#profileRechargeButton{"
+            "background:#315B4D;"
+            "color:#FFFFFF;"
+            "border:none;"
+            "border-radius:%6px;"
+            "font-size:%10px;"
+            "font-weight:700;"
+            "padding:11px 18px;"
+            "}"
+
+            "QPushButton#profileRechargeButton:hover{"
+            "background:#284C41;"
+            "}"
+
+            "QPushButton#profileRechargeButton:pressed{"
+            "background:#203F36;"
+            "}"
+
+            // ================================================================
+            // 提示
+            // ================================================================
+            "QLabel#profileTipLabel{"
+            "background:transparent;"
+            "color:#7A837E;"
+            "font-size:%4px;"
+            "}"
+
+            // ================================================================
+            // 账户说明
+            // ================================================================
+            "QFrame#profileNoteCard{"
+            "background:#FAF8F3;"
+            "border:1px solid #E7E3DA;"
+            "border-radius:%3px;"
+            "}"
+
+            "QLabel#profileNoteTitle{"
+            "background:transparent;"
+            "color:#202824;"
+            "font-size:%10px;"
+            "font-weight:700;"
+            "}"
+
+            "QLabel#profileNoteText{"
+            "background:transparent;"
+            "color:#7A837E;"
+            "font-size:%4px;"
+            "}")
+
+        .arg(
+            titleFont)
+
+        .arg(
+            smallFont)
+
+        .arg(
+            cardRadius)
+
+        .arg(
+            tinyFont)
+
+        .arg(
+            nicknameFont)
+
+        .arg(
+            smallRadius)
+
+        .arg(
+            buttonFont)
+
+        .arg(
+            normalFont)
+
+        .arg(
+            balanceFont)
+
+        .arg(
+            normalFont));
+
+
+    // =========================================================================
+    // 页面内容边距
+    // =========================================================================
+    if (auto *contentLayout =
+            findChild<QVBoxLayout *>(
+                QStringLiteral(
+                    "profileContentLayout"))) {
+
+        contentLayout->setContentsMargins(
+            scaledUi(scaleBase, 18),
+            scaledUi(scaleBase, 18),
+            scaledUi(scaleBase, 18),
+            scaledUi(scaleBase, 18));
+
+        contentLayout->setSpacing(
+            scaledUi(
+                scaleBase,
+                14));
+    }
+
+
+    // =========================================================================
+    // 用户资料卡
+    // =========================================================================
+    if (auto *userLayout =
+            findChild<QHBoxLayout *>(
+                QStringLiteral(
+                    "profileUserLayout"))) {
+
+        userLayout->setContentsMargins(
+            scaledUi(scaleBase, 18),
+            scaledUi(scaleBase, 18),
+            scaledUi(scaleBase, 18),
+            scaledUi(scaleBase, 18));
+
+        userLayout->setSpacing(
+            scaledUi(
+                scaleBase,
+                14));
+    }
+
+
+    // =========================================================================
+    // 头像大小
+    // =========================================================================
+    if (auto *avatar =
+            findChild<QLabel *>(
+                QStringLiteral(
+                    "profileAvatar"))) {
+
+        const int avatarSize =
+            scaledUi(
+                scaleBase,
+                58);
+
+        avatar->setFixedSize(
+            avatarSize,
+            avatarSize);
+    }
+
+
+    // =========================================================================
+    // 钱包卡
+    // =========================================================================
+    if (auto *walletLayout =
+            findChild<QVBoxLayout *>(
+                QStringLiteral(
+                    "profileWalletLayout"))) {
+
+        walletLayout->setContentsMargins(
+            scaledUi(scaleBase, 18),
+            scaledUi(scaleBase, 18),
+            scaledUi(scaleBase, 18),
+            scaledUi(scaleBase, 18));
+
+        walletLayout->setSpacing(
+            scaledUi(
+                scaleBase,
+                13));
+    }
+
+
+    // =========================================================================
+    // 快捷充值网格
+    // =========================================================================
+    if (auto *quickLayout =
+            findChild<QGridLayout *>(
+                QStringLiteral(
+                    "profileQuickLayout"))) {
+
+        quickLayout->setHorizontalSpacing(
+            scaledUi(
+                scaleBase,
+                8));
+
+        quickLayout->setVerticalSpacing(
+            scaledUi(
+                scaleBase,
+                8));
+    }
+
+
+    // =========================================================================
+    // 自定义金额区
+    // =========================================================================
+    if (auto *customLayout =
+            findChild<QHBoxLayout *>(
+                QStringLiteral(
+                    "profileCustomLayout"))) {
+
+        customLayout->setContentsMargins(
+            scaledUi(scaleBase, 13),
+            scaledUi(scaleBase, 10),
+            scaledUi(scaleBase, 13),
+            scaledUi(scaleBase, 10));
+
+        customLayout->setSpacing(
+            scaledUi(
+                scaleBase,
+                10));
+    }
+
+
+    if (m_amountSpin) {
+
+        m_amountSpin->setMinimumWidth(
+            scaledUi(
+                scaleBase,
+                160));
+
+        m_amountSpin->setMinimumHeight(
+            scaledUi(
+                scaleBase,
+                40));
+    }
+
+
+    // =========================================================================
+    // 账户说明卡
+    // =========================================================================
+    if (auto *noteLayout =
+            findChild<QVBoxLayout *>(
+                QStringLiteral(
+                    "profileNoteLayout"))) {
+
+        noteLayout->setContentsMargins(
+            scaledUi(scaleBase, 16),
+            scaledUi(scaleBase, 14),
+            scaledUi(scaleBase, 16),
+            scaledUi(scaleBase, 14));
+
+        noteLayout->setSpacing(
+            scaledUi(
+                scaleBase,
+                6));
+    }
 }

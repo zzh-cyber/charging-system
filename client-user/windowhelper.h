@@ -7,6 +7,8 @@
 #include <QGuiApplication>
 #include <QScreen>
 #include <QWidget>
+#include <cmath>
+
 
 inline void applyPhoneWindow(QWidget *w)
 {
@@ -35,6 +37,42 @@ inline void applyPhoneWindow(QWidget *w)
         width = qRound(h / kAspect);
     }
 
-    w->setFixedSize(width, h);
+    w->setMinimumSize(390, 620);
+    w->resize(width, h);
     w->move(area.center() - QPoint(width / 2, h / 2));
+
+}
+
+inline double uiScaleForWindow(const QWidget *w)
+{
+    if (!w)
+        return 1.0;
+
+    constexpr double kBaseWidth  = 390.0;
+    constexpr double kBaseHeight = 680.0;
+
+    const double sx =
+        w->width() / kBaseWidth;
+
+    const double sy =
+        w->height() / kBaseHeight;
+
+    // 宽高综合计算。
+    // 不再只取较小值，否则大窗口横向拉宽时 UI 几乎不变。
+    const double scale =
+        std::sqrt(sx * sy);
+
+    return qBound(
+        0.5,
+        scale,
+        2.4);
+}
+
+
+inline int scaledUi(
+    const QWidget *w,
+    int value)
+{
+    return qRound(
+        value * uiScaleForWindow(w));
 }

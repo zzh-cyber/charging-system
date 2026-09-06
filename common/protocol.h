@@ -48,7 +48,9 @@ inline constexpr const char *PileList     = "pile_list";      // 某站电桩列
 inline constexpr const char *PileDetail   = "pile_detail";    // 电桩详情
 inline constexpr const char *Reserve      = "reserve";        // 预约
 inline constexpr const char *StartCharge  = "start_charge";   // 开始充电
-inline constexpr const char *Settle       = "settle";         // 计费结算
+inline constexpr const char *FinishCharge = "finish_charge";  // 结束充电出账（不扣款）
+inline constexpr const char *PayCharge    = "pay_charge";     // 确认支付扣款
+inline constexpr const char *Settle       = "settle";         // 已停用，改用 finish_charge + pay_charge
 inline constexpr const char *UnfinishedOrder = "unfinished_order"; // 查询未完成订单
 
 // 管理端
@@ -60,7 +62,8 @@ inline constexpr const char *AdminPileRestart  = "admin_pile_restart";  // 远�
 inline constexpr const char *AdminStationList  = "admin_station_list";
 inline constexpr const char *AdminStationAdd   = "admin_station_add";
 inline constexpr const char *AdminOrderList    = "admin_order_list";
-inline constexpr const char *AdminRevenueTrend = "admin_revenue_trend";
+inline constexpr const char *AdminOrderDetail  = "admin_order_detail";
+inline constexpr const char *AdminRevenueTrend = "admin_revenue_trend"; // 营收趋势（须 admin_ 前缀过鉴权门）
 } // namespace MsgType
 
 // ------- 构造请求/响应 -------

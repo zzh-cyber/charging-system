@@ -10,6 +10,8 @@
 // 其余接口留给对应同学在此按同样的模式补充。
 // ============================================================================
 
+#include <functional>
+
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QSqlDatabase>
@@ -28,8 +30,9 @@ public:
 
     // ---- 业务查询：出参 code/msg 用于返回给客户端 ----
 
-    // 手机号免密登录/注册：存在则返回，不存在则自动创建
-    QJsonObject loginOrRegister(const QString &phone, int &code, QString &msg);
+    // 手机号免密登录；registerMode=true 时不存在则创建，否则返回可注册
+    QJsonObject loginOrRegister(const QString &phone, bool registerMode,
+                                int &code, QString &msg);
 
     // 管理员登录
     QJsonObject adminLogin(const QString &username, const QString &password,
@@ -54,8 +57,11 @@ public:
     // 开始充电
     QJsonObject startCharge(const QString &orderNo, qint64 userId, int &code, QString &msg);
 
-    // 结算订单
-    QJsonObject settle(const QString &orderNo, qint64 userId, double kwh, int &code, QString &msg);
+    // 结束充电出账（不扣款）
+    QJsonObject finishCharge(const QString &orderNo, qint64 userId, int &code, QString &msg);
+
+    // 确认支付扣款
+    QJsonObject payCharge(const QString &orderNo, qint64 userId, int &code, QString &msg);
 
     // 用户充值
     QJsonObject recharge(qint64 userId, double amount,int &code, QString &msg);
@@ -69,10 +75,17 @@ public:
     QJsonObject adminUserFreeze(qint64 adminId, qint64 userId, bool frozen, int &code, QString &msg);
 
     // 全部电桩列表（含所属电站名、累计次数/时长）
-    QJsonArray adminPileList(int &code, QString &msg);
+    QJsonObject adminPileList(const QJsonObject &input, int &code, QString &msg);
+    // 启用电桩状态数量及占比统计
+    QJsonObject adminPileStats(int &code, QString &msg);
 
     // 远程重启电桩：fault/busy → idle，返回新状态
     QJsonObject adminPileRestart(qint64 adminId, qint64 pileId, int &code, QString &msg);
+
+    // 订单列表（筛选+分页，NO.107）
+    QJsonObject adminOrderList(const QJsonObject &input, int &code, QString &msg);
+    // 订单详情（只读）
+    QJsonObject adminOrderDetail(const QString &orderNo, int &code, QString &msg);
 
     // 电站列表（含桩总数、在线率）
     QJsonArray adminStationList(int &code, QString &msg);
@@ -91,7 +104,7 @@ public:
 
     // ---- 结构初始化 ----
     int  schemaVersion();          // 返回当前结构版本（未初始化返回 0）
-    bool ensureSchema();           // 检测缺表并自动按脚本初始化
+    bool ensureSchema();           // 缺表则初始化；已有库按 schema_version 增量 ALTER
 
     // ---- 用户资料维护（NO.51）----
     bool updateNickname(qint64 userId, const QString &nickname);
@@ -104,6 +117,11 @@ public:
 
 private:
     bool executeScript(const QString &sql);  // 逐条执行 SQL 脚本
+    bool upgradeSchema();                    // 已有库按版本增量升级（禁止 DROP）
+    bool columnExists(const QString &table, const QString &column);
+
+    // NO.59：事务包装，死锁(1213)/锁等待超时(1205)时有限重试
+    bool runInTransaction(std::function<bool()> body, int maxRetries = 3);
 
     // NO.58：写操作日志（operation_logs）
     bool logOperation(qint64 adminId, const QString &action, const QString &targetType,

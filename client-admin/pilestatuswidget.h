@@ -141,9 +141,7 @@ private:
 
     void initUI();
 
-    void updateSummary(
-        const QVector<PileStatusItem> &items
-    );
+    void updateSummary(const QJsonObject &stats);
 
     QDateTime parseDateTime(
         const QString &text

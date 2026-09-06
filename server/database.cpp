@@ -3,8 +3,12 @@
 #include "protocol.h"
 
 #include <QCryptographicHash>
+#include <QDate>
 #include <QDateTime>
 #include <QFile>
+#include <QJsonArray>
+#include <QJsonValue>
+#include <QRandomGenerator>
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QStringList>
@@ -14,6 +18,239 @@
 
 #include <algorithm>
 #include <cmath>
+
+namespace {
+
+double round2(double value)
+{
+    return std::round(value * 100.0) / 100.0;
+}
+
+qint64 chargeDurationSeconds(const QDateTime &startTime)
+{
+    if (!startTime.isValid())
+        return 0;
+    const qint64 seconds = startTime.secsTo(QDateTime::currentDateTime());
+    return seconds > 0 ? seconds : 0;
+}
+
+double chargeKwh(double powerKw, qint64 durationSeconds)
+{
+    return round2(powerKw * static_cast<double>(durationSeconds) / 3600.0);
+}
+
+double chargeAmount(double kwh, double unitPrice)
+{
+    return round2(kwh * unitPrice);
+}
+
+void appendSimulatedSoc(QJsonObject &data, const QSqlQuery &query)
+{
+    const QVariant startSoc = query.value(QStringLiteral("start_soc"));
+    if (!startSoc.isNull())
+        data[QStringLiteral("start_soc")] = startSoc.toDouble();
+
+    const QVariant capacity = query.value(QStringLiteral("battery_capacity_kwh"));
+    if (!capacity.isNull())
+        data[QStringLiteral("battery_capacity_kwh")] = capacity.toDouble();
+
+    const QVariant targetSoc = query.value(QStringLiteral("target_soc"));
+    if (!targetSoc.isNull())
+        data[QStringLiteral("target_soc")] = targetSoc.toDouble();
+}
+
+qint64 jsonInt64(const QJsonObject &obj, const QString &key)
+{
+    const QJsonValue v = obj.value(key);
+    if (v.isUndefined() || v.isNull())
+        return 0;
+    if (v.isDouble())
+        return static_cast<qint64>(v.toDouble());
+    if (v.isString())
+        return v.toString().trimmed().toLongLong();
+    return v.toVariant().toLongLong();
+}
+
+QString escapeLike(QString value)
+{
+    value.replace(QLatin1Char('|'), QStringLiteral("||"));
+    value.replace(QLatin1Char('%'), QStringLiteral("|%"));
+    value.replace(QLatin1Char('_'), QStringLiteral("|_"));
+    return value;
+}
+
+bool isOrderStatus(const QString &status)
+{
+    return status == QLatin1String("reserved")
+        || status == QLatin1String("charging")
+        || status == QLatin1String("pending_payment")
+        || status == QLatin1String("settled")
+        || status == QLatin1String("cancelled");
+}
+
+QString formatSqlDateTime(const QVariant &value)
+{
+    const QDateTime dt = value.toDateTime();
+    if (dt.isValid())
+        return dt.toString(QStringLiteral("yyyy-MM-dd HH:mm:ss"));
+    return value.toString();
+}
+
+// 允许 yyyy-MM-dd HH:mm:ss、ISO、或仅 yyyy-MM-dd（endOfDay 时补 23:59:59）
+QString normalizeFilterTime(const QString &raw, bool endOfDay, bool *ok)
+{
+    const QString s = raw.trimmed();
+    if (s.isEmpty()) {
+        *ok = true;
+        return {};
+    }
+    if (s.size() == 10 && QDate::fromString(s, QStringLiteral("yyyy-MM-dd")).isValid()) {
+        *ok = true;
+        return s + (endOfDay ? QStringLiteral(" 23:59:59") : QStringLiteral(" 00:00:00"));
+    }
+    QDateTime dt = QDateTime::fromString(s, QStringLiteral("yyyy-MM-dd HH:mm:ss"));
+    if (!dt.isValid())
+        dt = QDateTime::fromString(s, Qt::ISODate);
+    if (!dt.isValid()) {
+        *ok = false;
+        return {};
+    }
+    *ok = true;
+    return dt.toString(QStringLiteral("yyyy-MM-dd HH:mm:ss"));
+}
+
+const QString kOrderSelectSql =
+    QStringLiteral(
+        "SELECT o.id, o.order_no, o.user_id, o.station_id, o.pile_id, o.status, "
+        "o.unit_price, o.kwh, o.duration_seconds, o.amount, "
+        "o.reserve_time, o.start_time, o.end_time, o.created_at, o.updated_at, "
+        "u.nickname, u.phone, s.name AS station_name, p.code AS pile_code "
+        "FROM charge_order o "
+        "LEFT JOIN `user` u ON o.user_id = u.id "
+        "LEFT JOIN station s ON o.station_id = s.id "
+        "LEFT JOIN pile p ON o.pile_id = p.id");
+
+QJsonObject orderRowToJson(const QSqlQuery &q)
+{
+    QJsonObject o;
+    o["id"] = q.value("id").toLongLong();
+    o["order_no"] = q.value("order_no").toString();
+    o["user_id"] = q.value("user_id").toLongLong();
+    o["nickname"] = q.value("nickname").toString();
+    o["phone"] = q.value("phone").toString();
+    o["station_id"] = q.value("station_id").toLongLong();
+    o["station_name"] = q.value("station_name").toString();
+    o["pile_id"] = q.value("pile_id").toLongLong();
+    o["pile_code"] = q.value("pile_code").toString();
+    o["status"] = q.value("status").toString();
+    o["kwh"] = q.value("kwh").toDouble();
+    o["duration_seconds"] = q.value("duration_seconds").toInt();
+    o["unit_price"] = q.value("unit_price").toDouble();
+    o["amount"] = q.value("amount").toDouble();
+    o["reserve_time"] = formatSqlDateTime(q.value("reserve_time"));
+    o["start_time"] = formatSqlDateTime(q.value("start_time"));
+    o["end_time"] = formatSqlDateTime(q.value("end_time"));
+    o["created_at"] = formatSqlDateTime(q.value("created_at"));
+    o["updated_at"] = formatSqlDateTime(q.value("updated_at"));
+    return o;
+}
+
+bool buildOrderFilters(const QJsonObject &input, QStringList *conds, QVariantList *binds, QString *err)
+{
+    const QString orderNo = input.value(QStringLiteral("order_no")).toString().trimmed();
+    if (!orderNo.isEmpty()) {
+        conds->append(QStringLiteral("o.order_no LIKE ? ESCAPE '|'"));
+        binds->append(QStringLiteral("%") + escapeLike(orderNo) + QLatin1Char('%'));
+    }
+
+    const QString phone = input.value(QStringLiteral("phone")).toString().trimmed();
+    if (!phone.isEmpty()) {
+        conds->append(QStringLiteral("u.phone LIKE ? ESCAPE '|'"));
+        binds->append(QStringLiteral("%") + escapeLike(phone) + QLatin1Char('%'));
+    }
+
+    const qint64 userId = jsonInt64(input, QStringLiteral("user_id"));
+    if (userId > 0) {
+        conds->append(QStringLiteral("o.user_id = ?"));
+        binds->append(userId);
+    }
+
+    const qint64 stationId = jsonInt64(input, QStringLiteral("station_id"));
+    if (stationId > 0) {
+        conds->append(QStringLiteral("o.station_id = ?"));
+        binds->append(stationId);
+    }
+
+    const qint64 pileId = jsonInt64(input, QStringLiteral("pile_id"));
+    if (pileId > 0) {
+        conds->append(QStringLiteral("o.pile_id = ?"));
+        binds->append(pileId);
+    }
+
+    const QString pileCode = input.value(QStringLiteral("pile_code")).toString().trimmed();
+    if (!pileCode.isEmpty()) {
+        conds->append(QStringLiteral("p.code LIKE ? ESCAPE '|'"));
+        binds->append(QStringLiteral("%") + escapeLike(pileCode) + QLatin1Char('%'));
+    }
+
+    const QString keyword = input.value(QStringLiteral("keyword")).toString().trimmed();
+    if (!keyword.isEmpty()) {
+        const QString like = QStringLiteral("%") + escapeLike(keyword) + QLatin1Char('%');
+        conds->append(QStringLiteral(
+            "(o.order_no LIKE ? ESCAPE '|' OR u.phone LIKE ? ESCAPE '|' "
+            "OR p.code LIKE ? ESCAPE '|')"));
+        binds->append(like);
+        binds->append(like);
+        binds->append(like);
+    }
+
+    const QString status = input.value(QStringLiteral("status")).toString().trimmed();
+    if (!status.isEmpty()) {
+        if (!isOrderStatus(status)) {
+            *err = QStringLiteral("status 取值无效");
+            return false;
+        }
+        conds->append(QStringLiteral("o.status = ?"));
+        binds->append(status);
+    }
+
+    bool timeOk = true;
+    const QString startTime = normalizeFilterTime(
+        input.value(QStringLiteral("start_time")).toString(), false, &timeOk);
+    if (!timeOk) {
+        *err = QStringLiteral("start_time 格式无效，需 yyyy-MM-dd 或 yyyy-MM-dd HH:mm:ss");
+        return false;
+    }
+    const QString endTime = normalizeFilterTime(
+        input.value(QStringLiteral("end_time")).toString(), true, &timeOk);
+    if (!timeOk) {
+        *err = QStringLiteral("end_time 格式无效，需 yyyy-MM-dd 或 yyyy-MM-dd HH:mm:ss");
+        return false;
+    }
+    if (!startTime.isEmpty() && !endTime.isEmpty() && startTime > endTime) {
+        *err = QStringLiteral("start_time 不能晚于 end_time");
+        return false;
+    }
+    if (!startTime.isEmpty()) {
+        conds->append(QStringLiteral(
+            "COALESCE(o.start_time, o.reserve_time, o.created_at) >= ?"));
+        binds->append(startTime);
+    }
+    if (!endTime.isEmpty()) {
+        conds->append(QStringLiteral(
+            "COALESCE(o.start_time, o.reserve_time, o.created_at) <= ?"));
+        binds->append(endTime);
+    }
+    return true;
+}
+
+void bindAll(QSqlQuery *query, const QVariantList &binds)
+{
+    for (const QVariant &v : binds)
+        query->addBindValue(v);
+}
+
+} // namespace
 
 
 Database::Database(const QString &connectionName)
@@ -36,7 +273,7 @@ bool Database::open()
     m_db.setPort(ServerConfig::DbPort);
     m_db.setDatabaseName(ServerConfig::DbName);
     m_db.setUserName(ServerConfig::DbUser);
-    m_db.setPassword(ServerConfig::DbPassword);
+    m_db.setPassword(ServerConfig::DbPassword());
 
     if (!m_db.open()) {
         m_lastError = m_db.lastError().text();
@@ -50,7 +287,8 @@ bool Database::isOpen() const
     return m_db.isOpen();
 }
 
-QJsonObject Database::loginOrRegister(const QString &phone, int &code, QString &msg)
+QJsonObject Database::loginOrRegister(const QString &phone, bool registerMode,
+                                      int &code, QString &msg)
 {
     QJsonObject data;
 
@@ -94,7 +332,14 @@ QJsonObject Database::loginOrRegister(const QString &phone, int &code, QString &
         return data;
     }
 
-    // 不存在 → 自动创建，默认昵称"用户+手机后4位"
+    // 不存在：仅明确注册时建号；登录则提示去点注册（NO.15 注册入口）
+    if (!registerMode) {
+        data["can_register"] = true;
+        code = Protocol::NotFound;
+        msg = "该手机号尚未注册";
+        return data;
+    }
+
     const QString nickname = "用户" + phone.right(4);
     QSqlQuery ins(m_db);
     ins.prepare("INSERT INTO `user` (phone, nickname, balance, status, last_login_at) "
@@ -466,80 +711,80 @@ QJsonObject Database::reserve(qint64 userId, qint64 pileId, int &code, QString &
         return data;
     }
 
-    if (!m_db.transaction()) {
-        code = Protocol::DbError;
-        msg = m_db.lastError().text();
-        return data;
-    }
+    QString orderNo;
 
-    const auto fail = [this, &code, &msg, &data](int errorCode,
-                                                 const QString &errorMessage) {
-        m_db.rollback();
-        code = errorCode;
-        msg = errorMessage;
-        return data;
-    };
+    // NO.59：用 runInTransaction 包装，死锁/锁等待超时时自动重试
+    const bool ok = runInTransaction([&]() -> bool {
+        const auto fail = [&](int errorCode, const QString &errorMessage) -> bool {
+            code = errorCode;
+            msg = errorMessage;
+            return false;
+        };
 
-    QSqlQuery userQuery(m_db);
-    userQuery.prepare("SELECT status FROM `user` WHERE id = ? FOR UPDATE");
-    userQuery.addBindValue(userId);
-    if (!userQuery.exec())
-        return fail(Protocol::DbError, userQuery.lastError().text());
-    if (!userQuery.next())
-        return fail(Protocol::NotFound, "用户不存在");
-    if (userQuery.value("status").toString() == "frozen")
-        return fail(Protocol::Frozen, "账号已被冻结");
+        QSqlQuery userQuery(m_db);
+        userQuery.prepare("SELECT status FROM `user` WHERE id = ? FOR UPDATE");
+        userQuery.addBindValue(userId);
+        if (!userQuery.exec())
+            return fail(Protocol::DbError, userQuery.lastError().text());
+        if (!userQuery.next())
+            return fail(Protocol::NotFound, "用户不存在");
+        if (userQuery.value("status").toString() == "frozen")
+            return fail(Protocol::Frozen, "账号已被冻结");
 
-    QSqlQuery orderQuery(m_db);
-    orderQuery.prepare("SELECT id FROM charge_order "
-                       "WHERE user_id = ? AND status IN ('reserved','charging') "
-                       "LIMIT 1 FOR UPDATE");
-    orderQuery.addBindValue(userId);
-    if (!orderQuery.exec())
-        return fail(Protocol::DbError, orderQuery.lastError().text());
-    if (orderQuery.next())
-        return fail(Protocol::HasUnfinishedOrder, "存在未完成订单");
+        QSqlQuery orderQuery(m_db);
+        orderQuery.prepare("SELECT id FROM charge_order "
+                           "WHERE user_id = ? AND status IN ('reserved','charging','pending_payment') "
+                           "LIMIT 1 FOR UPDATE");
+        orderQuery.addBindValue(userId);
+        if (!orderQuery.exec())
+            return fail(Protocol::DbError, orderQuery.lastError().text());
+        if (orderQuery.next())
+            return fail(Protocol::HasUnfinishedOrder, "存在未完成订单");
 
-    QSqlQuery pileQuery(m_db);
-    pileQuery.prepare("SELECT p.status, p.station_id, s.price "
-                      "FROM pile p JOIN station s ON s.id = p.station_id "
-                      "WHERE p.id = ? FOR UPDATE");
-    pileQuery.addBindValue(pileId);
-    if (!pileQuery.exec())
-        return fail(Protocol::DbError, pileQuery.lastError().text());
-    if (!pileQuery.next())
-        return fail(Protocol::NotFound, "电桩不存在");
-    if (pileQuery.value("status").toString() != "idle")
-        return fail(Protocol::InvalidRequest, "电桩当前不可预约");
-    const qint64 stationId = pileQuery.value("station_id").toLongLong();
-    const double unitPrice = pileQuery.value("price").toDouble();
+        QSqlQuery pileQuery(m_db);
+        pileQuery.prepare("SELECT p.status, p.station_id, s.price "
+                          "FROM pile p JOIN station s ON s.id = p.station_id "
+                          "WHERE p.id = ? FOR UPDATE");
+        pileQuery.addBindValue(pileId);
+        if (!pileQuery.exec())
+            return fail(Protocol::DbError, pileQuery.lastError().text());
+        if (!pileQuery.next())
+            return fail(Protocol::NotFound, "电桩不存在");
+        if (pileQuery.value("status").toString() != "idle")
+            return fail(Protocol::InvalidRequest, "电桩当前不可预约");
+        const qint64 stationId = pileQuery.value("station_id").toLongLong();
+        const double unitPrice = pileQuery.value("price").toDouble();
 
-    const QString orderNo = QUuid::createUuid().toString(QUuid::Id128);
-    QSqlQuery insertQuery(m_db);
-    insertQuery.prepare("INSERT INTO charge_order "
-                        "(order_no, user_id, station_id, pile_id, status, unit_price, reserve_time) "
-                        "VALUES (?, ?, ?, ?, 'reserved', ?, NOW())");
-    insertQuery.addBindValue(orderNo);
-    insertQuery.addBindValue(userId);
-    insertQuery.addBindValue(stationId);
-    insertQuery.addBindValue(pileId);
-    insertQuery.addBindValue(unitPrice);
-    if (!insertQuery.exec())
-        return fail(Protocol::DbError, insertQuery.lastError().text());
+        orderNo = QUuid::createUuid().toString(QUuid::Id128);
+        QSqlQuery insertQuery(m_db);
+        insertQuery.prepare("INSERT INTO charge_order "
+                            "(order_no, user_id, station_id, pile_id, status, unit_price, reserve_time) "
+                            "VALUES (?, ?, ?, ?, 'reserved', ?, NOW())");
+        insertQuery.addBindValue(orderNo);
+        insertQuery.addBindValue(userId);
+        insertQuery.addBindValue(stationId);
+        insertQuery.addBindValue(pileId);
+        insertQuery.addBindValue(unitPrice);
+        if (!insertQuery.exec())
+            return fail(Protocol::DbError, insertQuery.lastError().text());
 
-    QSqlQuery updateQuery(m_db);
-    updateQuery.prepare("UPDATE pile SET status = 'busy' WHERE id = ? AND status = 'idle'");
-    updateQuery.addBindValue(pileId);
-    if (!updateQuery.exec())
-        return fail(Protocol::DbError, updateQuery.lastError().text());
-    if (updateQuery.numRowsAffected() != 1)
-        return fail(Protocol::DbError, "更新电桩状态失败");
+        QSqlQuery updateQuery(m_db);
+        updateQuery.prepare("UPDATE pile SET status = 'busy' WHERE id = ? AND status = 'idle'");
+        updateQuery.addBindValue(pileId);
+        if (!updateQuery.exec())
+            return fail(Protocol::DbError, updateQuery.lastError().text());
+        if (updateQuery.numRowsAffected() != 1)
+            return fail(Protocol::DbError, "更新电桩状态失败");
 
-    if (!m_db.commit()) {
-        const QString errorMessage = m_db.lastError().text();
-        m_db.rollback();
-        code = Protocol::DbError;
-        msg = errorMessage;
+        return true;
+    });
+
+    if (!ok) {
+        // body 未设置错误（如事务开启/提交失败）时兜底为 DbError
+        if (code == Protocol::Unknown)
+            code = Protocol::DbError;
+        if (msg.isEmpty())
+            msg = m_lastError;
         return data;
     }
 
@@ -560,12 +805,13 @@ QJsonObject Database::unfinishedOrder(qint64 userId, int &code, QString &msg)
     }
 
     QSqlQuery q(m_db);
-    // 未完成订单含三种状态：已预约、充电中、待支付（余额不足结算未完成）。
-    // 三者都应把用户导回充电/结算页，缺一会漏掉待补款的单。
-    q.prepare("SELECT order_no, pile_id, status, reserve_time, start_time "
-              "FROM charge_order "
-              "WHERE user_id = ? AND status IN ('reserved','charging','pending_payment') "
-              "ORDER BY id DESC LIMIT 1");
+    q.prepare("SELECT o.order_no, o.pile_id, o.status, o.reserve_time, o.start_time, o.end_time, "
+              "o.unit_price, o.duration_seconds, o.kwh, o.amount, p.power_kw, "
+              "o.start_soc, o.battery_capacity_kwh, o.target_soc "
+              "FROM charge_order o "
+              "JOIN pile p ON p.id = o.pile_id "
+              "WHERE o.user_id = ? AND o.status IN ('reserved','charging','pending_payment') "
+              "ORDER BY o.id DESC LIMIT 1");
     q.addBindValue(userId);
     if (!q.exec()) {
         code = Protocol::DbError;
@@ -579,11 +825,35 @@ QJsonObject Database::unfinishedOrder(qint64 userId, int &code, QString &msg)
         return data;
     }
 
-    data["order_no"]    = q.value("order_no").toString();
-    data["pile_id"]     = q.value("pile_id").toLongLong();
-    data["status"]      = q.value("status").toString();
+    const QString status = q.value("status").toString();
+    const double powerKw = q.value("power_kw").toDouble();
+    const double unitPrice = q.value("unit_price").toDouble();
+    data["order_no"]     = q.value("order_no").toString();
+    data["pile_id"]      = q.value("pile_id").toLongLong();
+    data["status"]       = status;
     data["reserve_time"] = q.value("reserve_time").toString();
     data["start_time"]   = q.value("start_time").toString();
+    data["power_kw"]     = powerKw;
+    data["unit_price"]   = unitPrice;
+    appendSimulatedSoc(data, q);
+
+    if (status == QStringLiteral("charging")) {
+        const qint64 duration = chargeDurationSeconds(q.value("start_time").toDateTime());
+        const double kwh = chargeKwh(powerKw, duration);
+        data["duration_seconds"] = static_cast<int>(duration);
+        data["kwh"] = kwh;
+        data["amount"] = chargeAmount(kwh, unitPrice);
+    } else if (status == QStringLiteral("pending_payment")) {
+        data["end_time"] = q.value("end_time").toString();
+        data["duration_seconds"] = q.value("duration_seconds").toInt();
+        data["kwh"] = q.value("kwh").toDouble();
+        data["amount"] = q.value("amount").toDouble();
+    } else {
+        data["duration_seconds"] = 0;
+        data["kwh"] = 0.0;
+        data["amount"] = 0.0;
+    }
+
     code = Protocol::Ok;
     msg = "ok";
     return data;
@@ -638,8 +908,15 @@ QJsonObject Database::startCharge(const QString &orderNo, qint64 userId, int &co
         return fail(Protocol::InvalidRequest, "故障电桩不能开始充电");
 
     QSqlQuery updateOrder(m_db);
-    updateOrder.prepare("UPDATE charge_order SET status = 'charging', start_time = NOW() "
+    const int startSoc = QRandomGenerator::global()->bounded(20, 61);
+    const double batteryCapacityKwh = 60.0;
+    const double targetSoc = 100.0;
+    updateOrder.prepare("UPDATE charge_order SET status = 'charging', start_time = NOW(), "
+                        "start_soc = ?, battery_capacity_kwh = ?, target_soc = ? "
                         "WHERE order_no = ? AND user_id = ? AND status = 'reserved'");
+    updateOrder.addBindValue(startSoc);
+    updateOrder.addBindValue(batteryCapacityKwh);
+    updateOrder.addBindValue(targetSoc);
     updateOrder.addBindValue(trimmedOrderNo);
     updateOrder.addBindValue(userId);
     if (!updateOrder.exec())
@@ -654,7 +931,10 @@ QJsonObject Database::startCharge(const QString &orderNo, qint64 userId, int &co
         return fail(Protocol::DbError, updatePile.lastError().text());
 
     QSqlQuery timeQuery(m_db);
-    timeQuery.prepare("SELECT start_time FROM charge_order WHERE order_no = ?");
+    timeQuery.prepare("SELECT o.start_time, o.unit_price, p.power_kw "
+                      "FROM charge_order o "
+                      "JOIN pile p ON p.id = o.pile_id "
+                      "WHERE o.order_no = ?");
     timeQuery.addBindValue(trimmedOrderNo);
     if (!timeQuery.exec() || !timeQuery.next())
         return fail(Protocol::DbError, timeQuery.lastError().text());
@@ -668,126 +948,230 @@ QJsonObject Database::startCharge(const QString &orderNo, qint64 userId, int &co
     }
 
     data["start_time"] = timeQuery.value("start_time").toString();
+    data["unit_price"] = timeQuery.value("unit_price").toDouble();
+    data["power_kw"] = timeQuery.value("power_kw").toDouble();
+    data["start_soc"] = startSoc;
+    data["battery_capacity_kwh"] = batteryCapacityKwh;
+    data["target_soc"] = targetSoc;
     code = Protocol::Ok;
     msg = "开始充电成功";
     return data;
 }
 
-QJsonObject Database::settle(const QString &orderNo, qint64 userId, double kwh, int &code, QString &msg)
+QJsonObject Database::finishCharge(const QString &orderNo, qint64 userId, int &code, QString &msg)
 {
     QJsonObject data;
     const QString trimmedOrderNo = orderNo.trimmed();
 
-    if (trimmedOrderNo.isEmpty() || userId <= 0 || kwh <= 0) {
+    if (trimmedOrderNo.isEmpty() || userId <= 0) {
         code = Protocol::InvalidRequest;
-        msg = "order_no 或 kwh 参数不正确";
+        msg = "order_no 参数不正确";
         return data;
     }
 
-    if (!m_db.transaction()) {
-        code = Protocol::DbError;
-        msg = m_db.lastError().text();
+    QString endTimeText;
+    qint64 durationSeconds = 0;
+    double kwh = 0;
+    double amount = 0;
+    double unitPrice = 0;
+    double powerKw = 0;
+
+    const bool ok = runInTransaction([&]() -> bool {
+        const auto fail = [&](int errorCode, const QString &errorMessage) -> bool {
+            code = errorCode;
+            msg = errorMessage;
+            return false;
+        };
+
+        QSqlQuery query(m_db);
+        query.prepare("SELECT o.status, o.start_time, o.end_time, o.unit_price, "
+                      "o.duration_seconds, o.kwh, o.amount, o.pile_id, p.power_kw, "
+                      "p.status AS pile_status "
+                      "FROM charge_order o "
+                      "JOIN pile p ON p.id = o.pile_id "
+                      "WHERE o.order_no = ? AND o.user_id = ? FOR UPDATE");
+        query.addBindValue(trimmedOrderNo);
+        query.addBindValue(userId);
+        if (!query.exec())
+            return fail(Protocol::DbError, query.lastError().text());
+        if (!query.next())
+            return fail(Protocol::NotFound, "订单不存在");
+
+        const QString status = query.value("status").toString();
+        unitPrice = query.value("unit_price").toDouble();
+        powerKw = query.value("power_kw").toDouble();
+        const qint64 pileId = query.value("pile_id").toLongLong();
+
+        if (status == QStringLiteral("pending_payment")) {
+            durationSeconds = query.value("duration_seconds").toLongLong();
+            kwh = query.value("kwh").toDouble();
+            amount = query.value("amount").toDouble();
+            endTimeText = query.value("end_time").toString();
+            return true;
+        }
+        if (status != QStringLiteral("charging"))
+            return fail(Protocol::InvalidRequest, "订单当前状态不能结束充电");
+
+        durationSeconds = chargeDurationSeconds(query.value("start_time").toDateTime());
+        kwh = chargeKwh(powerKw, durationSeconds);
+        amount = chargeAmount(kwh, unitPrice);
+
+        QSqlQuery updateOrder(m_db);
+        updateOrder.prepare("UPDATE charge_order SET status = 'pending_payment', end_time = NOW(), "
+                            "kwh = ?, amount = ?, duration_seconds = ? "
+                            "WHERE order_no = ? AND user_id = ? AND status = 'charging'");
+        updateOrder.addBindValue(kwh);
+        updateOrder.addBindValue(amount);
+        updateOrder.addBindValue(durationSeconds);
+        updateOrder.addBindValue(trimmedOrderNo);
+        updateOrder.addBindValue(userId);
+        if (!updateOrder.exec() || updateOrder.numRowsAffected() != 1)
+            return fail(Protocol::DbError, updateOrder.lastError().text());
+
+        QSqlQuery updatePile(m_db);
+        updatePile.prepare("UPDATE pile SET "
+                           "status = IF(status = 'fault', 'fault', 'idle'), "
+                           "total_count = total_count + 1, "
+                           "total_hours = total_hours + ? / 3600.0 "
+                           "WHERE id = ?");
+        updatePile.addBindValue(durationSeconds);
+        updatePile.addBindValue(pileId);
+        if (!updatePile.exec() || updatePile.numRowsAffected() != 1)
+            return fail(Protocol::DbError, updatePile.lastError().text());
+
+        QSqlQuery timeQuery(m_db);
+        timeQuery.prepare("SELECT end_time FROM charge_order WHERE order_no = ?");
+        timeQuery.addBindValue(trimmedOrderNo);
+        if (!timeQuery.exec() || !timeQuery.next())
+            return fail(Protocol::DbError, timeQuery.lastError().text());
+        endTimeText = timeQuery.value("end_time").toString();
+        return true;
+    });
+
+    if (!ok) {
+        if (code == Protocol::Unknown)
+            code = Protocol::DbError;
+        if (msg.isEmpty())
+            msg = m_lastError;
         return data;
     }
 
-    const auto fail = [this, &code, &msg, &data](int errorCode,
-                                                 const QString &errorMessage) {
-        m_db.rollback();
-        code = errorCode;
-        msg = errorMessage;
-        return data;
-    };
-
-    QSqlQuery query(m_db);
-    query.prepare("SELECT o.id AS order_id, o.user_id, o.pile_id, o.status, o.start_time, "
-                  "o.unit_price, u.balance, p.status AS pile_status "
-                  "FROM charge_order o "
-                  "JOIN `user` u ON u.id = o.user_id "
-                  "JOIN pile p ON p.id = o.pile_id "
-                  "WHERE o.order_no = ? AND o.user_id = ? FOR UPDATE");
-    query.addBindValue(trimmedOrderNo);
-    query.addBindValue(userId);
-    if (!query.exec())
-        return fail(Protocol::DbError, query.lastError().text());
-    if (!query.next())
-        return fail(Protocol::NotFound, "订单不存在");
-    if (query.value("status").toString() != "charging")
-        return fail(Protocol::InvalidRequest, "订单当前状态不能结算");
-    if (query.value("pile_status").toString() == "fault")
-        return fail(Protocol::InvalidRequest, "故障电桩不能结算");
-
-    const double unitPrice = query.value("unit_price").toDouble();
-    const double amount = kwh * unitPrice;
-    const double balance = query.value("balance").toDouble();
-    if (balance < amount)
-        return fail(Protocol::InsufficientBalance, "余额不足");
-
-    QSqlQuery updateUser(m_db);
-    updateUser.prepare("UPDATE `user` SET balance = balance - ? WHERE id = ?");
-    updateUser.addBindValue(amount);
-    updateUser.addBindValue(query.value("user_id").toLongLong());
-    if (!updateUser.exec() || updateUser.numRowsAffected() != 1)
-        return fail(Protocol::DbError, updateUser.lastError().text());
-
-    // 写钱包流水（NO.52：扣款留痕）
-    QSqlQuery txn(m_db);
-    txn.prepare("INSERT INTO wallet_transactions "
-                "(transaction_no, user_id, type, amount, balance_before, balance_after, order_id) "
-                "VALUES (?, ?, 'charge_pay', ?, ?, ?, ?)");
-    txn.addBindValue(QUuid::createUuid().toString(QUuid::Id128));
-    txn.addBindValue(query.value("user_id").toLongLong());
-    txn.addBindValue(amount);
-    txn.addBindValue(balance);
-    txn.addBindValue(balance - amount);
-    txn.addBindValue(query.value("order_id").toLongLong());
-    if (!txn.exec())
-        return fail(Protocol::DbError, txn.lastError().text());
-
-    const qint64 durationSeconds =
-        query.value("start_time").toDateTime().secsTo(QDateTime::currentDateTime());
-
-    QSqlQuery updateOrder(m_db);
-    updateOrder.prepare("UPDATE charge_order SET status = 'settled', end_time = NOW(), "
-                        "kwh = ?, amount = ?, duration_seconds = ?, pay_request_id = ? "
-                        "WHERE order_no = ? AND user_id = ? AND status = 'charging'");
-    updateOrder.addBindValue(kwh);
-    updateOrder.addBindValue(amount);
-    updateOrder.addBindValue(durationSeconds);
-    updateOrder.addBindValue(QUuid::createUuid().toString(QUuid::WithoutBraces));
-    updateOrder.addBindValue(trimmedOrderNo);
-    updateOrder.addBindValue(userId);
-    if (!updateOrder.exec() || updateOrder.numRowsAffected() != 1)
-        return fail(Protocol::DbError, updateOrder.lastError().text());
-
-    QSqlQuery updatePile(m_db);
-    updatePile.prepare("UPDATE pile p JOIN charge_order o ON o.pile_id = p.id "
-                       "SET p.status = 'idle', p.total_count = p.total_count + 1, "
-                       "p.total_hours = p.total_hours + "
-                       "TIMESTAMPDIFF(SECOND, o.start_time, NOW()) / 3600.0 "
-                       "WHERE p.id = ? AND o.order_no = ?");
-    updatePile.addBindValue(query.value("pile_id").toLongLong());
-    updatePile.addBindValue(trimmedOrderNo);
-    if (!updatePile.exec() || updatePile.numRowsAffected() != 1)
-        return fail(Protocol::DbError, updatePile.lastError().text());
-
-    QSqlQuery balanceQuery(m_db);
-    balanceQuery.prepare("SELECT balance FROM `user` WHERE id = ?");
-    balanceQuery.addBindValue(query.value("user_id").toLongLong());
-    if (!balanceQuery.exec() || !balanceQuery.next())
-        return fail(Protocol::DbError, balanceQuery.lastError().text());
-
-    if (!m_db.commit()) {
-        const QString errorMessage = m_db.lastError().text();
-        m_db.rollback();
-        code = Protocol::DbError;
-        msg = errorMessage;
-        return data;
-    }
-
+    data["end_time"] = endTimeText;
+    data["duration_seconds"] = static_cast<int>(durationSeconds);
+    data["kwh"] = kwh;
     data["amount"] = amount;
-    data["balance"] = balanceQuery.value("balance").toDouble();
+    data["unit_price"] = unitPrice;
+    data["power_kw"] = powerKw;
     code = Protocol::Ok;
-    msg = "结算成功";
+    msg = "充电已结束";
+    return data;
+}
+
+QJsonObject Database::payCharge(const QString &orderNo, qint64 userId, int &code, QString &msg)
+{
+    QJsonObject data;
+    const QString trimmedOrderNo = orderNo.trimmed();
+
+    if (trimmedOrderNo.isEmpty() || userId <= 0) {
+        code = Protocol::InvalidRequest;
+        msg = "order_no 参数不正确";
+        return data;
+    }
+
+    double paidAmount = 0;
+    double newBalance = 0;
+    int durationSeconds = 0;
+    double kwh = 0;
+
+    const bool ok = runInTransaction([&]() -> bool {
+        const auto fail = [&](int errorCode, const QString &errorMessage) -> bool {
+            code = errorCode;
+            msg = errorMessage;
+            return false;
+        };
+
+        QSqlQuery query(m_db);
+        query.prepare("SELECT o.id AS order_id, o.status, o.amount, o.kwh, o.duration_seconds, "
+                      "u.balance "
+                      "FROM charge_order o "
+                      "JOIN `user` u ON u.id = o.user_id "
+                      "WHERE o.order_no = ? AND o.user_id = ? FOR UPDATE");
+        query.addBindValue(trimmedOrderNo);
+        query.addBindValue(userId);
+        if (!query.exec())
+            return fail(Protocol::DbError, query.lastError().text());
+        if (!query.next())
+            return fail(Protocol::NotFound, "订单不存在");
+
+        const QString status = query.value("status").toString();
+        paidAmount = query.value("amount").toDouble();
+        kwh = query.value("kwh").toDouble();
+        durationSeconds = query.value("duration_seconds").toInt();
+        const qint64 orderId = query.value("order_id").toLongLong();
+        const double balance = query.value("balance").toDouble();
+
+        if (status == QStringLiteral("settled")) {
+            newBalance = balance;
+            return true;
+        }
+        if (status != QStringLiteral("pending_payment"))
+            return fail(Protocol::InvalidRequest, "订单当前状态不能支付");
+
+        if (round2(balance) + 1e-9 < paidAmount)
+            return fail(Protocol::InsufficientBalance, "余额不足");
+
+        QSqlQuery updateUser(m_db);
+        updateUser.prepare("UPDATE `user` SET balance = balance - ? WHERE id = ?");
+        updateUser.addBindValue(paidAmount);
+        updateUser.addBindValue(userId);
+        if (!updateUser.exec() || updateUser.numRowsAffected() != 1)
+            return fail(Protocol::DbError, updateUser.lastError().text());
+
+        QSqlQuery txn(m_db);
+        txn.prepare("INSERT INTO wallet_transactions "
+                    "(transaction_no, user_id, type, amount, balance_before, balance_after, order_id) "
+                    "VALUES (?, ?, 'charge_pay', ?, ?, ?, ?)");
+        txn.addBindValue(QUuid::createUuid().toString(QUuid::Id128));
+        txn.addBindValue(userId);
+        txn.addBindValue(paidAmount);
+        txn.addBindValue(balance);
+        txn.addBindValue(round2(balance - paidAmount));
+        txn.addBindValue(orderId);
+        if (!txn.exec())
+            return fail(Protocol::DbError, txn.lastError().text());
+
+        QSqlQuery updateOrder(m_db);
+        updateOrder.prepare("UPDATE charge_order SET status = 'settled', pay_request_id = ? "
+                            "WHERE order_no = ? AND user_id = ? AND status = 'pending_payment'");
+        updateOrder.addBindValue(QUuid::createUuid().toString(QUuid::WithoutBraces));
+        updateOrder.addBindValue(trimmedOrderNo);
+        updateOrder.addBindValue(userId);
+        if (!updateOrder.exec() || updateOrder.numRowsAffected() != 1)
+            return fail(Protocol::DbError, updateOrder.lastError().text());
+
+        QSqlQuery balanceQuery(m_db);
+        balanceQuery.prepare("SELECT balance FROM `user` WHERE id = ?");
+        balanceQuery.addBindValue(userId);
+        if (!balanceQuery.exec() || !balanceQuery.next())
+            return fail(Protocol::DbError, balanceQuery.lastError().text());
+        newBalance = balanceQuery.value("balance").toDouble();
+        return true;
+    });
+
+    if (!ok) {
+        if (code == Protocol::Unknown)
+            code = Protocol::DbError;
+        if (msg.isEmpty())
+            msg = m_lastError;
+        return data;
+    }
+
+    data["amount"] = paidAmount;
+    data["balance"] = newBalance;
+    data["duration_seconds"] = durationSeconds;
+    data["kwh"] = kwh;
+    code = Protocol::Ok;
+    msg = "支付成功";
     return data;
 }
 
@@ -801,66 +1185,66 @@ QJsonObject Database::recharge(qint64 userId, double amount, int &code, QString 
         return data;
     }
 
-    if (!m_db.transaction()) {
-        code = Protocol::DbError;
-        msg = m_db.lastError().text();
+    double newBalance = 0;
+
+    // NO.59：用 runInTransaction 包装，死锁/锁等待超时时自动重试
+    const bool ok = runInTransaction([&]() -> bool {
+        const auto fail = [&](int errorCode, const QString &errorMessage) -> bool {
+            code = errorCode;
+            msg = errorMessage;
+            return false;
+        };
+
+        QSqlQuery userQuery(m_db);
+        userQuery.prepare("SELECT status, balance FROM `user` WHERE id = ? FOR UPDATE");
+        userQuery.addBindValue(userId);
+        if (!userQuery.exec())
+            return fail(Protocol::DbError, userQuery.lastError().text());
+        if (!userQuery.next())
+            return fail(Protocol::NotFound, "用户不存在");
+        if (userQuery.value("status").toString() == "frozen")
+            return fail(Protocol::Frozen, "账号已被冻结，无法充值");
+        const double balanceBefore = userQuery.value("balance").toDouble();
+
+        QSqlQuery updateQuery(m_db);
+        updateQuery.prepare("UPDATE `user` SET balance = balance + ? WHERE id = ?");
+        updateQuery.addBindValue(amount);
+        updateQuery.addBindValue(userId);
+        if (!updateQuery.exec() || updateQuery.numRowsAffected() != 1)
+            return fail(Protocol::DbError, updateQuery.lastError().text());
+
+        // 写钱包流水（NO.52：余额变化必须留痕）
+        QSqlQuery insertQuery(m_db);
+        insertQuery.prepare("INSERT INTO wallet_transactions "
+                            "(transaction_no, user_id, type, amount, balance_before, balance_after) "
+                            "VALUES (?, ?, 'recharge', ?, ?, ?)");
+        insertQuery.addBindValue(QUuid::createUuid().toString(QUuid::Id128));
+        insertQuery.addBindValue(userId);
+        insertQuery.addBindValue(amount);
+        insertQuery.addBindValue(balanceBefore);
+        insertQuery.addBindValue(balanceBefore + amount);
+        if (!insertQuery.exec())
+            return fail(Protocol::DbError, insertQuery.lastError().text());
+
+        QSqlQuery balanceQuery(m_db);
+        balanceQuery.prepare("SELECT balance FROM `user` WHERE id = ?");
+        balanceQuery.addBindValue(userId);
+        if (!balanceQuery.exec() || !balanceQuery.next())
+            return fail(Protocol::DbError, balanceQuery.lastError().text());
+
+        newBalance = balanceQuery.value("balance").toDouble();
+        return true;
+    });
+
+    if (!ok) {
+        if (code == Protocol::Unknown)
+            code = Protocol::DbError;
+        if (msg.isEmpty())
+            msg = m_lastError;
         return data;
     }
 
-    const auto fail = [this, &code, &msg, &data](int errorCode,
-                                                 const QString &errorMessage) {
-        m_db.rollback();
-        code = errorCode;
-        msg = errorMessage;
-        return data;
-    };
-
-    QSqlQuery userQuery(m_db);
-    userQuery.prepare("SELECT status, balance FROM `user` WHERE id = ? FOR UPDATE");
-    userQuery.addBindValue(userId);
-    if (!userQuery.exec())
-        return fail(Protocol::DbError, userQuery.lastError().text());
-    if (!userQuery.next())
-        return fail(Protocol::NotFound, "用户不存在");
-    if (userQuery.value("status").toString() == "frozen")
-        return fail(Protocol::Frozen, "账号已被冻结，无法充值");
-    const double balanceBefore = userQuery.value("balance").toDouble();
-
-    QSqlQuery updateQuery(m_db);
-    updateQuery.prepare("UPDATE `user` SET balance = balance + ? WHERE id = ?");
-    updateQuery.addBindValue(amount);
-    updateQuery.addBindValue(userId);
-    if (!updateQuery.exec() || updateQuery.numRowsAffected() != 1)
-        return fail(Protocol::DbError, updateQuery.lastError().text());
-
-    // 写钱包流水（NO.52：余额变化必须留痕）
-    QSqlQuery insertQuery(m_db);
-    insertQuery.prepare("INSERT INTO wallet_transactions "
-                        "(transaction_no, user_id, type, amount, balance_before, balance_after) "
-                        "VALUES (?, ?, 'recharge', ?, ?, ?)");
-    insertQuery.addBindValue(QUuid::createUuid().toString(QUuid::Id128));
-    insertQuery.addBindValue(userId);
-    insertQuery.addBindValue(amount);
-    insertQuery.addBindValue(balanceBefore);
-    insertQuery.addBindValue(balanceBefore + amount);
-    if (!insertQuery.exec())
-        return fail(Protocol::DbError, insertQuery.lastError().text());
-
-    QSqlQuery balanceQuery(m_db);
-    balanceQuery.prepare("SELECT balance FROM `user` WHERE id = ?");
-    balanceQuery.addBindValue(userId);
-    if (!balanceQuery.exec() || !balanceQuery.next())
-        return fail(Protocol::DbError, balanceQuery.lastError().text());
-
-    if (!m_db.commit()) {
-        const QString errorMessage = m_db.lastError().text();
-        m_db.rollback();
-        code = Protocol::DbError;
-        msg = errorMessage;
-        return data;
-    }
-
-    data["balance"] = balanceQuery.value("balance").toDouble();
+    data["balance"] = newBalance;
     code = Protocol::Ok;
     msg = "充值成功";
     return data;
@@ -974,41 +1358,145 @@ QJsonObject Database::adminUserFreeze(qint64 adminId, qint64 userId, bool frozen
     return data;
 }
 
-QJsonArray Database::adminPileList(int &code, QString &msg)
+QJsonObject Database::adminPileList(const QJsonObject &input, int &code, QString &msg)
 {
     QJsonArray arr;
 
-    QSqlQuery q(m_db);
-    const QString sql =
+    QStringList conds;
+    QVariantList binds;
+    const qint64 stationId = jsonInt64(input, QStringLiteral("station_id"));
+    if (input.contains(QStringLiteral("station_id")) && stationId <= 0) {
+        code = Protocol::InvalidRequest;
+        msg = QStringLiteral("station_id 必须为正整数");
+        return {};
+    }
+    if (stationId > 0) {
+        conds.append(QStringLiteral("p.station_id = ?"));
+        binds.append(stationId);
+    }
+    const QString pileType = input.value(QStringLiteral("type")).toString().trimmed();
+    if (!pileType.isEmpty()) {
+        if (pileType != QLatin1String("fast") && pileType != QLatin1String("slow")) {
+            code = Protocol::InvalidRequest;
+            msg = QStringLiteral("type 取值无效");
+            return {};
+        }
+        conds.append(QStringLiteral("p.type = ?"));
+        binds.append(pileType);
+    }
+    const QString status = input.value(QStringLiteral("status")).toString().trimmed();
+    if (!status.isEmpty()) {
+        if (status != QLatin1String("idle") && status != QLatin1String("busy")
+            && status != QLatin1String("fault")) {
+            code = Protocol::InvalidRequest;
+            msg = QStringLiteral("status 取值无效");
+            return {};
+        }
+        conds.append(QStringLiteral("p.status = ?"));
+        binds.append(status);
+    }
+    const QString pileCode = input.value(QStringLiteral("code")).toString().trimmed();
+    if (!pileCode.isEmpty()) {
+        conds.append(QStringLiteral("p.code LIKE ? ESCAPE '|'"));
+        binds.append(QStringLiteral("%") + escapeLike(pileCode) + QLatin1Char('%'));
+    }
+
+    int page = input.value(QStringLiteral("page")).toInt(1);
+    int pageSize = input.value(QStringLiteral("page_size")).toInt(20);
+    if (page < 1) page = 1;
+    if (pageSize < 1) pageSize = 20;
+    if (pageSize > 50) pageSize = 50;
+
+    QString sql =
         "SELECT p.id, p.code, s.name AS station, "
         "p.type, p.power_kw, p.status, p.total_count, p.total_hours "
         "FROM pile p "
-        "LEFT JOIN station s ON p.station_id = s.id "
-        "ORDER BY p.id";
+        "LEFT JOIN station s ON p.station_id = s.id ";
+    const QString where = conds.isEmpty()
+        ? QString()
+        : QStringLiteral(" WHERE ") + conds.join(QStringLiteral(" AND "));
 
-    if (!q.exec(sql)) {
+    QSqlQuery countQuery(m_db);
+    countQuery.prepare(QStringLiteral("SELECT COUNT(*) FROM pile p ")
+                       + QStringLiteral("LEFT JOIN station s ON p.station_id = s.id")
+                       + where);
+    bindAll(&countQuery, binds);
+    if (!countQuery.exec() || !countQuery.next()) {
         code = Protocol::DbError;
-        msg = q.lastError().text();
-        return arr;
+        msg = countQuery.lastError().text();
+        return {};
+    }
+    const int total = countQuery.value(0).toInt();
+
+    sql += where + QStringLiteral(" ORDER BY p.id LIMIT ? OFFSET ?");
+    QSqlQuery prepared(m_db);
+    prepared.prepare(sql);
+    bindAll(&prepared, binds);
+    prepared.addBindValue(pageSize);
+    prepared.addBindValue((page - 1) * pageSize);
+
+    if (!prepared.exec()) {
+        code = Protocol::DbError;
+        msg = prepared.lastError().text();
+        return {};
     }
 
-    while (q.next()) {
+    while (prepared.next()) {
         QJsonObject o;
-        o["id"]       = q.value("id").toLongLong();
-        o["code"]     = q.value("code").toString();
-        o["station"]  = q.value("station").toString();
-        o["type"]     = q.value("type").toString();
-        o["power_kw"] = q.value("power_kw").toDouble();
-        o["status"]   = q.value("status").toString();
-        o["total_count"] = q.value("total_count").toInt();
-        o["total_hours"] = q.value("total_hours").toDouble();
+        o["id"]       = prepared.value("id").toLongLong();
+        o["code"]     = prepared.value("code").toString();
+        o["station"]  = prepared.value("station").toString();
+        o["type"]     = prepared.value("type").toString();
+        o["power_kw"] = prepared.value("power_kw").toDouble();
+        o["status"]   = prepared.value("status").toString();
+        o["total_count"] = prepared.value("total_count").toInt();
+        o["total_hours"] = prepared.value("total_hours").toDouble();
 
         arr.append(o);
     }
 
     code = Protocol::Ok;
     msg = "ok";
-    return arr;
+    return QJsonObject{{QStringLiteral("list"), arr},
+                       {QStringLiteral("total"), total},
+                       {QStringLiteral("page"), page},
+                       {QStringLiteral("page_size"), pageSize}};
+}
+
+QJsonObject Database::adminPileStats(int &code, QString &msg)
+{
+    QSqlQuery statsQuery(m_db);
+    if (!statsQuery.exec("SELECT status, COUNT(*) FROM pile WHERE enabled=1 GROUP BY status")) {
+        code = Protocol::DbError;
+        msg = statsQuery.lastError().text();
+        return {};
+    }
+
+    int idle = 0;
+    int busy = 0;
+    int fault = 0;
+    while (statsQuery.next()) {
+        const QString status = statsQuery.value(0).toString();
+        const int count = statsQuery.value(1).toInt();
+        if (status == QStringLiteral("idle")) idle = count;
+        else if (status == QStringLiteral("busy")) busy = count;
+        else if (status == QStringLiteral("fault")) fault = count;
+    }
+
+    const int total = idle + busy + fault;
+    const auto rate = [total](int count) {
+        return total > 0 ? std::round(count * 1000.0 / total) / 10.0 : 0.0;
+    };
+    const QJsonObject stats{
+        {QStringLiteral("idle"), QJsonObject{{QStringLiteral("count"), idle}, {QStringLiteral("rate"), rate(idle)}}},
+        {QStringLiteral("busy"), QJsonObject{{QStringLiteral("count"), busy}, {QStringLiteral("rate"), rate(busy)}}},
+        {QStringLiteral("fault"), QJsonObject{{QStringLiteral("count"), fault}, {QStringLiteral("rate"), rate(fault)}}},
+        {QStringLiteral("total"), total},
+        {QStringLiteral("stat_time"), QDateTime::currentDateTime().toString(Qt::ISODate)}
+    };
+    code = Protocol::Ok;
+    msg = "ok";
+    return stats;
 }
 
 QJsonObject Database::adminPileRestart(qint64 adminId, qint64 pileId, int &code, QString &msg)
@@ -1089,6 +1577,102 @@ QJsonObject Database::adminPileRestart(qint64 adminId, qint64 pileId, int &code,
     code = Protocol::Ok;
     msg = "重启成功";
     return data;
+}
+
+QJsonObject Database::adminOrderList(const QJsonObject &input, int &code, QString &msg)
+{
+    QJsonObject out;
+    QStringList conds;
+    QVariantList binds;
+    QString err;
+    if (!buildOrderFilters(input, &conds, &binds, &err)) {
+        code = Protocol::InvalidRequest;
+        msg = err;
+        return out;
+    }
+
+    int page = input.value(QStringLiteral("page")).toInt(1);
+    int pageSize = input.value(QStringLiteral("page_size")).toInt(20);
+    if (page < 1)
+        page = 1;
+    if (pageSize < 1)
+        pageSize = 20;
+    if (pageSize > 50)
+        pageSize = 50;
+
+    QString where;
+    if (!conds.isEmpty())
+        where = QStringLiteral(" WHERE ") + conds.join(QStringLiteral(" AND "));
+
+    QSqlQuery countQuery(m_db);
+    countQuery.prepare(
+        QStringLiteral(
+            "SELECT COUNT(*) FROM charge_order o "
+            "LEFT JOIN `user` u ON o.user_id = u.id "
+            "LEFT JOIN station s ON o.station_id = s.id "
+            "LEFT JOIN pile p ON o.pile_id = p.id")
+        + where);
+    bindAll(&countQuery, binds);
+    if (!countQuery.exec() || !countQuery.next()) {
+        code = Protocol::DbError;
+        msg = countQuery.lastError().text();
+        return out;
+    }
+    const int total = countQuery.value(0).toInt();
+
+    QSqlQuery q(m_db);
+    q.prepare(kOrderSelectSql + where
+              + QStringLiteral(" ORDER BY o.created_at DESC, o.id DESC LIMIT ? OFFSET ?"));
+    bindAll(&q, binds);
+    q.addBindValue(pageSize);
+    q.addBindValue((page - 1) * pageSize);
+    if (!q.exec()) {
+        code = Protocol::DbError;
+        msg = q.lastError().text();
+        return out;
+    }
+
+    QJsonArray list;
+    while (q.next())
+        list.append(orderRowToJson(q));
+
+    out["list"] = list;
+    out["total"] = total;
+    out["page"] = page;
+    out["page_size"] = pageSize;
+    code = Protocol::Ok;
+    msg = "ok";
+    return out;
+}
+
+QJsonObject Database::adminOrderDetail(const QString &orderNo, int &code, QString &msg)
+{
+    QJsonObject out;
+    const QString trimmed = orderNo.trimmed();
+    if (trimmed.isEmpty()) {
+        code = Protocol::InvalidRequest;
+        msg = "缺少 order_no";
+        return out;
+    }
+
+    QSqlQuery q(m_db);
+    q.prepare(kOrderSelectSql + QStringLiteral(" WHERE o.order_no = ? LIMIT 1"));
+    q.addBindValue(trimmed);
+    if (!q.exec()) {
+        code = Protocol::DbError;
+        msg = q.lastError().text();
+        return out;
+    }
+    if (!q.next()) {
+        code = Protocol::NotFound;
+        msg = "订单不存在";
+        return out;
+    }
+
+    out = orderRowToJson(q);
+    code = Protocol::Ok;
+    msg = "ok";
+    return out;
 }
 
 QJsonArray Database::adminStationList(int &code, QString &msg)
@@ -1256,7 +1840,7 @@ bool Database::ensureSchema()
         "SELECT COUNT(*) FROM information_schema.tables "
         "WHERE table_schema = DATABASE() AND table_name = 'user'"));
     if (q.next() && q.value(0).toInt() > 0)
-        return true;
+        return upgradeSchema();
 
     // 缺表 → 读取打包进程序的 schema.sql 并执行
     QFile file(QStringLiteral(":/sql/schema.sql"));
@@ -1264,7 +1848,51 @@ bool Database::ensureSchema()
         m_lastError = QStringLiteral("无法读取 schema.sql");
         return false;
     }
-    return executeScript(QString::fromUtf8(file.readAll()));
+    if (!executeScript(QString::fromUtf8(file.readAll())))
+        return false;
+    return upgradeSchema();
+}
+
+bool Database::columnExists(const QString &table, const QString &column)
+{
+    QSqlQuery q(m_db);
+    q.prepare(QStringLiteral(
+        "SELECT COUNT(*) FROM information_schema.columns "
+        "WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?"));
+    q.addBindValue(table);
+    q.addBindValue(column);
+    if (!q.exec() || !q.next())
+        return false;
+    return q.value(0).toInt() > 0;
+}
+
+bool Database::upgradeSchema()
+{
+    // v3：模拟 SOC 字段。已有库只 ALTER，绝不 DROP。
+    if (!columnExists(QStringLiteral("charge_order"), QStringLiteral("start_soc"))) {
+        QSqlQuery alter(m_db);
+        if (!alter.exec(QStringLiteral(
+                "ALTER TABLE charge_order "
+                "ADD COLUMN start_soc DECIMAL(5,2) NULL AFTER unit_price, "
+                "ADD COLUMN battery_capacity_kwh DECIMAL(6,2) NULL AFTER start_soc, "
+                "ADD COLUMN target_soc DECIMAL(5,2) NULL AFTER battery_capacity_kwh"))) {
+            m_lastError = alter.lastError().text();
+            return false;
+        }
+    }
+
+    if (schemaVersion() < 3) {
+        QSqlQuery ver(m_db);
+        ver.prepare(QStringLiteral(
+            "INSERT INTO schema_version (version, description) VALUES "
+            "(3, 'charge_order 增加模拟 SOC：start_soc / battery_capacity_kwh / target_soc')"));
+        if (!ver.exec()) {
+            m_lastError = ver.lastError().text();
+            return false;
+        }
+    }
+
+    return true;
 }
 
 bool Database::executeScript(const QString &sql)
@@ -1359,6 +1987,34 @@ bool Database::logOperation(qint64 adminId, const QString &action, const QString
         return false;
     }
     return true;
+}
+
+// ============================================================================
+// 事务包装（NO.59）：死锁(1213)/锁等待超时(1205)时有限重试
+// ============================================================================
+
+bool Database::runInTransaction(std::function<bool()> body, int maxRetries)
+{
+    for (int attempt = 0; attempt <= maxRetries; ++attempt) {
+        if (!m_db.transaction()) {
+            m_lastError = m_db.lastError().text();
+            return false;
+        }
+        if (body()) {
+            if (m_db.commit())
+                return true;
+            m_lastError = m_db.lastError().text();
+            m_db.rollback();
+            return false;
+        }
+        // body 返回 false：仅死锁/锁等待超时可重试，其余直接失败
+        const QString nativeCode = m_db.lastError().nativeErrorCode();
+        m_db.rollback();
+        if (nativeCode != QLatin1String("1213") && nativeCode != QLatin1String("1205"))
+            return false;
+        // 可重试，继续下一轮
+    }
+    return false;
 }
 
 bool Database::updateStation(qint64 stationId, const QString &name, const QString &address,

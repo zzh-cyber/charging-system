@@ -103,7 +103,10 @@ void ClientHandler::dispatch(const QJsonObject &req)
 
     // ================= 登录链路样板（已实现，供其他接口照抄） =================
     if (type == MsgType::Login) {
-        QJsonObject out = m_db->loginOrRegister(data.value("phone").toString(), code, msg);
+        QJsonObject out = m_db->loginOrRegister(
+            data.value("phone").toString(),
+            data.value("register").toBool(),
+            code, msg);
         if (code == Ok) {
             const qint64 uid = out.value("id").toVariant().toLongLong();
             out["token"] = SessionManager::instance().create(uid, QStringLiteral("user"));
@@ -205,12 +208,23 @@ void ClientHandler::dispatch(const QJsonObject &req)
         reply(makeResponse(type, code, msg, out));
         return;
     }
-    if (type == MsgType::Settle) {
-        const QJsonObject out = m_db->settle(
-            data.value("order_no").toString(),
-            sess.userId,
-            data.value("kwh").toDouble(), code, msg);
+    if (type == MsgType::FinishCharge) {
+        const QJsonObject out = m_db->finishCharge(
+            data.value("order_no").toString(), sess.userId, code, msg);
         reply(makeResponse(type, code, msg, out));
+        return;
+    }
+    if (type == MsgType::PayCharge) {
+        const QJsonObject out = m_db->payCharge(
+            data.value("order_no").toString(), sess.userId, code, msg);
+        reply(makeResponse(type, code, msg, out));
+        return;
+    }
+    if (type == MsgType::Settle) {
+        reply(makeResponse(
+            type,
+            InvalidRequest,
+            "settle 已停用，请使用 finish_charge 结束充电，再使用 pay_charge 确认支付"));
         return;
     }
     if (type == MsgType::Recharge) {
@@ -265,13 +279,33 @@ void ClientHandler::dispatch(const QJsonObject &req)
     // ================= 管理端：电桩 / 电站管理 =================
     if (type == MsgType::AdminPileList) {
         QJsonObject out;
-        out["list"] = m_db->adminPileList(code, msg);
+        out = m_db->adminPileList(data, code, msg);
+        if (code == Ok) {
+            int statsCode = Ok;
+            QString statsMsg;
+            const QJsonObject stats = m_db->adminPileStats(statsCode, statsMsg);
+            if (statsCode == Ok)
+                out["stats"] = stats;
+            else
+                qWarning() << "admin_pile_list stats failed:" << statsMsg;
+        }
         reply(makeResponse(type, code, msg, out));
         return;
     }
     if (type == MsgType::AdminPileRestart) {
         const QJsonObject out = m_db->adminPileRestart(
             sess.userId, data.value("pile_id").toVariant().toLongLong(), code, msg);
+        reply(makeResponse(type, code, msg, out));
+        return;
+    }
+    if (type == MsgType::AdminOrderList) {
+        const QJsonObject out = m_db->adminOrderList(data, code, msg);
+        reply(makeResponse(type, code, msg, out));
+        return;
+    }
+    if (type == MsgType::AdminOrderDetail) {
+        const QJsonObject out = m_db->adminOrderDetail(
+            data.value("order_no").toString(), code, msg);
         reply(makeResponse(type, code, msg, out));
         return;
     }

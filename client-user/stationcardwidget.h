@@ -4,6 +4,8 @@
 #include <QJsonObject>
 #include <QString>
 
+class QResizeEvent;
+
 class StationCardWidget : public QFrame
 {
     Q_OBJECT
@@ -12,6 +14,10 @@ public:
     explicit StationCardWidget(
         const QJsonObject &station,
         QWidget *parent = nullptr);
+
+protected:
+    void resizeEvent(
+        QResizeEvent *event) override;
 
 signals:
     void stationSelected(
@@ -26,7 +32,10 @@ signals:
         double distance);
 
 private:
-    qint64  m_stationId = 0;
+    void applyResponsiveStyle();
+
+    qint64 m_stationId = 0;
+
     QString m_name;
 
     double m_latitude = 0.0;

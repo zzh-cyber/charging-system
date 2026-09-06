@@ -23,6 +23,7 @@ class ChargePage;
 class ProfilePage;
 class LocationManager;
 class NavigationPage;
+class QResizeEvent;
 
 
 class MainWindow : public QWidget
@@ -42,10 +43,14 @@ public:
     // 登录成功后写入会话 token；主窗口自建 NetClient，后续请求会自动附带
     void setSessionToken(const QString &token);
 
+protected:
+    void resizeEvent(QResizeEvent *event) override;
+
 private slots:
     void onSessionInvalid(const QString &msg);
 
 private:
+    void applyResponsiveStyle();
     NetClient        *m_net;
 
     QStackedWidget   *m_contentStack;
