@@ -510,7 +510,7 @@ m_chargePage->setChargingState(
         const QJsonObject resp =
             m_net->request(
                 Protocol::makeRequest(
-                    "finish_charge",
+                    Protocol::MsgType::FinishCharge,
                     data));
 
         const int code =
@@ -577,7 +577,7 @@ m_chargePage->setChargingState(
         const QJsonObject resp =
             m_net->request(
                 Protocol::makeRequest(
-                    "pay_charge",
+                    Protocol::MsgType::PayCharge,
                     data));
 
         const int code =
