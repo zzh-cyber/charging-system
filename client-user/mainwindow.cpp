@@ -24,6 +24,7 @@
 #include <QStackedWidget>
 #include <QTimer>
 #include <QVBoxLayout>
+#include <QSettings>
 
 
 // 服务器地址（与登录页保持一致）
@@ -86,6 +87,21 @@ MainWindow::MainWindow(
         &NetClient::sessionInvalid,
         this,
         &MainWindow::onSessionInvalid);
+// ============================================================================
+// NO.24：充电过程中网络断开 / 重连
+// ============================================================================
+connect(
+    m_net,
+    &NetClient::disconnected,
+    m_chargePage,
+    &ChargePage::handleNetworkDisconnected);
+
+
+connect(
+    m_net,
+    &NetClient::reconnected,
+    m_chargePage,
+    &ChargePage::handleNetworkReconnected);
 
 
     // =========================================================================
@@ -239,6 +255,102 @@ MainWindow::MainWindow(
         new QLabel(
             QStringLiteral("请输入当前位置"),
             locationPanel);
+    // ============================================================================
+// NO.1：恢复最近一次成功定位
+// ============================================================================
+{
+    QSettings settings(
+        QStringLiteral(
+            "ChargingSystem"),
+        QStringLiteral(
+            "ChargingUser"));
+
+
+    const QString savedRegion =
+        settings.value(
+                    QStringLiteral(
+                        "location/region"))
+            .toString()
+            .trimmed();
+
+
+    const QString savedAddress =
+        settings.value(
+                    QStringLiteral(
+                        "location/address"))
+            .toString()
+            .trimmed();
+
+
+    if (!savedRegion.isEmpty()) {
+
+        const int index =
+            m_regionCombo->findText(
+                savedRegion);
+
+
+        if (index >= 0) {
+
+            m_regionCombo->setCurrentIndex(
+                index);
+        }
+    }
+
+
+    if (!savedAddress.isEmpty()) {
+
+        m_addressEdit->setText(
+            savedAddress);
+    }
+
+
+    bool latOk = false;
+    bool lngOk = false;
+
+
+    const double savedLat =
+        settings.value(
+                    QStringLiteral(
+                        "location/lat"))
+            .toDouble(
+                &latOk);
+
+
+    const double savedLng =
+        settings.value(
+                    QStringLiteral(
+                        "location/lng"))
+            .toDouble(
+                &lngOk);
+
+
+    if (latOk &&
+        lngOk &&
+        savedLat >= -90.0 &&
+        savedLat <= 90.0 &&
+        savedLng >= -180.0 &&
+        savedLng <= 180.0) {
+
+        // 恢复最近一次有效坐标。
+        // StationListPage 自己会在显示时加载附近站点。
+        m_stationPage->setLocation(
+            savedLat,
+            savedLng);
+
+
+        m_locationTip->setText(
+            QStringLiteral(
+                "已恢复上次定位"));
+
+    } else if (
+        !savedAddress.isEmpty()) {
+
+        m_locationTip->setText(
+            QStringLiteral(
+                "已恢复上次地址，请点击定位"));
+    }
+}
+
 
     m_locationTip->setObjectName(
         QStringLiteral("locationTip"));
@@ -274,6 +386,11 @@ MainWindow::MainWindow(
 
     m_contentStack->addWidget(
         m_profilePage);       // 2 我的
+
+    // NO.17：告诉 ProfilePage 当前登录的是哪个用户
+// 用于按 userId 分开保存本地头像
+m_profilePage->setUserId(
+    m_userId);
 
 
     // -------------------------------------------------------------------------
@@ -886,6 +1003,58 @@ MainWindow::MainWindow(
                     .arg(newNick));
         });
 
+    // ============================================================================
+// NO.16：退出登录
+// ============================================================================
+connect(
+    m_profilePage,
+    &ProfilePage::logoutRequested,
+    this,
+    [this]() {
+
+        const bool confirmed =
+            AppMessageBox::question(
+                this,
+                QStringLiteral(
+                    "退出登录"),
+                QStringLiteral(
+                    "确定要退出当前账号吗？"),
+                QStringLiteral(
+                    "退出登录"),
+                QStringLiteral(
+                    "取消"));
+
+
+        if (!confirmed) {
+
+            return;
+        }
+
+
+        // 清除当前 Session Token
+        if (m_net) {
+
+            m_net->clearToken();
+        }
+
+
+        // 当前 MainWindow 关闭后，
+        // 其 Station / Pile / Charge / Profile /
+        // Navigation 页面对象都会一起销毁，
+        // 不保留上一账号页面缓存。
+        auto *login =
+            new LoginWindow;
+
+
+        login->setAttribute(
+            Qt::WA_DeleteOnClose);
+
+
+        login->show();
+
+
+        close();
+    });
 
     // =========================================================================
     // 充值
@@ -1213,6 +1382,46 @@ MainWindow::MainWindow(
             m_stationPage->setLocation(
                 lat,
                 lng);
+            // -------------------------------------------------------------------------
+            // NO.1：仅保存成功解析过的地址和坐标
+            // -------------------------------------------------------------------------
+            QSettings settings(
+                QStringLiteral(
+                    "ChargingSystem"),
+                QStringLiteral(
+                    "ChargingUser"));
+
+
+            settings.setValue(
+                QStringLiteral(
+                    "location/region"),
+                m_regionCombo
+                    ->currentText()
+                    .trimmed());
+
+
+            settings.setValue(
+                QStringLiteral(
+                    "location/address"),
+                m_addressEdit
+                    ->text()
+                    .trimmed());
+
+
+            settings.setValue(
+                QStringLiteral(
+                    "location/lat"),
+                lat);
+
+
+            settings.setValue(
+                QStringLiteral(
+                    "location/lng"),
+                lng);
+
+
+            settings.sync();
+
         });
 
 

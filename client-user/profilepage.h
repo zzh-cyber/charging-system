@@ -1,6 +1,7 @@
 #ifndef PROFILEPAGE_H
 #define PROFILEPAGE_H
 
+#include <QPixmap>
 #include <QWidget>
 
 class QLabel;
@@ -15,6 +16,11 @@ class ProfilePage : public QWidget
 public:
     explicit ProfilePage(
         QWidget *parent = nullptr);
+
+    // 当前登录用户。
+    // 用于按账号分别保存本地头像。
+    void setUserId(
+        qint64 userId);
 
     void setUserInfo(
         const QString &nickname,
@@ -32,9 +38,11 @@ public:
     // 从其它页面跳转到充值区域
     void openRechargeSection();
 
+
 protected:
     void resizeEvent(
         QResizeEvent *event) override;
+
 
 signals:
     // MainWindow 使用现有 recharge 接口处理
@@ -46,9 +54,33 @@ signals:
     void nicknameChangeRequested(
         const QString &nickname);
 
+    // 用户主动退出登录
+    void logoutRequested();
+
+
 private:
     void applyResponsiveStyle();
 
+    // ------------------------------------------------------------------------
+    // NO.17 头像
+    // ------------------------------------------------------------------------
+    void chooseAvatar();
+
+    void loadAvatar();
+
+    void refreshAvatar();
+
+    QString avatarFilePath() const;
+
+    QPixmap createDefaultAvatar(
+        int size) const;
+
+    QPixmap createCircularAvatar(
+        const QPixmap &source,
+        int size) const;
+
+
+private:
     QLabel *m_nicknameLabel = nullptr;
     QLabel *m_phoneLabel = nullptr;
     QLabel *m_balanceLabel = nullptr;
@@ -58,6 +90,11 @@ private:
 
     QPushButton *m_rechargeButton = nullptr;
     QPushButton *m_editNickButton = nullptr;
+
+    // NO.17
+    QPushButton *m_avatarButton = nullptr;
+    QPixmap m_avatarPixmap;
+    qint64 m_userId = 0;
 
     QString m_nickname;
 

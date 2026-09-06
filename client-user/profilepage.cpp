@@ -7,17 +7,26 @@
 #include <QColor>
 #include <QDialog>
 #include <QDialogButtonBox>
+#include <QDir>
 #include <QDoubleSpinBox>
+#include <QFileDialog>
+#include <QFileInfo>
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
+#include <QIcon>
+#include <QImage>
+#include <QImageReader>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPainter>
+#include <QPainterPath>
 #include <QPixmap>
 #include <QPushButton>
 #include <QResizeEvent>
 #include <QScrollArea>
+#include <QSize>
+#include <QStandardPaths>
 #include <QVBoxLayout>
 
 
@@ -153,68 +162,47 @@ ProfilePage::ProfilePage(
 
 
     // =========================================================================
-    // 头像
+    // NO.17：头像
+    //
+    // 点击头像后选择本地图片。
+    // 最终头像会复制到应用数据目录，
+    // 按 userId 分开保存。
     // =========================================================================
-    auto *avatar =
-        new QLabel(userCard);
+    m_avatarButton =
+        new QPushButton(
+            userCard);
 
-    avatar->setObjectName(
-        QStringLiteral("profileAvatar"));
+    m_avatarButton->setObjectName(
+        QStringLiteral(
+            "profileAvatar"));
 
-    avatar->setAlignment(
-        Qt::AlignCenter);
+    m_avatarButton->setCursor(
+        Qt::PointingHandCursor);
 
-    avatar->setScaledContents(
+    m_avatarButton->setFlat(
         true);
 
+    m_avatarButton->setFocusPolicy(
+        Qt::NoFocus);
 
-    QPixmap avatarPixmap(
-        64,
-        64);
-
-    avatarPixmap.fill(
-        Qt::transparent);
-
-
-    QPainter painter(
-        &avatarPixmap);
-
-    painter.setRenderHint(
-        QPainter::Antialiasing,
-        true);
-
-    painter.setBrush(
-        QColor("#E7EFEA"));
-
-    painter.setPen(
-        Qt::NoPen);
-
-    painter.drawEllipse(
-        0,
-        0,
-        64,
-        64);
-
-    painter.setBrush(
-        QColor("#315B4D"));
-
-    painter.drawEllipse(
-        23,
-        13,
-        18,
-        18);
-
-    painter.drawEllipse(
-        14,
-        34,
-        36,
-        27);
-
-    painter.end();
+    m_avatarButton->setToolTip(
+        QStringLiteral(
+            "点击更换头像"));
 
 
-    avatar->setPixmap(
-        avatarPixmap);
+    // 初始默认头像
+    m_avatarPixmap =
+        createDefaultAvatar(
+            256);
+
+    refreshAvatar();
+
+
+    connect(
+        m_avatarButton,
+        &QPushButton::clicked,
+        this,
+        &ProfilePage::chooseAvatar);
 
 
     // =========================================================================
@@ -285,7 +273,7 @@ ProfilePage::ProfilePage(
 
 
     userLayout->addWidget(
-        avatar);
+        m_avatarButton);
 
     userLayout->addLayout(
         infoLayout,
@@ -332,12 +320,10 @@ ProfilePage::ProfilePage(
             dialog.setModal(
                 true);
 
-            // 去掉系统最外层窗口边框
             dialog.setWindowFlags(
                 Qt::Dialog |
                 Qt::FramelessWindowHint);
 
-            // 允许真正透明的圆角外围
             dialog.setAttribute(
                 Qt::WA_TranslucentBackground,
                 true);
@@ -350,9 +336,6 @@ ProfilePage::ProfilePage(
                 390);
 
 
-            // -----------------------------------------------------------------
-            // 透明外层
-            // -----------------------------------------------------------------
             auto *outerLayout =
                 new QVBoxLayout(
                     &dialog);
@@ -367,9 +350,6 @@ ProfilePage::ProfilePage(
                 0);
 
 
-            // -----------------------------------------------------------------
-            // 米白圆角主体
-            // -----------------------------------------------------------------
             auto *dialogCard =
                 new QFrame(
                     &dialog);
@@ -402,9 +382,6 @@ ProfilePage::ProfilePage(
                 13);
 
 
-            // -----------------------------------------------------------------
-            // 标题
-            // -----------------------------------------------------------------
             auto *dialogTitle =
                 new QLabel(
                     QStringLiteral("修改昵称"),
@@ -415,9 +392,6 @@ ProfilePage::ProfilePage(
                     "nicknameDialogTitle"));
 
 
-            // -----------------------------------------------------------------
-            // 提示
-            // -----------------------------------------------------------------
             auto *label =
                 new QLabel(
                     QStringLiteral(
@@ -432,9 +406,6 @@ ProfilePage::ProfilePage(
                 true);
 
 
-            // -----------------------------------------------------------------
-            // 输入框
-            // -----------------------------------------------------------------
             auto *edit =
                 new QLineEdit(
                     dialogCard);
@@ -460,9 +431,6 @@ ProfilePage::ProfilePage(
                 42);
 
 
-            // -----------------------------------------------------------------
-            // 按钮
-            // -----------------------------------------------------------------
             auto *buttons =
                 new QDialogButtonBox(
                     QDialogButtonBox::Ok |
@@ -536,9 +504,6 @@ ProfilePage::ProfilePage(
                 dialogCard);
 
 
-            // -----------------------------------------------------------------
-            // 无边框圆角样式
-            // -----------------------------------------------------------------
             dialog.setStyleSheet(
                 QStringLiteral(
 
@@ -1118,6 +1083,37 @@ ProfilePage::ProfilePage(
     layout->addWidget(
         noteCard);
 
+
+    // =========================================================================
+    // NO.16：退出登录
+    // =========================================================================
+    auto *logoutButton =
+        new QPushButton(
+            QStringLiteral(
+                "退出登录"),
+            content);
+
+    logoutButton->setObjectName(
+        QStringLiteral(
+            "profileLogoutButton"));
+
+    logoutButton->setCursor(
+        Qt::PointingHandCursor);
+
+
+    connect(
+        logoutButton,
+        &QPushButton::clicked,
+        this,
+        [this]() {
+
+            emit logoutRequested();
+        });
+
+
+    layout->addWidget(
+        logoutButton);
+
     layout->addStretch();
 
 
@@ -1158,6 +1154,518 @@ ProfilePage::ProfilePage(
 
 
     applyResponsiveStyle();
+}
+
+
+// ============================================================================
+// NO.17：设置当前用户 ID
+//
+// 按 userId 区分不同用户的本地头像。
+// ============================================================================
+void ProfilePage::setUserId(
+    qint64 userId)
+{
+    if (m_userId ==
+        userId) {
+
+        return;
+    }
+
+
+    m_userId =
+        userId;
+
+
+    loadAvatar();
+}
+
+
+// ============================================================================
+// NO.17：头像保存路径
+//
+// 不保存用户原始图片的位置，而是把处理后的头像复制到应用自己的目录。
+// 用户以后移动或删除原图片，也不会影响头像。
+// ============================================================================
+QString ProfilePage::avatarFilePath() const
+{
+    if (m_userId <= 0) {
+
+        return QString();
+    }
+
+
+    QString appDataPath =
+        QStandardPaths::writableLocation(
+            QStandardPaths::AppDataLocation);
+
+
+    if (appDataPath.isEmpty()) {
+
+        appDataPath =
+            QDir::homePath() +
+            QStringLiteral(
+                "/.charging-user");
+    }
+
+
+    const QString avatarDirectory =
+        appDataPath +
+        QStringLiteral(
+            "/avatars");
+
+
+    return avatarDirectory +
+           QStringLiteral(
+               "/user_%1.png")
+               .arg(
+                   m_userId);
+}
+
+
+// ============================================================================
+// NO.17：默认头像
+//
+// 保留原页面的绿色默认头像设计。
+// ============================================================================
+QPixmap ProfilePage::createDefaultAvatar(
+    int size) const
+{
+    if (size <= 0) {
+
+        size =
+            256;
+    }
+
+
+    QPixmap pixmap(
+        size,
+        size);
+
+    pixmap.fill(
+        Qt::transparent);
+
+
+    QPainter painter(
+        &pixmap);
+
+    painter.setRenderHint(
+        QPainter::Antialiasing,
+        true);
+
+
+    painter.setBrush(
+        QColor(
+            "#E7EFEA"));
+
+    painter.setPen(
+        Qt::NoPen);
+
+
+    painter.drawEllipse(
+        0,
+        0,
+        size,
+        size);
+
+
+    const double scale =
+        static_cast<double>(
+            size) /
+        64.0;
+
+
+    painter.setBrush(
+        QColor(
+            "#315B4D"));
+
+
+    // 头部
+    painter.drawEllipse(
+        QRectF(
+            23.0 * scale,
+            13.0 * scale,
+            18.0 * scale,
+            18.0 * scale));
+
+
+    // 身体
+    painter.drawEllipse(
+        QRectF(
+            14.0 * scale,
+            34.0 * scale,
+            36.0 * scale,
+            27.0 * scale));
+
+
+    painter.end();
+
+
+    return pixmap;
+}
+
+
+// ============================================================================
+// NO.17：把用户图片裁成圆形头像
+//
+// KeepAspectRatioByExpanding：
+// - 保证头像区域完全填满
+// - 不拉伸原图片
+//
+// 超出的部分从中心裁剪。
+// ============================================================================
+QPixmap ProfilePage::createCircularAvatar(
+    const QPixmap &source,
+    int size) const
+{
+    if (source.isNull() ||
+        size <= 0) {
+
+        return QPixmap();
+    }
+
+
+    const QPixmap scaled =
+        source.scaled(
+            size,
+            size,
+            Qt::KeepAspectRatioByExpanding,
+            Qt::SmoothTransformation);
+
+
+    const int cropX =
+        qMax(
+            0,
+            (scaled.width() -
+             size) /
+                2);
+
+
+    const int cropY =
+        qMax(
+            0,
+            (scaled.height() -
+             size) /
+                2);
+
+
+    QPixmap cropped =
+        scaled.copy(
+            cropX,
+            cropY,
+            size,
+            size);
+
+
+    QPixmap result(
+        size,
+        size);
+
+    result.fill(
+        Qt::transparent);
+
+
+    QPainter painter(
+        &result);
+
+    painter.setRenderHint(
+        QPainter::Antialiasing,
+        true);
+
+    painter.setRenderHint(
+        QPainter::SmoothPixmapTransform,
+        true);
+
+
+    QPainterPath path;
+
+    path.addEllipse(
+        QRectF(
+            0.0,
+            0.0,
+            static_cast<double>(
+                size),
+            static_cast<double>(
+                size)));
+
+
+    painter.setClipPath(
+        path);
+
+
+    painter.drawPixmap(
+        0,
+        0,
+        cropped);
+
+
+    painter.end();
+
+
+    return result;
+}
+
+
+// ============================================================================
+// NO.17：刷新头像显示
+// ============================================================================
+void ProfilePage::refreshAvatar()
+{
+    if (!m_avatarButton) {
+
+        return;
+    }
+
+
+    if (m_avatarPixmap.isNull()) {
+
+        m_avatarPixmap =
+            createDefaultAvatar(
+                256);
+    }
+
+
+    m_avatarButton->setIcon(
+        QIcon(
+            m_avatarPixmap));
+
+
+    const int buttonWidth =
+        m_avatarButton->width();
+
+    const int buttonHeight =
+        m_avatarButton->height();
+
+
+    if (buttonWidth > 0 &&
+        buttonHeight > 0) {
+
+        const int iconSize =
+            qMin(
+                buttonWidth,
+                buttonHeight);
+
+
+        m_avatarButton->setIconSize(
+            QSize(
+                iconSize,
+                iconSize));
+    }
+}
+
+
+// ============================================================================
+// NO.17：加载当前账号头像
+// ============================================================================
+void ProfilePage::loadAvatar()
+{
+    if (m_userId <= 0) {
+
+        m_avatarPixmap =
+            createDefaultAvatar(
+                256);
+
+
+        refreshAvatar();
+
+        return;
+    }
+
+
+    const QString filePath =
+        avatarFilePath();
+
+
+    QPixmap pixmap;
+
+
+    if (!filePath.isEmpty()) {
+
+        pixmap.load(
+            filePath);
+    }
+
+
+    if (pixmap.isNull()) {
+
+        // 本地没有保存头像，使用默认头像
+        m_avatarPixmap =
+            createDefaultAvatar(
+                256);
+
+    } else {
+
+        // 即使旧文件本身不是圆形，
+        // 加载时也统一裁剪一次。
+        m_avatarPixmap =
+            createCircularAvatar(
+                pixmap,
+                512);
+    }
+
+
+    refreshAvatar();
+}
+
+
+// ============================================================================
+// NO.17：选择并更换头像
+// ============================================================================
+void ProfilePage::chooseAvatar()
+{
+    if (m_userId <= 0) {
+
+        AppMessageBox::warning(
+            this,
+            QStringLiteral(
+                "无法更换头像"),
+            QStringLiteral(
+                "当前用户信息无效，请重新登录后再试"));
+
+        return;
+    }
+
+
+    QString startDirectory =
+        QStandardPaths::writableLocation(
+            QStandardPaths::PicturesLocation);
+
+
+    if (startDirectory.isEmpty()) {
+
+        startDirectory =
+            QDir::homePath();
+    }
+
+
+    const QString filePath =
+        QFileDialog::getOpenFileName(
+            this,
+            QStringLiteral(
+                "选择头像"),
+            startDirectory,
+            QStringLiteral(
+                "图片文件 (*.png *.jpg *.jpeg *.webp *.bmp);;"
+                "所有文件 (*)"));
+
+
+    // 用户取消
+    if (filePath.isEmpty()) {
+
+        return;
+    }
+
+
+    // QImageReader 可以根据 EXIF 自动处理手机照片方向
+    QImageReader reader(
+        filePath);
+
+    reader.setAutoTransform(
+        true);
+
+
+    const QImage image =
+        reader.read();
+
+
+    if (image.isNull()) {
+
+        AppMessageBox::warning(
+            this,
+            QStringLiteral(
+                "头像读取失败"),
+            QStringLiteral(
+                "请选择有效的图片文件"));
+
+        return;
+    }
+
+
+    const QPixmap source =
+        QPixmap::fromImage(
+            image);
+
+
+    const QPixmap avatar =
+        createCircularAvatar(
+            source,
+            512);
+
+
+    if (avatar.isNull()) {
+
+        AppMessageBox::warning(
+            this,
+            QStringLiteral(
+                "头像处理失败"),
+            QStringLiteral(
+                "无法处理所选图片，请换一张图片重试"));
+
+        return;
+    }
+
+
+    const QString savePath =
+        avatarFilePath();
+
+
+    if (savePath.isEmpty()) {
+
+        AppMessageBox::warning(
+            this,
+            QStringLiteral(
+                "头像保存失败"),
+            QStringLiteral(
+                "无法确定头像保存位置"));
+
+        return;
+    }
+
+
+    const QFileInfo fileInfo(
+        savePath);
+
+
+    QDir directory;
+
+
+    if (!directory.mkpath(
+            fileInfo.absolutePath())) {
+
+        AppMessageBox::warning(
+            this,
+            QStringLiteral(
+                "头像保存失败"),
+            QStringLiteral(
+                "无法创建头像保存目录"));
+
+        return;
+    }
+
+
+    // 始终转成标准 PNG 保存。
+    //
+    // 即使用户原图以后被移动或删除，
+    // 应用自己的头像文件仍然存在。
+    if (!avatar.save(
+            savePath,
+            "PNG")) {
+
+        AppMessageBox::warning(
+            this,
+            QStringLiteral(
+                "头像保存失败"),
+            QStringLiteral(
+                "无法保存头像文件"));
+
+        return;
+    }
+
+
+    m_avatarPixmap =
+        avatar;
+
+
+    refreshAvatar();
 }
 
 
@@ -1210,8 +1718,10 @@ void ProfilePage::setNickname(
 // ============================================================================
 void ProfilePage::openRechargeSection()
 {
-    if (!m_amountSpin)
+    if (!m_amountSpin) {
+
         return;
+    }
 
 
     if (auto *scrollArea =
@@ -1369,7 +1879,21 @@ void ProfilePage::applyResponsiveStyle()
             "border-radius:%3px;"
             "}"
 
-            "QLabel#profileAvatar{"
+            // ================================================================
+            // NO.17 头像按钮
+            // ================================================================
+            "QPushButton#profileAvatar{"
+            "background:transparent;"
+            "border:none;"
+            "padding:0px;"
+            "}"
+
+            "QPushButton#profileAvatar:hover{"
+            "background:transparent;"
+            "border:none;"
+            "}"
+
+            "QPushButton#profileAvatar:pressed{"
             "background:transparent;"
             "border:none;"
             "}"
@@ -1575,7 +2099,29 @@ void ProfilePage::applyResponsiveStyle()
             "background:transparent;"
             "color:#7A837E;"
             "font-size:%4px;"
+            "}"
+
+            // ================================================================
+            // 退出登录
+            // ================================================================
+            "QPushButton#profileLogoutButton{"
+            "background:#F8EFEC;"
+            "color:#B65F59;"
+            "border:1px solid #E9CFCA;"
+            "border-radius:%6px;"
+            "font-size:%10px;"
+            "font-weight:700;"
+            "padding:11px 18px;"
+            "}"
+
+            "QPushButton#profileLogoutButton:hover{"
+            "background:#F2E2DE;"
+            "}"
+
+            "QPushButton#profileLogoutButton:pressed{"
+            "background:#ECD9D4;"
             "}")
+
 
         .arg(
             titleFont)
@@ -1617,10 +2163,18 @@ void ProfilePage::applyResponsiveStyle()
                     "profileContentLayout"))) {
 
         contentLayout->setContentsMargins(
-            scaledUi(scaleBase, 18),
-            scaledUi(scaleBase, 18),
-            scaledUi(scaleBase, 18),
-            scaledUi(scaleBase, 18));
+            scaledUi(
+                scaleBase,
+                18),
+            scaledUi(
+                scaleBase,
+                18),
+            scaledUi(
+                scaleBase,
+                18),
+            scaledUi(
+                scaleBase,
+                18));
 
         contentLayout->setSpacing(
             scaledUi(
@@ -1638,10 +2192,18 @@ void ProfilePage::applyResponsiveStyle()
                     "profileUserLayout"))) {
 
         userLayout->setContentsMargins(
-            scaledUi(scaleBase, 18),
-            scaledUi(scaleBase, 18),
-            scaledUi(scaleBase, 18),
-            scaledUi(scaleBase, 18));
+            scaledUi(
+                scaleBase,
+                18),
+            scaledUi(
+                scaleBase,
+                18),
+            scaledUi(
+                scaleBase,
+                18),
+            scaledUi(
+                scaleBase,
+                18));
 
         userLayout->setSpacing(
             scaledUi(
@@ -1651,21 +2213,25 @@ void ProfilePage::applyResponsiveStyle()
 
 
     // =========================================================================
-    // 头像大小
+    // NO.17：头像大小
     // =========================================================================
-    if (auto *avatar =
-            findChild<QLabel *>(
-                QStringLiteral(
-                    "profileAvatar"))) {
+    if (m_avatarButton) {
 
         const int avatarSize =
             scaledUi(
                 scaleBase,
                 58);
 
-        avatar->setFixedSize(
+
+        m_avatarButton->setFixedSize(
             avatarSize,
             avatarSize);
+
+
+        m_avatarButton->setIconSize(
+            QSize(
+                avatarSize,
+                avatarSize));
     }
 
 
@@ -1678,10 +2244,18 @@ void ProfilePage::applyResponsiveStyle()
                     "profileWalletLayout"))) {
 
         walletLayout->setContentsMargins(
-            scaledUi(scaleBase, 18),
-            scaledUi(scaleBase, 18),
-            scaledUi(scaleBase, 18),
-            scaledUi(scaleBase, 18));
+            scaledUi(
+                scaleBase,
+                18),
+            scaledUi(
+                scaleBase,
+                18),
+            scaledUi(
+                scaleBase,
+                18),
+            scaledUi(
+                scaleBase,
+                18));
 
         walletLayout->setSpacing(
             scaledUi(
@@ -1719,10 +2293,18 @@ void ProfilePage::applyResponsiveStyle()
                     "profileCustomLayout"))) {
 
         customLayout->setContentsMargins(
-            scaledUi(scaleBase, 13),
-            scaledUi(scaleBase, 10),
-            scaledUi(scaleBase, 13),
-            scaledUi(scaleBase, 10));
+            scaledUi(
+                scaleBase,
+                13),
+            scaledUi(
+                scaleBase,
+                10),
+            scaledUi(
+                scaleBase,
+                13),
+            scaledUi(
+                scaleBase,
+                10));
 
         customLayout->setSpacing(
             scaledUi(
@@ -1754,10 +2336,18 @@ void ProfilePage::applyResponsiveStyle()
                     "profileNoteLayout"))) {
 
         noteLayout->setContentsMargins(
-            scaledUi(scaleBase, 16),
-            scaledUi(scaleBase, 14),
-            scaledUi(scaleBase, 16),
-            scaledUi(scaleBase, 14));
+            scaledUi(
+                scaleBase,
+                16),
+            scaledUi(
+                scaleBase,
+                14),
+            scaledUi(
+                scaleBase,
+                16),
+            scaledUi(
+                scaleBase,
+                14));
 
         noteLayout->setSpacing(
             scaledUi(

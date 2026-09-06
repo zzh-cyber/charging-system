@@ -390,7 +390,7 @@ StationCardWidget::StationCardWidget(
 
         statusText =
             QStringLiteral(
-                "暂无空闲");
+                "已满");
 
         statusProperty =
             QStringLiteral(
