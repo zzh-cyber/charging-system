@@ -82,6 +82,11 @@ public:
     // 远程重启电桩：fault/busy → idle，返回新状态
     QJsonObject adminPileRestart(qint64 adminId, qint64 pileId, int &code, QString &msg);
 
+    // 订单列表（筛选+分页，NO.107）
+    QJsonObject adminOrderList(const QJsonObject &input, int &code, QString &msg);
+    // 订单详情（只读）
+    QJsonObject adminOrderDetail(const QString &orderNo, int &code, QString &msg);
+
     // 电站列表（含桩总数、在线率）
     QJsonArray adminStationList(int &code, QString &msg);
     // 新增电站（管理员，NO.101/102）：入参含 adminId，事务内写审计日志

@@ -91,7 +91,7 @@
 ## 用户端/管理端消息类型一览
 
 用户端：`login`（含注册）、`station_list`、`pile_list`、`pile_detail`、`update_profile`、`recharge`、`unfinished_order`、`reserve`、`start_charge`、`finish_charge`、`pay_charge`。  
-管理端：`admin_login`、`admin_user_list`、`admin_user_freeze`、`admin_pile_list`、`admin_pile_restart`、`admin_station_list`、`admin_station_add`、`admin_order_list`、`admin_revenue_trend`（营收，原草稿名 revenue_trend_query，须 `admin_` 前缀才能过管理员鉴权门）。
+管理端：`admin_login`、`admin_user_list`、`admin_user_freeze`、`admin_pile_list`、`admin_pile_restart`、`admin_station_list`、`admin_station_add`、`admin_order_list`、`admin_order_detail`、`admin_revenue_trend`（营收，原草稿名 revenue_trend_query，须 `admin_` 前缀才能过管理员鉴权门）。
 
 ---
 
@@ -230,4 +230,4 @@
 | 104 |  | 对应NO.46 管理-用户搜索 | 参数化模糊搜索用户 | 【对应管理端NO.46】【消息】type=admin_user_list。【客户端发】token；data.keyword。【服务端收】validate。【库操作】phone LIKE 或 nickname LIKE 绑定参数；无匹配返回空数组非错误。【服务端回】list。【客户端展示】只展示脱敏号码。 | 翟梓涵 | 2026-09-07 | △ |  |
 | 105 |  | 对应NO.47 管理-发起冻结 | 接收冻结/解冻消息 admin_user_freeze | 【对应管理端NO.47】【消息】type=admin_user_freeze。【客户端发】token；data.user_id 为**操作对象**（被冻用户），data.frozen 为 bool；操作者身份在 token。【服务端收】见 NO.106。【库操作】见 NO.106。【服务端回】data.id、status。【客户端展示】只刷新该行。 | 翟梓涵 | 2026-09-07 | △ |  |
 | 106 |  | 对应NO.48 管理-冻结生效与日志 | 冻结处理（改状态+作废 token+日志） | 【对应管理端NO.48】【消息】type=admin_user_freeze。【客户端发】同 NO.105。【服务端收】validate admin。【库操作】UPDATE user.status 为 frozen 或 normal；INSERT operation_logs(action=user_freeze, target_type=user, target_id, admin_id=会话)。冻结成功后 SessionManager.revokeByUser(target, user)，其 token 立即 code=9。预约/开始充电读 user.status。【服务端回】新 status。正在充电不强制断电，禁止新订单。 | 翟梓涵 | 2026-09-08 | △ |  |
-| 107 |  | 对应管理端NO.-（订单管理） | 处理订单列表消息 admin_order_list | 【对应管理端订单管理（api-contract 已登记，界面待补）】【消息】type=admin_order_list。【客户端发】token；data.keyword?、data.status? 可选。【服务端收】validate admin；绑定参数。【库操作】charge_order JOIN user、pile 取 order_no、user_phone、pile_code、status、amount、时间等；按条件过滤。【服务端回】data.list。【客户端展示】订单表格+状态筛选。 | 朱雅琪 | 2026-09-06 | × |  |
+| 107 |  | 对应管理端NO.-（订单管理） | 处理订单列表/详情 admin_order_list、admin_order_detail | 【对应管理端订单管理】【消息】type=admin_order_list / admin_order_detail。【客户端发】token；list 的 data 可含 order_no、phone、user_id、station_id、pile_id、pile_code、keyword、status、start_time、end_time、page、page_size（空/`0` 不筛）；detail 的 data 为 `{order_no}`。【服务端收】validate admin；绑定参数；status 非法 code=2。【库操作】charge_order JOIN user/station/pile；list 按 created_at DESC 分页返回 total/page/page_size；时间筛用 COALESCE(start_time,reserve_time,created_at)；detail 按 order_no 精确查，无则 code=4。【服务端回】金额/电量/时长取库中值。不做删单/改金额/退款。【客户端展示】订单表格+筛选+详情（界面待补）。 | 翟梓涵 | 2026-09-06 | ○ |  |

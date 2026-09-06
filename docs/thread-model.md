@@ -268,6 +268,35 @@
 
 ---
 
+## 服务器 - admin_order_list / admin_order_detail - 2026-09-06 - 组长
+
+### 线程职责
+
+| 线程 | 职责 |
+|------|------|
+| **ClientHandler 线程** | `dispatch` 校验管理员 token 后调用 `adminOrderList` / `adminOrderDetail`；只读 JOIN 查询 |
+
+### 跨线程通信
+
+- 无新增跨线程对象；未改 `TcpServer` / `NetClient` / 帧格式
+- 未做删单、改金额、改状态、退款
+
+### 共享资源与锁
+
+| 资源 | 保护方式 | 访问线程 |
+|------|----------|----------|
+| `charge_order` 及 JOIN 表 | 每连接独立 `Database`；本接口只读，无事务锁 | 该连接所在 Handler 线程 |
+
+### 验证
+
+- 无 token / 用户 token 调 `admin_*` → `code=9`
+- `admin_order_list` 返回 `list/total/page/page_size`，默认按 `created_at` 倒序
+- `status=settled`、`order_no` 模糊、`page_size=2` 分页可用
+- `admin_order_detail` 命中返回与列表同行字段；不存在 `code=4`
+- 非法 `status` → `code=2`
+
+---
+
 ## 客户端 - NetClient - 2026-09-01 - 组长（地基）
 
 ### 线程职责
