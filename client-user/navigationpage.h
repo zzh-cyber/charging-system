@@ -5,6 +5,8 @@
 
 class QLabel;
 class QResizeEvent;
+class QDialog;
+class QWebEngineView;
 
 class NavigationPage : public QWidget
 {
@@ -30,4 +32,6 @@ private:
     QLabel *m_startLabel;
     QLabel *m_targetLabel;
     QLabel *m_distanceLabel;
+    QDialog *m_mapDialog;
+    QWebEngineView *m_mapView;
 };

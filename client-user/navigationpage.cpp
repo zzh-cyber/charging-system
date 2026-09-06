@@ -4,17 +4,22 @@
 #include "windowhelper.h"
 
 #include <QFrame>
+#include <QDialog>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
 #include <QResizeEvent>
 #include <QScrollArea>
 #include <QVBoxLayout>
+#include <QUrlQuery>
+#include <QWebEngineView>
 
 
 NavigationPage::NavigationPage(
     QWidget *parent)
     : QWidget(parent)
+    , m_mapDialog(nullptr)
+    , m_mapView(nullptr)
 {
     setObjectName(
         QStringLiteral(
@@ -639,6 +644,43 @@ void NavigationPage::setNavigationData(
             QStringLiteral(
                 "距离 -- km"));
     }
+
+    if (!request.isValid())
+        return;
+
+    if (!m_mapDialog) {
+        m_mapDialog = new QDialog(this);
+        m_mapDialog->setWindowTitle(QStringLiteral("高德路线导航"));
+        m_mapDialog->resize(1100, 760);
+        m_mapView = new QWebEngineView(m_mapDialog);
+        auto *layout = new QVBoxLayout(m_mapDialog);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->addWidget(m_mapView);
+    }
+
+    const QString mapMode = request.mode.trimmed().toLower() == QLatin1String("walking")
+        ? QStringLiteral("walk") : QStringLiteral("car");
+    QUrl url(QStringLiteral("https://uri.amap.com/navigation"));
+    QUrlQuery query;
+    query.addQueryItem(QStringLiteral("from"),
+                       QStringLiteral("%1,%2,%3")
+                           .arg(request.fromLng, 0, 'f', 6)
+                           .arg(request.fromLat, 0, 'f', 6)
+                           .arg(request.fromName));
+    query.addQueryItem(QStringLiteral("to"),
+                       QStringLiteral("%1,%2,%3")
+                           .arg(request.toLng, 0, 'f', 6)
+                           .arg(request.toLat, 0, 'f', 6)
+                           .arg(request.toName));
+    query.addQueryItem(QStringLiteral("mode"), mapMode);
+    query.addQueryItem(QStringLiteral("coordinate"), QStringLiteral("gaode"));
+    query.addQueryItem(QStringLiteral("callnative"), QStringLiteral("0"));
+    query.addQueryItem(QStringLiteral("src"), QStringLiteral("charging-system"));
+    url.setQuery(query);
+    m_mapView->setUrl(url);
+    m_mapDialog->show();
+    m_mapDialog->raise();
+    m_mapDialog->activateWindow();
 }
 
 
