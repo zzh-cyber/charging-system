@@ -8,6 +8,7 @@
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonValue>
+#include <QRandomGenerator>
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QStringList>
@@ -41,6 +42,21 @@ double chargeKwh(double powerKw, qint64 durationSeconds)
 double chargeAmount(double kwh, double unitPrice)
 {
     return round2(kwh * unitPrice);
+}
+
+void appendSimulatedSoc(QJsonObject &data, const QSqlQuery &query)
+{
+    const QVariant startSoc = query.value(QStringLiteral("start_soc"));
+    if (!startSoc.isNull())
+        data[QStringLiteral("start_soc")] = startSoc.toDouble();
+
+    const QVariant capacity = query.value(QStringLiteral("battery_capacity_kwh"));
+    if (!capacity.isNull())
+        data[QStringLiteral("battery_capacity_kwh")] = capacity.toDouble();
+
+    const QVariant targetSoc = query.value(QStringLiteral("target_soc"));
+    if (!targetSoc.isNull())
+        data[QStringLiteral("target_soc")] = targetSoc.toDouble();
 }
 
 qint64 jsonInt64(const QJsonObject &obj, const QString &key)
@@ -790,7 +806,8 @@ QJsonObject Database::unfinishedOrder(qint64 userId, int &code, QString &msg)
 
     QSqlQuery q(m_db);
     q.prepare("SELECT o.order_no, o.pile_id, o.status, o.reserve_time, o.start_time, o.end_time, "
-              "o.unit_price, o.duration_seconds, o.kwh, o.amount, p.power_kw "
+              "o.unit_price, o.duration_seconds, o.kwh, o.amount, p.power_kw, "
+              "o.start_soc, o.battery_capacity_kwh, o.target_soc "
               "FROM charge_order o "
               "JOIN pile p ON p.id = o.pile_id "
               "WHERE o.user_id = ? AND o.status IN ('reserved','charging','pending_payment') "
@@ -818,6 +835,7 @@ QJsonObject Database::unfinishedOrder(qint64 userId, int &code, QString &msg)
     data["start_time"]   = q.value("start_time").toString();
     data["power_kw"]     = powerKw;
     data["unit_price"]   = unitPrice;
+    appendSimulatedSoc(data, q);
 
     if (status == QStringLiteral("charging")) {
         const qint64 duration = chargeDurationSeconds(q.value("start_time").toDateTime());
@@ -890,8 +908,15 @@ QJsonObject Database::startCharge(const QString &orderNo, qint64 userId, int &co
         return fail(Protocol::InvalidRequest, "故障电桩不能开始充电");
 
     QSqlQuery updateOrder(m_db);
-    updateOrder.prepare("UPDATE charge_order SET status = 'charging', start_time = NOW() "
+    const int startSoc = QRandomGenerator::global()->bounded(20, 61);
+    const double batteryCapacityKwh = 60.0;
+    const double targetSoc = 100.0;
+    updateOrder.prepare("UPDATE charge_order SET status = 'charging', start_time = NOW(), "
+                        "start_soc = ?, battery_capacity_kwh = ?, target_soc = ? "
                         "WHERE order_no = ? AND user_id = ? AND status = 'reserved'");
+    updateOrder.addBindValue(startSoc);
+    updateOrder.addBindValue(batteryCapacityKwh);
+    updateOrder.addBindValue(targetSoc);
     updateOrder.addBindValue(trimmedOrderNo);
     updateOrder.addBindValue(userId);
     if (!updateOrder.exec())
@@ -925,6 +950,9 @@ QJsonObject Database::startCharge(const QString &orderNo, qint64 userId, int &co
     data["start_time"] = timeQuery.value("start_time").toString();
     data["unit_price"] = timeQuery.value("unit_price").toDouble();
     data["power_kw"] = timeQuery.value("power_kw").toDouble();
+    data["start_soc"] = startSoc;
+    data["battery_capacity_kwh"] = batteryCapacityKwh;
+    data["target_soc"] = targetSoc;
     code = Protocol::Ok;
     msg = "开始充电成功";
     return data;
@@ -1812,7 +1840,7 @@ bool Database::ensureSchema()
         "SELECT COUNT(*) FROM information_schema.tables "
         "WHERE table_schema = DATABASE() AND table_name = 'user'"));
     if (q.next() && q.value(0).toInt() > 0)
-        return true;
+        return upgradeSchema();
 
     // 缺表 → 读取打包进程序的 schema.sql 并执行
     QFile file(QStringLiteral(":/sql/schema.sql"));
@@ -1820,7 +1848,51 @@ bool Database::ensureSchema()
         m_lastError = QStringLiteral("无法读取 schema.sql");
         return false;
     }
-    return executeScript(QString::fromUtf8(file.readAll()));
+    if (!executeScript(QString::fromUtf8(file.readAll())))
+        return false;
+    return upgradeSchema();
+}
+
+bool Database::columnExists(const QString &table, const QString &column)
+{
+    QSqlQuery q(m_db);
+    q.prepare(QStringLiteral(
+        "SELECT COUNT(*) FROM information_schema.columns "
+        "WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?"));
+    q.addBindValue(table);
+    q.addBindValue(column);
+    if (!q.exec() || !q.next())
+        return false;
+    return q.value(0).toInt() > 0;
+}
+
+bool Database::upgradeSchema()
+{
+    // v3：模拟 SOC 字段。已有库只 ALTER，绝不 DROP。
+    if (!columnExists(QStringLiteral("charge_order"), QStringLiteral("start_soc"))) {
+        QSqlQuery alter(m_db);
+        if (!alter.exec(QStringLiteral(
+                "ALTER TABLE charge_order "
+                "ADD COLUMN start_soc DECIMAL(5,2) NULL AFTER unit_price, "
+                "ADD COLUMN battery_capacity_kwh DECIMAL(6,2) NULL AFTER start_soc, "
+                "ADD COLUMN target_soc DECIMAL(5,2) NULL AFTER battery_capacity_kwh"))) {
+            m_lastError = alter.lastError().text();
+            return false;
+        }
+    }
+
+    if (schemaVersion() < 3) {
+        QSqlQuery ver(m_db);
+        ver.prepare(QStringLiteral(
+            "INSERT INTO schema_version (version, description) VALUES "
+            "(3, 'charge_order 增加模拟 SOC：start_soc / battery_capacity_kwh / target_soc')"));
+        if (!ver.exec()) {
+            m_lastError = ver.lastError().text();
+            return false;
+        }
+    }
+
+    return true;
 }
 
 bool Database::executeScript(const QString &sql)

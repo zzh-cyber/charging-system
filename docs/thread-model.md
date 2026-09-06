@@ -264,7 +264,7 @@
 
 - `finish_charge` 后订单 `pending_payment`、桩释放、余额不变
 - `pay_charge` 余额不足 `code=7` 且订单仍待支付；足则 `settled` 并写流水
-- `start_charge` 返回 `power_kw`、`unit_price`；`unfinished_order` 对充电中现算电量金额
+- `start_charge` 返回 `power_kw`、`unit_price` 以及写入订单的模拟 SOC；`unfinished_order` 对充电中现算电量金额并带回 SOC
 
 ---
 

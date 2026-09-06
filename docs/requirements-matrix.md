@@ -80,7 +80,7 @@
 | admin | id, username, password_hash, salt, role, status(active/disabled), last_login_at | 管理员登录（预置账号，无自助注册） |
 | station | id, station_code, name, address, longitude, latitude, price, enabled | 附近查询、管理端电站、下单固化单价 |
 | pile | id, station_id, code, type(fast/slow), power_kw, status(idle/busy/fault), current_user_id, last_online_at, total_count, total_hours | 桩列表、预约占用、开始/结束充电、重启 |
-| charge_order | order_no, user_id, station_id, pile_id, status(reserved/charging/pending_payment/settled/cancelled), unit_price, reserve_time, start_time, end_time, duration_seconds, kwh, amount, pay_request_id | 预约、开始充电、结算、未完成订单、营收、管理端订单 |
+| charge_order | order_no, user_id, station_id, pile_id, status(reserved/charging/pending_payment/settled/cancelled), unit_price, start_soc, battery_capacity_kwh, target_soc, reserve_time, start_time, end_time, duration_seconds, kwh, amount, pay_request_id | 预约、开始充电、结算、未完成订单、营收、管理端订单；SOC 三字段仅模拟展示 |
 | wallet_transactions | transaction_no, user_id, type(recharge/charge_pay/refund), amount, balance_before, balance_after, order_id | 充值、充电扣款 |
 | device_commands | command_no, pile_id, command, status, request_at, response_at, error_code | 远程重启 |
 | operation_logs | admin_id, action, target_type, target_id, before_value, after_value, result, reason | 冻结、重启、新增电站等写操作审计 |

@@ -104,7 +104,7 @@ public:
 
     // ---- 结构初始化 ----
     int  schemaVersion();          // 返回当前结构版本（未初始化返回 0）
-    bool ensureSchema();           // 检测缺表并自动按脚本初始化
+    bool ensureSchema();           // 缺表则初始化；已有库按 schema_version 增量 ALTER
 
     // ---- 用户资料维护（NO.51）----
     bool updateNickname(qint64 userId, const QString &nickname);
@@ -117,6 +117,8 @@ public:
 
 private:
     bool executeScript(const QString &sql);  // 逐条执行 SQL 脚本
+    bool upgradeSchema();                    // 已有库按版本增量升级（禁止 DROP）
+    bool columnExists(const QString &table, const QString &column);
 
     // NO.59：事务包装，死锁(1213)/锁等待超时(1205)时有限重试
     bool runInTransaction(std::function<bool()> body, int maxRetries = 3);

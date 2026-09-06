@@ -47,9 +47,9 @@
 | `station_list` | 充电站列表 | `{}` | `{list:[{id,name,address,longitude,latitude,price,total,idle}]}` | 服务器A / 成员D | ✅ 已实现（样板） |
 | `pile_list` | 某站电桩列表 | `{station_id}` | `{list:[{id,code,type,power_kw,status}]}` | 服务器A / 成员D | ⬜ |
 | `pile_detail` | 电桩详情 | `{pile_id}` | `{id,code,type,power_kw,status,total_count,total_hours}` | 成员D | ⬜ |
-| `unfinished_order` | 查询未完成订单 | 顶层必须带 `token`；`data` 可为空。身份取自会话，忽略 `data.user_id` | `{order?:{order_no,pile_id,status,power_kw,unit_price,duration_seconds,kwh,amount,...}}`。`charging` 按时长现算电量金额；`pending_payment` 用库中已出账单 | 用户端B | ✅ 已实现 |
+| `unfinished_order` | 查询未完成订单 | 顶层必须带 `token`；`data` 可为空。身份取自会话，忽略 `data.user_id` | `{order?:{order_no,pile_id,status,power_kw,unit_price,duration_seconds,kwh,amount,start_soc?,battery_capacity_kwh?,target_soc?,...}}`。`charging` 按时长现算电量金额；`pending_payment` 用库中已出账单。SOC 三字段为模拟展示，不参与结算；未开始充电或旧单可能缺省 | 用户端B | ✅ 已实现 |
 | `reserve` | 预约 | 顶层必须带 `token`；`data` 仅 `{pile_id}`。身份取自会话，忽略 `data.user_id` | `{order_no}` | 用户端B | ✅ 已实现 |
-| `start_charge` | 开始充电 | 顶层必须带 `token`；`data` 为 `{order_no}`。服务器校验订单属于会话用户 | `{start_time,power_kw,unit_price}` | 用户端B | ✅ 已实现 |
+| `start_charge` | 开始充电 | 顶层必须带 `token`；`data` 为 `{order_no}`。服务器校验订单属于会话用户 | `{start_time,power_kw,unit_price,start_soc,battery_capacity_kwh,target_soc}`。SOC 在本单 `start_charge` 时写入订单并固定，客户端按公式展示进度，不参与 `finish_charge` 计费 | 用户端B | ✅ 已实现 |
 | `finish_charge` | 结束充电出账（不扣款） | 顶层必须带 `token`；`data` 为 `{order_no}`。服务端按功率×时长算 kwh/金额 | `{end_time,duration_seconds,kwh,amount,unit_price,power_kw}`。订单 `charging→pending_payment`，释放电桩 | 用户端B | ✅ 已实现 |
 | `pay_charge` | 确认支付扣款 | 顶层必须带 `token`；`data` 为 `{order_no}`。只处理 `pending_payment` | `{amount,balance,duration_seconds,kwh}`。成功 `settled`；余额不足 `code=7` 且订单仍待支付 | 用户端B | ✅ 已实现 |
 | `settle` | 旧结算（已停用） | — | `code=2`，提示改用 `finish_charge` + `pay_charge` | 用户端B | ⛔ 已停用 |
