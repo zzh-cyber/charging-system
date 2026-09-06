@@ -1222,6 +1222,21 @@ QString ProfilePage::avatarFilePath() const
 }
 
 
+QString ProfilePage::avatarKey() const
+{
+    if (m_userId <= 0) {
+
+        return QString();
+    }
+
+
+    return QStringLiteral(
+               "avatars/user_%1.png")
+        .arg(
+            m_userId);
+}
+
+
 // ============================================================================
 // NO.17：默认头像
 //
@@ -1555,6 +1570,24 @@ void ProfilePage::chooseAvatar()
     }
 
 
+    const qint64 fileSize =
+        QFileInfo(filePath).size();
+
+
+    if (fileSize <= 0 ||
+        fileSize > 5 * 1024 * 1024) {
+
+        AppMessageBox::warning(
+            this,
+            QStringLiteral(
+                "头像文件过大"),
+            QStringLiteral(
+                "请选择 5MB 以内的 jpg/png 图片"));
+
+        return;
+    }
+
+
     // QImageReader 可以根据 EXIF 自动处理手机照片方向
     QImageReader reader(
         filePath);
@@ -1599,6 +1632,43 @@ void ProfilePage::chooseAvatar()
                 "头像处理失败"),
             QStringLiteral(
                 "无法处理所选图片，请换一张图片重试"));
+
+        return;
+    }
+
+
+    const QString key =
+        avatarKey();
+
+
+    if (key.isEmpty()) {
+
+        AppMessageBox::warning(
+            this,
+            QStringLiteral(
+                "无法更换头像"),
+            QStringLiteral(
+                "当前用户信息无效，请重新登录后再试"));
+
+        return;
+    }
+
+
+    // 先发给服务器，成功后再落盘刷新；失败保留旧图。
+    emit avatarChangeRequested(
+        key,
+        avatar);
+}
+
+
+// ============================================================================
+// NO.17：服务器确认后保存本地头像并刷新界面
+// ============================================================================
+void ProfilePage::commitAvatar(
+    const QPixmap &avatar)
+{
+    if (avatar.isNull() ||
+        m_userId <= 0) {
 
         return;
     }
@@ -1655,7 +1725,7 @@ void ProfilePage::chooseAvatar()
             QStringLiteral(
                 "头像保存失败"),
             QStringLiteral(
-                "无法保存头像文件"));
+                "服务器已更新，但本地文件未能保存"));
 
         return;
     }

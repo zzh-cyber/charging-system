@@ -1974,7 +1974,8 @@ bool Database::updateAvatar(qint64 userId, const QString &avatarPath)
         m_lastError = q.lastError().text();
         return false;
     }
-    return q.numRowsAffected() > 0;
+    // 与 updateNickname 相同：值未变化时 numRowsAffected() 可能为 0，仍视为成功。
+    return true;
 }
 
 // ============================================================================

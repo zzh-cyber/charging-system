@@ -42,7 +42,7 @@
 |-------------|------|-----------|-----------|--------|------|
 | `login` | 手机号免密登录/注册 | `{phone}` | `{id,phone,nickname,avatar,balance,token}` | 服务器A / 用户端B | ✅ 已实现（样板，已下发 token） |
 | `user_info` | 获取用户信息 | `{user_id}` | `{id,phone,nickname,avatar,balance}` | 服务器A | ⬜ 待实现 |
-| `update_profile` | 修改昵称/头像 | `{user_id,nickname?,avatar?}` | `{}` | 服务器A / 用户端B | ⬜ |
+| `update_profile` | 修改昵称和/或头像 | 顶层必须带 `token`；`data` 为 `{nickname?,avatar?}`，至少一项。身份取自会话，忽略 `data.user_id`。`nickname` 2～20 字符；`avatar` 为路径/标识字符串，最长 255（对应 `user.avatar` VARCHAR，不是图片二进制） | 成功 `{nickname?,avatar?}`（只回本次改过的字段） | 服务器A / 用户端B | ✅ 已实现 |
 | `recharge` | 余额充值 | 顶层必须带 `token`；`data` 仅 `{amount}`。入账用户取自会话，忽略 `data.user_id` | `{balance}` | 服务器A / 用户端B | ✅ 已实现 |
 | `station_list` | 充电站列表 | `{}` | `{list:[{id,name,address,longitude,latitude,price,total,idle}]}` | 服务器A / 成员D | ✅ 已实现（样板） |
 | `pile_list` | 某站电桩列表 | `{station_id}` | `{list:[{id,code,type,power_kw,status}]}` | 服务器A / 成员D | ⬜ |

@@ -19,6 +19,7 @@
 #include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
+#include <QPixmap>
 #include <QPushButton>
 #include <QResizeEvent>
 #include <QStackedWidget>
@@ -1001,6 +1002,62 @@ m_profilePage->setUserId(
                 QStringLiteral(
                     "昵称已更新为：%1")
                     .arg(newNick));
+        });
+
+
+    // =========================================================================
+    // 修改头像 → update_profile（NO.17，对接服务端 NO.75）
+    // =========================================================================
+    connect(
+        m_profilePage,
+        &ProfilePage::avatarChangeRequested,
+        this,
+        [this](const QString &avatar, const QPixmap &image) {
+
+            QJsonObject data;
+            data["avatar"] =
+                avatar;
+
+
+            const QJsonObject resp =
+                m_net->request(
+                    Protocol::makeRequest(
+                        Protocol::MsgType::UpdateProfile,
+                        data));
+
+
+            const int code =
+                resp.value("code")
+                    .toInt();
+
+            const QString msg =
+                resp.value("msg")
+                    .toString();
+
+
+            if (code != Protocol::Ok) {
+
+                // 失败保留旧图；code=9 由全局 onSessionInvalid 回登录页
+                if (code != Protocol::SessionInvalid) {
+
+                    AppMessageBox::warning(
+                        this,
+                        QStringLiteral("修改头像失败"),
+                        msg);
+                }
+
+                return;
+            }
+
+
+            m_profilePage->commitAvatar(
+                image);
+
+
+            AppMessageBox::information(
+                this,
+                QStringLiteral("修改成功"),
+                QStringLiteral("头像已更新"));
         });
 
     // ============================================================================

@@ -35,6 +35,10 @@ public:
     void setNickname(
         const QString &nickname);
 
+    // update_profile 改头像成功后落盘并刷新
+    void commitAvatar(
+        const QPixmap &avatar);
+
     // 从其它页面跳转到充值区域
     void openRechargeSection();
 
@@ -54,6 +58,12 @@ signals:
     void nicknameChangeRequested(
         const QString &nickname);
 
+    // 用户选好本地图片后发出，
+    // MainWindow 走 update_profile（data.avatar 为路径字符串，不含 user_id）
+    void avatarChangeRequested(
+        const QString &avatar,
+        const QPixmap &image);
+
     // 用户主动退出登录
     void logoutRequested();
 
@@ -71,6 +81,8 @@ private:
     void refreshAvatar();
 
     QString avatarFilePath() const;
+
+    QString avatarKey() const;
 
     QPixmap createDefaultAvatar(
         int size) const;
