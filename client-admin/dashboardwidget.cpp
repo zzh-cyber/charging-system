@@ -8,7 +8,6 @@
 #include <QtCharts/QDateTimeAxis>
 #include <QtCharts/QLineSeries>
 #include <QtCharts/QValueAxis>
-#include <QtCharts/QPieSeries>
 
 #include <QButtonGroup>
 #include <QCoreApplication>
@@ -38,8 +37,6 @@ DashboardWidget::DashboardWidget(NetClient *netClient, QWidget *parent)
       m_todayRevenueLabel(nullptr),
       m_monthRevenueLabel(nullptr),
       m_totalRevenueLabel(nullptr),
-      m_todayOrdersLabel(nullptr), m_chargingCountLabel(nullptr),
-      m_onlineRateLabel(nullptr), m_faultCountLabel(nullptr),
       m_lastUpdateLabel(nullptr),
       m_loadingLabel(nullptr),
       m_refreshButton(nullptr),
@@ -50,7 +47,6 @@ DashboardWidget::DashboardWidget(NetClient *netClient, QWidget *parent)
       m_series(nullptr),
       m_dateAxis(nullptr),
       m_valueAxis(nullptr),
-      m_statusSeries(nullptr),
       m_loading(false),
       m_currentDays(7)
 {
@@ -83,10 +79,8 @@ void DashboardWidget::initUi()
     auto *cardsLayout = new QHBoxLayout;
     cardsLayout->setSpacing(16);
     cardsLayout->addWidget(createKpiCard(QStringLiteral("今日营收"), QStringLiteral("已结算金额"), &m_todayRevenueLabel));
-    cardsLayout->addWidget(createKpiCard(QStringLiteral("今日订单数"), QStringLiteral("当前接口未提供"), &m_todayOrdersLabel));
-    cardsLayout->addWidget(createKpiCard(QStringLiteral("当前充电中"), QStringLiteral("实时设备数量"), &m_chargingCountLabel));
-    cardsLayout->addWidget(createKpiCard(QStringLiteral("设备在线率"), QStringLiteral("根据设备状态计算"), &m_onlineRateLabel));
-    cardsLayout->addWidget(createKpiCard(QStringLiteral("故障设备"), QStringLiteral("设备健康状态"), &m_faultCountLabel));
+    cardsLayout->addWidget(createKpiCard(QStringLiteral("本月营收"), QStringLiteral("本月累计已结算"), &m_monthRevenueLabel));
+    cardsLayout->addWidget(createKpiCard(QStringLiteral("总营收"), QStringLiteral("历史累计已结算"), &m_totalRevenueLabel));
     mainLayout->addLayout(cardsLayout);
 
     auto *chartHeader = new QHBoxLayout;
@@ -223,26 +217,6 @@ void DashboardWidget::refreshData()
     if (m_totalRevenueLabel)
         m_totalRevenueLabel->setText(moneyText(numberValue(
             data, {QStringLiteral("totalRevenue"), QStringLiteral("total_revenue")})));
-    if (m_todayOrdersLabel)
-        m_todayOrdersLabel->setText(QStringLiteral("--"));
-    const QJsonObject pileResp = m_net->request(Protocol::makeRequest(Protocol::MsgType::AdminPileList));
-    int charging = 0, fault = 0, online = 0, total = 0;
-    if (pileResp.value("code").toInt(-1) == Protocol::Ok) {
-        const QJsonArray piles = pileResp.value("data").toObject().value("list").toArray();
-        total = piles.size();
-        for (const auto &v : piles) {
-            const QString s = v.toObject().value("status").toString().toLower();
-            if (s == "busy" || s == "charging") ++charging;
-            else if (s == "fault") ++fault;
-            if (s != "offline") ++online;
-        }
-        if (m_chargingCountLabel)
-            m_chargingCountLabel->setText(QString::number(charging));
-        if (m_faultCountLabel)
-            m_faultCountLabel->setText(QString::number(fault));
-        if (m_onlineRateLabel)
-            m_onlineRateLabel->setText(total ? QString::number(online * 100.0 / total, 'f', 1) + "%" : "--");
-    }
     updateChart(data, days);
     if (m_lastUpdateLabel)
         m_lastUpdateLabel->setText(
