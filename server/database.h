@@ -75,7 +75,7 @@ public:
     QJsonObject adminUserFreeze(qint64 adminId, qint64 userId, bool frozen, int &code, QString &msg);
 
     // 全部电桩列表（含所属电站名、累计次数/时长）
-    QJsonArray adminPileList(int &code, QString &msg);
+    QJsonObject adminPileList(const QJsonObject &input, int &code, QString &msg);
     // 启用电桩状态数量及占比统计
     QJsonObject adminPileStats(int &code, QString &msg);
 

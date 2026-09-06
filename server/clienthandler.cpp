@@ -279,7 +279,7 @@ void ClientHandler::dispatch(const QJsonObject &req)
     // ================= 管理端：电桩 / 电站管理 =================
     if (type == MsgType::AdminPileList) {
         QJsonObject out;
-        out["list"] = m_db->adminPileList(code, msg);
+        out = m_db->adminPileList(data, code, msg);
         if (code == Ok) {
             int statsCode = Ok;
             QString statsMsg;

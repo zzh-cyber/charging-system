@@ -61,7 +61,7 @@
 | `admin_login` | 管理员登录 | `{username,password}` | `{id,username,token}` | 服务器A / 管理端C | ✅ 已实现（样板，已下发 token） |
 | `admin_user_list` | 用户列表（keyword 空=全部；否则按手机号/昵称模糊搜索） | `{keyword?}` | `{list:[{id,phone,nickname,balance,status,created_at}]}` | 服务器A(组长) / 管理端C | ✅ 已实现 |
 | `admin_user_freeze` | 冻结/解冻用户 | `{user_id,frozen:bool}`。`user_id` 是操作对象。冻结成功后该用户全部 user token 立即失效 | `{id,status}` | 服务器A(组长) / 管理端C | ✅ 已实现 |
-| `admin_pile_list` | 电桩列表（含所属站名）及启用电桩状态统计 | `{}` | `{list:[{id,code,station,type,power_kw,status,total_count,total_hours}],stats:{idle:{count,rate},busy:{count,rate},fault:{count,rate},total,stat_time}}` | 服务器A(组长) / 管理端C | ✅ 已实现 |
+| `admin_pile_list` | 电桩列表（含所属站名，支持服务端筛选+分页）及启用电桩状态统计 | `{station_id?,type?,status?,code?,page?,page_size?}`；`type` 为 `fast/slow`，`status` 为 `idle/busy/fault`，`code` 模糊匹配；`page` 默认 1，`page_size` 默认 20、最大 50 | `{list:[{id,code,station,type,power_kw,status,total_count,total_hours}],total,page,page_size,stats:{idle:{count,rate},busy:{count,rate},fault:{count,rate},total,stat_time}}`；`stats` 仍为全局启用电桩统计 | 服务器A(组长) / 管理端C | ✅ 已实现 |
 | `admin_pile_restart` | 远程重启电桩（fault/busy→idle） | `{pile_id}` | `{id,status}` | 服务器A(组长) / 管理端C | ✅ 已实现 |
 | `admin_station_list` | 电站列表（含桩数、在线率） | `{}` | `{list:[{id,name,address,longitude,latitude,total,online_rate}]}` | 服务器A(组长) / 管理端C | ✅ 已实现 |
 | `admin_station_add` | 新增电站 | `{name,address,longitude,latitude,price}` | `{id}` | 管理端C | ⬜ |

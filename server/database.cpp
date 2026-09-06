@@ -1330,41 +1330,109 @@ QJsonObject Database::adminUserFreeze(qint64 adminId, qint64 userId, bool frozen
     return data;
 }
 
-QJsonArray Database::adminPileList(int &code, QString &msg)
+QJsonObject Database::adminPileList(const QJsonObject &input, int &code, QString &msg)
 {
     QJsonArray arr;
 
-    QSqlQuery q(m_db);
-    const QString sql =
+    QStringList conds;
+    QVariantList binds;
+    const qint64 stationId = jsonInt64(input, QStringLiteral("station_id"));
+    if (input.contains(QStringLiteral("station_id")) && stationId <= 0) {
+        code = Protocol::InvalidRequest;
+        msg = QStringLiteral("station_id 必须为正整数");
+        return {};
+    }
+    if (stationId > 0) {
+        conds.append(QStringLiteral("p.station_id = ?"));
+        binds.append(stationId);
+    }
+    const QString pileType = input.value(QStringLiteral("type")).toString().trimmed();
+    if (!pileType.isEmpty()) {
+        if (pileType != QLatin1String("fast") && pileType != QLatin1String("slow")) {
+            code = Protocol::InvalidRequest;
+            msg = QStringLiteral("type 取值无效");
+            return {};
+        }
+        conds.append(QStringLiteral("p.type = ?"));
+        binds.append(pileType);
+    }
+    const QString status = input.value(QStringLiteral("status")).toString().trimmed();
+    if (!status.isEmpty()) {
+        if (status != QLatin1String("idle") && status != QLatin1String("busy")
+            && status != QLatin1String("fault")) {
+            code = Protocol::InvalidRequest;
+            msg = QStringLiteral("status 取值无效");
+            return {};
+        }
+        conds.append(QStringLiteral("p.status = ?"));
+        binds.append(status);
+    }
+    const QString pileCode = input.value(QStringLiteral("code")).toString().trimmed();
+    if (!pileCode.isEmpty()) {
+        conds.append(QStringLiteral("p.code LIKE ? ESCAPE '|'"));
+        binds.append(QStringLiteral("%") + escapeLike(pileCode) + QLatin1Char('%'));
+    }
+
+    int page = input.value(QStringLiteral("page")).toInt(1);
+    int pageSize = input.value(QStringLiteral("page_size")).toInt(20);
+    if (page < 1) page = 1;
+    if (pageSize < 1) pageSize = 20;
+    if (pageSize > 50) pageSize = 50;
+
+    QString sql =
         "SELECT p.id, p.code, s.name AS station, "
         "p.type, p.power_kw, p.status, p.total_count, p.total_hours "
         "FROM pile p "
-        "LEFT JOIN station s ON p.station_id = s.id "
-        "ORDER BY p.id";
+        "LEFT JOIN station s ON p.station_id = s.id ";
+    const QString where = conds.isEmpty()
+        ? QString()
+        : QStringLiteral(" WHERE ") + conds.join(QStringLiteral(" AND "));
 
-    if (!q.exec(sql)) {
+    QSqlQuery countQuery(m_db);
+    countQuery.prepare(QStringLiteral("SELECT COUNT(*) FROM pile p ")
+                       + QStringLiteral("LEFT JOIN station s ON p.station_id = s.id")
+                       + where);
+    bindAll(&countQuery, binds);
+    if (!countQuery.exec() || !countQuery.next()) {
         code = Protocol::DbError;
-        msg = q.lastError().text();
-        return arr;
+        msg = countQuery.lastError().text();
+        return {};
+    }
+    const int total = countQuery.value(0).toInt();
+
+    sql += where + QStringLiteral(" ORDER BY p.id LIMIT ? OFFSET ?");
+    QSqlQuery prepared(m_db);
+    prepared.prepare(sql);
+    bindAll(&prepared, binds);
+    prepared.addBindValue(pageSize);
+    prepared.addBindValue((page - 1) * pageSize);
+
+    if (!prepared.exec()) {
+        code = Protocol::DbError;
+        msg = prepared.lastError().text();
+        return {};
     }
 
-    while (q.next()) {
+    while (prepared.next()) {
         QJsonObject o;
-        o["id"]       = q.value("id").toLongLong();
-        o["code"]     = q.value("code").toString();
-        o["station"]  = q.value("station").toString();
-        o["type"]     = q.value("type").toString();
-        o["power_kw"] = q.value("power_kw").toDouble();
-        o["status"]   = q.value("status").toString();
-        o["total_count"] = q.value("total_count").toInt();
-        o["total_hours"] = q.value("total_hours").toDouble();
+        o["id"]       = prepared.value("id").toLongLong();
+        o["code"]     = prepared.value("code").toString();
+        o["station"]  = prepared.value("station").toString();
+        o["type"]     = prepared.value("type").toString();
+        o["power_kw"] = prepared.value("power_kw").toDouble();
+        o["status"]   = prepared.value("status").toString();
+        o["total_count"] = prepared.value("total_count").toInt();
+        o["total_hours"] = prepared.value("total_hours").toDouble();
 
         arr.append(o);
     }
 
     code = Protocol::Ok;
     msg = "ok";
-    return arr;
+    return QJsonObject{{QStringLiteral("list"), arr},
+                       {QStringLiteral("total"), total},
+                       {QStringLiteral("page"), page},
+                       {QStringLiteral("page_size"), pageSize}};
 }
 
 QJsonObject Database::adminPileStats(int &code, QString &msg)
