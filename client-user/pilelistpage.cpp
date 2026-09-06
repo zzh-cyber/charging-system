@@ -1,5 +1,6 @@
 #include "pilelistpage.h"
 
+#include "appmessagebox.h"
 #include "netclient.h"
 #include "protocol.h"
 #include "uitheme.h"
@@ -10,7 +11,6 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QLabel>
-#include <QMessageBox>
 #include <QPushButton>
 #include <QResizeEvent>
 #include <QScrollArea>
@@ -760,7 +760,7 @@ void PileListPage::loadStation(
                 // ------------------------------------------------------------
                 if (m_userId <= 0) {
 
-                    QMessageBox::warning(
+                    AppMessageBox::warning(
                         this,
                         QStringLiteral(
                             "预约失败"),
@@ -776,7 +776,7 @@ void PileListPage::loadStation(
                 // ------------------------------------------------------------
                 if (pileId <= 0) {
 
-                    QMessageBox::warning(
+                    AppMessageBox::warning(
                         this,
                         QStringLiteral(
                             "预约失败"),
@@ -840,7 +840,7 @@ void PileListPage::loadStation(
                             "预约"));
 
 
-                    QMessageBox::warning(
+                    AppMessageBox::warning(
                         this,
                         QStringLiteral(
                             "预约失败"),
@@ -872,7 +872,7 @@ void PileListPage::loadStation(
                             "预约"));
 
 
-                    QMessageBox::warning(
+                    AppMessageBox::warning(
                         this,
                         QStringLiteral(
                             "预约失败"),
@@ -891,7 +891,7 @@ void PileListPage::loadStation(
                         "已预约"));
 
 
-                QMessageBox::information(
+                AppMessageBox::information(
                     this,
                     QStringLiteral(
                         "预约成功"),
@@ -1209,19 +1209,16 @@ void PileListPage::applyResponsiveStyle()
             "padding:5px 10px;"
             "}"
 
-            // 闲置
             "QLabel#pileStatusLabel[pileState=\"idle\"]{"
             "background:#EAF3ED;"
             "color:#4F8668;"
             "}"
 
-            // 在用
             "QLabel#pileStatusLabel[pileState=\"busy\"]{"
             "background:#EDF2F5;"
             "color:#55758A;"
             "}"
 
-            // 故障
             "QLabel#pileStatusLabel[pileState=\"fault\"]{"
             "background:#F7ECEA;"
             "color:#C96C66;"

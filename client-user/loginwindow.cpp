@@ -1,23 +1,23 @@
 #include "loginwindow.h"
 
+#include "appmessagebox.h"
 #include "mainwindow.h"
 #include "netclient.h"
 #include "protocol.h"
 #include "uitheme.h"
 #include "windowhelper.h"
 
+#include <QDebug>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
-#include <QMessageBox>
 #include <QPushButton>
 #include <QRegularExpression>
 #include <QRegularExpressionValidator>
 #include <QResizeEvent>
 #include <QVBoxLayout>
-#include <QDebug>
 
 
 // ============================================================================
@@ -150,7 +150,8 @@ LoginWindow::LoginWindow(
         QStringLiteral(
             "loginTip"));
 
-    tip->setWordWrap(true);
+    tip->setWordWrap(
+        true);
 
     cardLayout->addWidget(
         tip);
@@ -262,7 +263,8 @@ LoginWindow::LoginWindow(
         Qt::AlignLeft |
         Qt::AlignVCenter);
 
-    m_hint->setWordWrap(true);
+    m_hint->setWordWrap(
+        true);
 
     cardLayout->addWidget(
         m_hint);
@@ -771,7 +773,7 @@ void LoginWindow::onLoginClicked()
              .match(phone)
              .hasMatch()) {
 
-        QMessageBox::warning(
+        AppMessageBox::warning(
             this,
             QStringLiteral(
                 "手机号格式错误"),
@@ -871,7 +873,7 @@ void LoginWindow::onLoginClicked()
         }
 
 
-        QMessageBox::warning(
+        AppMessageBox::warning(
             this,
             QStringLiteral(
                 "登录失败"),
@@ -963,7 +965,7 @@ void LoginWindow::onRegisterClicked()
 
     if (code != Protocol::Ok) {
 
-        QMessageBox::warning(
+        AppMessageBox::warning(
             this,
             QStringLiteral(
                 "注册失败"),
@@ -1000,7 +1002,7 @@ QJsonObject LoginWindow::sendLoginRequest(
                 "color:#C96C66;"));
 
 
-        QMessageBox::warning(
+        AppMessageBox::warning(
             this,
             registerMode
                 ? QStringLiteral(
@@ -1044,7 +1046,7 @@ void LoginWindow::enterMainWindow(
 
     if (token.isEmpty()) {
 
-        QMessageBox::warning(
+        AppMessageBox::warning(
             this,
             QStringLiteral(
                 "登录失败"),

@@ -8,6 +8,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QProgressBar>
 #include <QResizeEvent>
 #include <QScrollArea>
 #include <QTimer>
@@ -310,6 +311,149 @@ ChargePage::ChargePage(
 
     recordLayout->addLayout(
         recordHeader);
+        // ========================================================================
+    // SOC 电量进度
+    // ========================================================================
+    auto *batteryCard =
+        new QFrame(
+            m_chargingRecordCard);
+
+    batteryCard->setObjectName(
+        QStringLiteral(
+            "chargeBatteryCard"));
+
+
+    auto *batteryLayout =
+        new QVBoxLayout(
+            batteryCard);
+
+    batteryLayout->setObjectName(
+        QStringLiteral(
+            "chargeBatteryLayout"));
+
+    batteryLayout->setContentsMargins(
+        14,
+        13,
+        14,
+        13);
+
+    batteryLayout->setSpacing(
+        8);
+
+
+    // ------------------------------------------------------------------------
+    // 电量百分比
+    // ------------------------------------------------------------------------
+    auto *batteryTopRow =
+        new QHBoxLayout;
+
+    batteryTopRow->setSpacing(
+        8);
+
+
+    m_batteryIconLabel =
+        new QLabel(
+            QStringLiteral(
+                "▣"),
+            batteryCard);
+
+    m_batteryIconLabel->setObjectName(
+        QStringLiteral(
+            "chargeBatteryIcon"));
+
+
+    m_batteryPercentLabel =
+        new QLabel(
+            QStringLiteral(
+                "--%"),
+            batteryCard);
+
+    m_batteryPercentLabel->setObjectName(
+        QStringLiteral(
+            "chargeBatteryPercent"));
+
+
+    batteryTopRow->addWidget(
+        m_batteryIconLabel);
+
+    batteryTopRow->addWidget(
+        m_batteryPercentLabel);
+
+    batteryTopRow->addStretch();
+
+
+    batteryLayout->addLayout(
+        batteryTopRow);
+
+
+    // ------------------------------------------------------------------------
+    // 充电中
+    // ------------------------------------------------------------------------
+    m_batteryStateLabel =
+        new QLabel(
+            QStringLiteral(
+                "充电中"),
+            batteryCard);
+
+    m_batteryStateLabel->setObjectName(
+        QStringLiteral(
+            "chargeBatteryState"));
+
+
+    batteryLayout->addWidget(
+        m_batteryStateLabel);
+
+
+    // ------------------------------------------------------------------------
+    // SOC 进度条
+    // ------------------------------------------------------------------------
+    m_batteryProgressBar =
+        new QProgressBar(
+            batteryCard);
+
+    m_batteryProgressBar->setObjectName(
+        QStringLiteral(
+            "chargeBatteryProgress"));
+
+    m_batteryProgressBar->setRange(
+        0,
+        100);
+
+    m_batteryProgressBar->setValue(
+        0);
+
+    m_batteryProgressBar->setTextVisible(
+        false);
+
+
+    batteryLayout->addWidget(
+        m_batteryProgressBar);
+
+
+    // ------------------------------------------------------------------------
+    // 初始 / 目标电量
+    // ------------------------------------------------------------------------
+    m_batteryRangeLabel =
+        new QLabel(
+            QStringLiteral(
+                "初始电量 --%    ·    目标 100%"),
+            batteryCard);
+
+    m_batteryRangeLabel->setObjectName(
+        QStringLiteral(
+            "chargeBatteryRange"));
+
+    m_batteryRangeLabel->setAlignment(
+        Qt::AlignLeft |
+        Qt::AlignVCenter);
+
+
+    batteryLayout->addWidget(
+        m_batteryRangeLabel);
+
+
+    recordLayout->addWidget(
+        batteryCard);
 
 
     // ========================================================================
@@ -829,7 +973,11 @@ void ChargePage::setReservedOrder(
         0.0;
 
 
+    resetBatteryInfo();
+
+
     refreshUi();
+
 }
 
 
@@ -839,7 +987,11 @@ void ChargePage::setReservedOrder(
 void ChargePage::setChargingState(
     const QString &startTime,
     double powerKw,
-    double unitPrice)
+    double unitPrice,
+    double startSoc,
+    double batteryCapacityKwh,
+    double targetSoc)
+
 {
     if (m_orderNo.isEmpty())
         return;
@@ -899,14 +1051,64 @@ void ChargePage::setChargingState(
     }
 
 
-    if (unitPrice > 0.0) {
+     if (unitPrice > 0.0) {
 
         m_unitPrice =
             unitPrice;
     }
 
 
+    // ========================================================================
+    // 服务端返回的模拟车辆 SOC 参数
+    // ========================================================================
+    if (startSoc >= 0.0 &&
+        startSoc <= 100.0 &&
+        batteryCapacityKwh > 0.0) {
+
+        m_startSoc =
+            startSoc;
+
+        m_batteryCapacityKwh =
+            batteryCapacityKwh;
+
+
+        if (targetSoc > 0.0 &&
+            targetSoc <= 100.0) {
+
+            m_targetSoc =
+                targetSoc;
+
+        } else {
+
+            m_targetSoc =
+                100.0;
+        }
+
+
+        // 防止异常数据出现目标电量低于初始电量
+        if (m_targetSoc <
+            m_startSoc) {
+
+            m_targetSoc =
+                m_startSoc;
+        }
+
+
+        m_currentSoc =
+            m_startSoc;
+
+        m_hasBatteryInfo =
+            true;
+
+    } else {
+
+        // 新字段尚未返回时不伪造真实百分比
+        resetBatteryInfo();
+    }
+
+
     startChargeTimer();
+
 
     refreshUi();
 }
@@ -1034,15 +1236,7 @@ void ChargePage::reset()
         0.0;
 
 
-    m_currentKwh =
-        0.0;
 
-    m_estimatedAmount =
-        0.0;
-
-
-    m_finalDurationSeconds =
-        0;
 
     m_finalBalance =
         0.0;
@@ -1791,12 +1985,100 @@ void ChargePage::applyResponsiveStyle()
                 UiTheme::primaryHover());
 
 
+    const QString batteryStyle =
+        QStringLiteral(
+
+            "QFrame#chargeBatteryCard{"
+            "background:#FFFFFF;"
+            "border:1px solid %1;"
+            "border-radius:%2px;"
+            "}"
+
+            "QLabel#chargeBatteryIcon{"
+            "background:#EAF3ED;"
+            "color:%3;"
+            "border:none;"
+            "border-radius:%4px;"
+            "font-size:%5px;"
+            "font-weight:800;"
+            "padding:5px 8px;"
+            "}"
+
+            "QLabel#chargeBatteryPercent{"
+            "background:transparent;"
+            "color:%6;"
+            "border:none;"
+            "font-size:%7px;"
+            "font-weight:800;"
+            "}"
+
+            "QLabel#chargeBatteryState{"
+            "background:transparent;"
+            "color:%3;"
+            "border:none;"
+            "font-size:%8px;"
+            "font-weight:700;"
+            "}"
+
+            "QLabel#chargeBatteryRange{"
+            "background:transparent;"
+            "color:%9;"
+            "border:none;"
+            "font-size:%10px;"
+            "}"
+
+            "QProgressBar#chargeBatteryProgress{"
+            "background:#E7E5DF;"
+            "border:none;"
+            "border-radius:5px;"
+            "min-height:10px;"
+            "max-height:10px;"
+            "}"
+
+            "QProgressBar#chargeBatteryProgress::chunk{"
+            "background:%3;"
+            "border-radius:5px;"
+            "}")
+
+            .arg(
+                UiTheme::border())                    // %1
+
+            .arg(
+                smallRadius)                          // %2
+
+            .arg(
+                UiTheme::success())                   // %3
+
+            .arg(
+                scaledUi(scaleBase, 8))               // %4
+
+            .arg(
+                scaledUi(scaleBase, 16))              // %5
+
+            .arg(
+                UiTheme::textPrimary())               // %6
+
+            .arg(
+                scaledUi(scaleBase, 26))              // %7
+
+            .arg(
+                normalFont)                           // %8
+
+            .arg(
+                UiTheme::textSecondary())             // %9
+
+            .arg(
+                tinyFont);                            // %10
+
+
     setStyleSheet(
         pageStyle
         + orderStyle
         + recordStyle
+        + batteryStyle
         + guideStyle
         + buttonStyle);
+
 
 
     // ========================================================================
@@ -1896,6 +2178,34 @@ void ChargePage::applyResponsiveStyle()
                     smallRadius)
                 .arg(
                     tinyFont));
+    }
+    // ========================================================================
+    // SOC 电量卡边距
+    // ========================================================================
+    if (auto *batteryLayout =
+            findChild<QVBoxLayout *>(
+                QStringLiteral(
+                    "chargeBatteryLayout"))) {
+
+        batteryLayout->setContentsMargins(
+            scaledUi(scaleBase, 14),
+            scaledUi(scaleBase, 13),
+            scaledUi(scaleBase, 14),
+            scaledUi(scaleBase, 13));
+
+        batteryLayout->setSpacing(
+            scaledUi(
+                scaleBase,
+                8));
+    }
+
+
+    if (m_batteryProgressBar) {
+
+        m_batteryProgressBar->setFixedHeight(
+            scaledUi(
+                scaleBase,
+                10));
     }
 
 
@@ -2235,6 +2545,78 @@ void ChargePage::updateChargingInfo()
             static_cast<double>(
                 elapsedSeconds) /
             3600.0;
+        // ====================================================================
+        // 模拟当前 SOC
+        //
+        // current_soc =
+        // start_soc + charged_kwh / battery_capacity_kwh * 100
+        // ====================================================================
+        if (m_hasBatteryInfo &&
+            m_batteryCapacityKwh > 0.0) {
+
+            m_currentSoc =
+                m_startSoc +
+                (m_currentKwh /
+                 m_batteryCapacityKwh) *
+                    100.0;
+
+
+            // 当前 SOC 不低于初始值，也不超过目标值
+            m_currentSoc =
+                qBound(
+                    m_startSoc,
+                    m_currentSoc,
+                    m_targetSoc);
+
+
+            if (m_batteryPercentLabel) {
+
+                m_batteryPercentLabel->setText(
+                    QStringLiteral(
+                        "%1%")
+                        .arg(
+                            qRound(
+                                m_currentSoc)));
+            }
+
+
+            if (m_batteryProgressBar) {
+
+                m_batteryProgressBar->setValue(
+                    qRound(
+                        m_currentSoc));
+            }
+
+
+            if (m_batteryRangeLabel) {
+
+                m_batteryRangeLabel->setText(
+                    QStringLiteral(
+                        "初始电量 %1%    ·    目标 %2%")
+                        .arg(
+                            qRound(
+                                m_startSoc))
+                        .arg(
+                            qRound(
+                                m_targetSoc)));
+            }
+
+        } else {
+
+            if (m_batteryPercentLabel) {
+
+                m_batteryPercentLabel->setText(
+                    QStringLiteral(
+                        "--%"));
+            }
+
+
+            if (m_batteryProgressBar) {
+
+                m_batteryProgressBar->setValue(
+                    0);
+            }
+        }
 
 
         if (m_currentKwhLabel) {
@@ -2300,5 +2682,48 @@ void ChargePage::updateChargingInfo()
                 QStringLiteral(
                     "￥--"));
         }
+    }
+}
+// ============================================================================
+// 重置模拟车辆电量信息
+// ============================================================================
+void ChargePage::resetBatteryInfo()
+{
+    m_startSoc =
+        -1.0;
+
+    m_batteryCapacityKwh =
+        0.0;
+
+    m_targetSoc =
+        100.0;
+
+    m_currentSoc =
+        -1.0;
+
+    m_hasBatteryInfo =
+        false;
+
+
+    if (m_batteryPercentLabel) {
+
+        m_batteryPercentLabel->setText(
+            QStringLiteral(
+                "--%"));
+    }
+
+
+    if (m_batteryProgressBar) {
+
+        m_batteryProgressBar->setValue(
+            0);
+    }
+
+
+    if (m_batteryRangeLabel) {
+
+        m_batteryRangeLabel->setText(
+            QStringLiteral(
+                "初始电量 --%    ·    目标 100%"));
     }
 }

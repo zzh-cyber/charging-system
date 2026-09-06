@@ -1,5 +1,6 @@
 #include "profilepage.h"
 
+#include "appmessagebox.h"
 #include "uitheme.h"
 #include "windowhelper.h"
 
@@ -12,7 +13,6 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
-#include <QMessageBox>
 #include <QPainter>
 #include <QPixmap>
 #include <QPushButton>
@@ -29,13 +29,12 @@ ProfilePage::ProfilePage(
     : QWidget(parent)
 {
     setObjectName(
-        QStringLiteral(
-            "profilePage"));
+        QStringLiteral("profilePage"));
 
 
-    // ========================================================================
+    // =========================================================================
     // 页面根布局
-    // ========================================================================
+    // =========================================================================
     auto *rootLayout =
         new QVBoxLayout(this);
 
@@ -49,15 +48,14 @@ ProfilePage::ProfilePage(
         0);
 
 
-    // ========================================================================
+    // =========================================================================
     // 滚动区域
-    // ========================================================================
+    // =========================================================================
     auto *scrollArea =
         new QScrollArea(this);
 
     scrollArea->setObjectName(
-        QStringLiteral(
-            "profileScrollArea"));
+        QStringLiteral("profileScrollArea"));
 
     scrollArea->setWidgetResizable(
         true);
@@ -73,17 +71,14 @@ ProfilePage::ProfilePage(
         new QWidget;
 
     content->setObjectName(
-        QStringLiteral(
-            "profileContent"));
+        QStringLiteral("profileContent"));
 
 
     auto *layout =
-        new QVBoxLayout(
-            content);
+        new QVBoxLayout(content);
 
     layout->setObjectName(
-        QStringLiteral(
-            "profileContentLayout"));
+        QStringLiteral("profileContentLayout"));
 
     layout->setContentsMargins(
         18,
@@ -95,29 +90,25 @@ ProfilePage::ProfilePage(
         14);
 
 
-    // ========================================================================
+    // =========================================================================
     // 页面标题
-    // ========================================================================
+    // =========================================================================
     auto *title =
         new QLabel(
-            QStringLiteral(
-                "我的"),
+            QStringLiteral("我的"),
             content);
 
     title->setObjectName(
-        QStringLiteral(
-            "profileTitle"));
+        QStringLiteral("profileTitle"));
 
 
     auto *subtitle =
         new QLabel(
-            QStringLiteral(
-                "个人资料与钱包管理"),
+            QStringLiteral("个人资料与钱包管理"),
             content);
 
     subtitle->setObjectName(
-        QStringLiteral(
-            "profileSubtitle"));
+        QStringLiteral("profileSubtitle"));
 
     subtitle->setWordWrap(
         true);
@@ -130,15 +121,14 @@ ProfilePage::ProfilePage(
         subtitle);
 
 
-    // ========================================================================
+    // =========================================================================
     // 用户资料卡
-    // ========================================================================
+    // =========================================================================
     auto *userCard =
         new QFrame(content);
 
     userCard->setObjectName(
-        QStringLiteral(
-            "profileUserCard"));
+        QStringLiteral("profileUserCard"));
 
     UiTheme::applyCardShadow(
         userCard,
@@ -147,12 +137,10 @@ ProfilePage::ProfilePage(
 
 
     auto *userLayout =
-        new QHBoxLayout(
-            userCard);
+        new QHBoxLayout(userCard);
 
     userLayout->setObjectName(
-        QStringLiteral(
-            "profileUserLayout"));
+        QStringLiteral("profileUserLayout"));
 
     userLayout->setContentsMargins(
         18,
@@ -164,16 +152,14 @@ ProfilePage::ProfilePage(
         14);
 
 
-    // ========================================================================
+    // =========================================================================
     // 头像
-    // ========================================================================
+    // =========================================================================
     auto *avatar =
-        new QLabel(
-            userCard);
+        new QLabel(userCard);
 
     avatar->setObjectName(
-        QStringLiteral(
-            "profileAvatar"));
+        QStringLiteral("profileAvatar"));
 
     avatar->setAlignment(
         Qt::AlignCenter);
@@ -197,10 +183,8 @@ ProfilePage::ProfilePage(
         QPainter::Antialiasing,
         true);
 
-
     painter.setBrush(
-        QColor(
-            "#E7EFEA"));
+        QColor("#E7EFEA"));
 
     painter.setPen(
         Qt::NoPen);
@@ -211,10 +195,8 @@ ProfilePage::ProfilePage(
         64,
         64);
 
-
     painter.setBrush(
-        QColor(
-            "#315B4D"));
+        QColor("#315B4D"));
 
     painter.drawEllipse(
         23,
@@ -235,9 +217,9 @@ ProfilePage::ProfilePage(
         avatarPixmap);
 
 
-    // ========================================================================
+    // =========================================================================
     // 用户信息
-    // ========================================================================
+    // =========================================================================
     auto *infoLayout =
         new QVBoxLayout;
 
@@ -247,37 +229,31 @@ ProfilePage::ProfilePage(
 
     auto *userCaption =
         new QLabel(
-            QStringLiteral(
-                "账户信息"),
+            QStringLiteral("账户信息"),
             userCard);
 
     userCaption->setObjectName(
-        QStringLiteral(
-            "profileUserCaption"));
+        QStringLiteral("profileUserCaption"));
 
 
     // 保留原默认值：用户
     m_nicknameLabel =
         new QLabel(
-            QStringLiteral(
-                "用户"),
+            QStringLiteral("用户"),
             userCard);
 
     m_nicknameLabel->setObjectName(
-        QStringLiteral(
-            "profileNicknameLabel"));
+        QStringLiteral("profileNicknameLabel"));
 
 
     // 保留原默认值：手机号：--
     m_phoneLabel =
         new QLabel(
-            QStringLiteral(
-                "手机号：--"),
+            QStringLiteral("手机号：--"),
             userCard);
 
     m_phoneLabel->setObjectName(
-        QStringLiteral(
-            "profilePhoneLabel"));
+        QStringLiteral("profilePhoneLabel"));
 
     m_phoneLabel->setWordWrap(
         true);
@@ -293,18 +269,16 @@ ProfilePage::ProfilePage(
         m_phoneLabel);
 
 
-    // ========================================================================
+    // =========================================================================
     // 编辑昵称按钮
-    // ========================================================================
+    // =========================================================================
     m_editNickButton =
         new QPushButton(
-            QStringLiteral(
-                "编辑昵称"),
+            QStringLiteral("编辑昵称"),
             userCard);
 
     m_editNickButton->setObjectName(
-        QStringLiteral(
-            "profileEditButton"));
+        QStringLiteral("profileEditButton"));
 
     m_editNickButton->setCursor(
         Qt::PointingHandCursor);
@@ -327,10 +301,20 @@ ProfilePage::ProfilePage(
         userCard);
 
 
-    // ========================================================================
+    // =========================================================================
     // 修改昵称
-    // 原业务逻辑保持不变
-    // ========================================================================
+    //
+    // 业务逻辑保持不变：
+    // - 初始值仍使用当前昵称
+    // - 最长 20
+    // - 校验仍为 2～20
+    // - 确认后仍 emit nicknameChangeRequested
+    //
+    // UI 改为：
+    // - 无系统标题栏
+    // - 透明外层
+    // - 米白圆角卡片
+    // =========================================================================
     connect(
         m_editNickButton,
         &QPushButton::clicked,
@@ -340,24 +324,73 @@ ProfilePage::ProfilePage(
             QDialog dialog(this);
 
             dialog.setObjectName(
-                QStringLiteral(
-                    "nicknameDialog"));
+                QStringLiteral("nicknameDialog"));
 
             dialog.setWindowTitle(
-                QStringLiteral(
-                    "修改昵称"));
+                QStringLiteral("修改昵称"));
 
             dialog.setModal(
+                true);
+
+            // 去掉系统最外层窗口边框
+            dialog.setWindowFlags(
+                Qt::Dialog |
+                Qt::FramelessWindowHint);
+
+            // 允许真正透明的圆角外围
+            dialog.setAttribute(
+                Qt::WA_TranslucentBackground,
                 true);
 
             dialog.setAttribute(
                 Qt::WA_InputMethodEnabled,
                 true);
 
+            dialog.setMinimumWidth(
+                390);
+
+
+            // -----------------------------------------------------------------
+            // 透明外层
+            // -----------------------------------------------------------------
+            auto *outerLayout =
+                new QVBoxLayout(
+                    &dialog);
+
+            outerLayout->setContentsMargins(
+                18,
+                18,
+                18,
+                18);
+
+            outerLayout->setSpacing(
+                0);
+
+
+            // -----------------------------------------------------------------
+            // 米白圆角主体
+            // -----------------------------------------------------------------
+            auto *dialogCard =
+                new QFrame(
+                    &dialog);
+
+            dialogCard->setObjectName(
+                QStringLiteral(
+                    "nicknameDialogCard"));
+
+            dialogCard->setAttribute(
+                Qt::WA_StyledBackground,
+                true);
+
+            UiTheme::applyCardShadow(
+                dialogCard,
+                24,
+                6);
+
 
             auto *dialogLayout =
                 new QVBoxLayout(
-                    &dialog);
+                    dialogCard);
 
             dialogLayout->setContentsMargins(
                 22,
@@ -366,25 +399,30 @@ ProfilePage::ProfilePage(
                 20);
 
             dialogLayout->setSpacing(
-                12);
+                13);
 
 
+            // -----------------------------------------------------------------
+            // 标题
+            // -----------------------------------------------------------------
             auto *dialogTitle =
                 new QLabel(
-                    QStringLiteral(
-                        "修改昵称"),
-                    &dialog);
+                    QStringLiteral("修改昵称"),
+                    dialogCard);
 
             dialogTitle->setObjectName(
                 QStringLiteral(
                     "nicknameDialogTitle"));
 
 
+            // -----------------------------------------------------------------
+            // 提示
+            // -----------------------------------------------------------------
             auto *label =
                 new QLabel(
                     QStringLiteral(
                         "请输入新的昵称（2～20 个字符）："),
-                    &dialog);
+                    dialogCard);
 
             label->setObjectName(
                 QStringLiteral(
@@ -394,9 +432,12 @@ ProfilePage::ProfilePage(
                 true);
 
 
+            // -----------------------------------------------------------------
+            // 输入框
+            // -----------------------------------------------------------------
             auto *edit =
                 new QLineEdit(
-                    &dialog);
+                    dialogCard);
 
             edit->setObjectName(
                 QStringLiteral(
@@ -415,28 +456,64 @@ ProfilePage::ProfilePage(
             edit->setInputMethodHints(
                 Qt::ImhNone);
 
-            edit->setFocus();
+            edit->setMinimumHeight(
+                42);
 
 
+            // -----------------------------------------------------------------
+            // 按钮
+            // -----------------------------------------------------------------
             auto *buttons =
                 new QDialogButtonBox(
                     QDialogButtonBox::Ok |
                     QDialogButtonBox::Cancel,
-                    &dialog);
+                    dialogCard);
+
+            buttons->setObjectName(
+                QStringLiteral(
+                    "nicknameDialogButtons"));
 
 
-            buttons->button(
-                QDialogButtonBox::Ok)
-                ->setText(
-                    QStringLiteral(
-                        "确定"));
+            auto *okButton =
+                buttons->button(
+                    QDialogButtonBox::Ok);
+
+            okButton->setText(
+                QStringLiteral("确定"));
+
+            okButton->setObjectName(
+                QStringLiteral(
+                    "nicknameOkButton"));
+
+            okButton->setCursor(
+                Qt::PointingHandCursor);
+
+            okButton->setMinimumWidth(
+                90);
+
+            okButton->setMinimumHeight(
+                40);
 
 
-            buttons->button(
-                QDialogButtonBox::Cancel)
-                ->setText(
-                    QStringLiteral(
-                        "取消"));
+            auto *cancelButton =
+                buttons->button(
+                    QDialogButtonBox::Cancel);
+
+            cancelButton->setText(
+                QStringLiteral("取消"));
+
+            cancelButton->setObjectName(
+                QStringLiteral(
+                    "nicknameCancelButton"));
+
+            cancelButton->setCursor(
+                Qt::PointingHandCursor);
+
+            cancelButton->setMinimumWidth(
+                90);
+
+            cancelButton->setMinimumHeight(
+                40);
 
 
             dialogLayout->addWidget(
@@ -448,24 +525,44 @@ ProfilePage::ProfilePage(
             dialogLayout->addWidget(
                 edit);
 
+            dialogLayout->addSpacing(
+                4);
+
             dialogLayout->addWidget(
                 buttons);
 
 
+            outerLayout->addWidget(
+                dialogCard);
+
+
+            // -----------------------------------------------------------------
+            // 无边框圆角样式
+            // -----------------------------------------------------------------
             dialog.setStyleSheet(
                 QStringLiteral(
 
                     "QDialog#nicknameDialog{"
-                    "background:#F6F4EF;"
+                    "background:transparent;"
+                    "}"
+
+                    "QFrame#nicknameDialogCard{"
+                    "background:#F7F4EE;"
+                    "border:1px solid #E2DBD0;"
+                    "border-radius:20px;"
                     "}"
 
                     "QLabel#nicknameDialogTitle{"
+                    "background:transparent;"
+                    "border:none;"
                     "color:#202824;"
-                    "font-size:18px;"
+                    "font-size:19px;"
                     "font-weight:800;"
                     "}"
 
                     "QLabel#nicknameDialogTip{"
+                    "background:transparent;"
+                    "border:none;"
                     "color:#7A837E;"
                     "font-size:13px;"
                     "}"
@@ -473,25 +570,57 @@ ProfilePage::ProfilePage(
                     "QLineEdit#nicknameEdit{"
                     "background:#FFFFFF;"
                     "color:#202824;"
-                    "border:1px solid #E7E3DA;"
-                    "border-radius:10px;"
+                    "border:1px solid #E1DDD4;"
+                    "border-radius:11px;"
                     "padding:9px 12px;"
                     "font-size:14px;"
+                    "selection-background-color:#315B4D;"
+                    "selection-color:#FFFFFF;"
                     "}"
 
                     "QLineEdit#nicknameEdit:focus{"
                     "border:1px solid #315B4D;"
                     "}"
 
-                    "QDialogButtonBox QPushButton{"
-                    "min-width:72px;"
-                    "padding:8px 14px;"
-                    "border-radius:9px;"
-                    "font-weight:600;"
+                    "QDialogButtonBox#nicknameDialogButtons{"
+                    "background:transparent;"
+                    "border:none;"
                     "}"
 
-                    "QDialogButtonBox QPushButton:hover{"
-                    "background:#E9F0EC;"
+                    "QPushButton#nicknameCancelButton{"
+                    "background:#ECE8E0;"
+                    "color:#202824;"
+                    "border:1px solid #DDD6CA;"
+                    "border-radius:12px;"
+                    "font-size:14px;"
+                    "font-weight:650;"
+                    "padding:8px 16px;"
+                    "}"
+
+                    "QPushButton#nicknameCancelButton:hover{"
+                    "background:#E4DFD5;"
+                    "}"
+
+                    "QPushButton#nicknameCancelButton:pressed{"
+                    "background:#DCD6CB;"
+                    "}"
+
+                    "QPushButton#nicknameOkButton{"
+                    "background:#315B4D;"
+                    "color:#FFFFFF;"
+                    "border:none;"
+                    "border-radius:12px;"
+                    "font-size:14px;"
+                    "font-weight:700;"
+                    "padding:8px 16px;"
+                    "}"
+
+                    "QPushButton#nicknameOkButton:hover{"
+                    "background:#284C41;"
+                    "}"
+
+                    "QPushButton#nicknameOkButton:pressed{"
+                    "background:#203F36;"
                     "}"));
 
 
@@ -501,12 +630,17 @@ ProfilePage::ProfilePage(
                 &dialog,
                 &QDialog::accept);
 
-
             QObject::connect(
                 buttons,
                 &QDialogButtonBox::rejected,
                 &dialog,
                 &QDialog::reject);
+
+
+            edit->setFocus(
+                Qt::OtherFocusReason);
+
+            edit->selectAll();
 
 
             if (dialog.exec() !=
@@ -525,10 +659,9 @@ ProfilePage::ProfilePage(
             if (nickname.size() < 2 ||
                 nickname.size() > 20) {
 
-                QMessageBox::warning(
+                AppMessageBox::warning(
                     this,
-                    QStringLiteral(
-                        "昵称无效"),
+                    QStringLiteral("昵称无效"),
                     QStringLiteral(
                         "昵称长度需为 2～20 个字符"));
 
@@ -548,9 +681,9 @@ ProfilePage::ProfilePage(
         });
 
 
-    // ========================================================================
+    // =========================================================================
     // 钱包卡
-    // ========================================================================
+    // =========================================================================
     auto *walletCard =
         new QFrame(
             content);
@@ -583,9 +716,9 @@ ProfilePage::ProfilePage(
         13);
 
 
-    // ========================================================================
+    // =========================================================================
     // 钱包顶部
-    // ========================================================================
+    // =========================================================================
     auto *walletHeader =
         new QHBoxLayout;
 
@@ -628,9 +761,9 @@ ProfilePage::ProfilePage(
         walletHeader);
 
 
-    // ========================================================================
+    // =========================================================================
     // 当前余额
-    // ========================================================================
+    // =========================================================================
     auto *balanceCaption =
         new QLabel(
             QStringLiteral(
@@ -661,9 +794,9 @@ ProfilePage::ProfilePage(
         m_balanceLabel);
 
 
-    // ========================================================================
+    // =========================================================================
     // 分隔线
-    // ========================================================================
+    // =========================================================================
     auto *divider =
         new QFrame(
             walletCard);
@@ -680,9 +813,9 @@ ProfilePage::ProfilePage(
         divider);
 
 
-    // ========================================================================
+    // =========================================================================
     // 快捷充值
-    // ========================================================================
+    // =========================================================================
     auto *amountTitle =
         new QLabel(
             QStringLiteral(
@@ -748,10 +881,8 @@ ProfilePage::ProfilePage(
 
         auto *button =
             new QPushButton(
-                QStringLiteral(
-                    "￥%1")
-                    .arg(
-                        amount),
+                QStringLiteral("￥%1")
+                    .arg(amount),
                 walletCard);
 
         button->setObjectName(
@@ -784,9 +915,9 @@ ProfilePage::ProfilePage(
         quickLayout);
 
 
-    // ========================================================================
+    // =========================================================================
     // 自定义充值金额
-    // ========================================================================
+    // =========================================================================
     auto *customCard =
         new QFrame(
             walletCard);
@@ -853,8 +984,7 @@ ProfilePage::ProfilePage(
 
     // 保留原前缀
     m_amountSpin->setPrefix(
-        QStringLiteral(
-            "￥"));
+        QStringLiteral("￥"));
 
     m_amountSpin->setMinimumWidth(
         160);
@@ -873,9 +1003,9 @@ ProfilePage::ProfilePage(
         customCard);
 
 
-    // ========================================================================
+    // =========================================================================
     // 充值按钮
-    // ========================================================================
+    // =========================================================================
     m_rechargeButton =
         new QPushButton(
             QStringLiteral(
@@ -894,9 +1024,9 @@ ProfilePage::ProfilePage(
         m_rechargeButton);
 
 
-    // ========================================================================
+    // =========================================================================
     // 状态提示
-    // ========================================================================
+    // =========================================================================
     // 保留原提示文案
     m_tipLabel =
         new QLabel(
@@ -923,9 +1053,9 @@ ProfilePage::ProfilePage(
         walletCard);
 
 
-    // ========================================================================
+    // =========================================================================
     // 页面说明卡
-    // ========================================================================
+    // =========================================================================
     auto *noteCard =
         new QFrame(
             content);
@@ -998,10 +1128,10 @@ ProfilePage::ProfilePage(
         scrollArea);
 
 
-    // ========================================================================
+    // =========================================================================
     // 点击充值
     // 原业务逻辑保持不变
-    // ========================================================================
+    // =========================================================================
     connect(
         m_rechargeButton,
         &QPushButton::clicked,
@@ -1046,10 +1176,8 @@ void ProfilePage::setUserInfo(
 
     // 原手机号显示逻辑保持不变
     m_phoneLabel->setText(
-        QStringLiteral(
-            "手机号：%1")
-            .arg(
-                phone));
+        QStringLiteral("手机号：%1")
+            .arg(phone));
 
 
     // 原余额更新逻辑保持不变
@@ -1072,9 +1200,36 @@ void ProfilePage::setNickname(
     // 服务器昵称为空时显示“用户”
     m_nicknameLabel->setText(
         nickname.isEmpty()
-            ? QStringLiteral(
-                  "用户")
+            ? QStringLiteral("用户")
             : nickname);
+}
+
+
+// ============================================================================
+// 从其它页面跳转到充值区域
+// ============================================================================
+void ProfilePage::openRechargeSection()
+{
+    if (!m_amountSpin)
+        return;
+
+
+    if (auto *scrollArea =
+            findChild<QScrollArea *>(
+                QStringLiteral(
+                    "profileScrollArea"))) {
+
+        scrollArea->ensureWidgetVisible(
+            m_amountSpin,
+            30,
+            80);
+    }
+
+
+    m_amountSpin->setFocus(
+        Qt::OtherFocusReason);
+
+    m_amountSpin->selectAll();
 }
 
 
@@ -1090,8 +1245,7 @@ void ProfilePage::setBalance(
 
     // 保留原金额格式
     m_balanceLabel->setText(
-        QStringLiteral(
-            "￥%1")
+        QStringLiteral("￥%1")
             .arg(
                 m_balance,
                 0,
@@ -1454,9 +1608,9 @@ void ProfilePage::applyResponsiveStyle()
             normalFont));
 
 
-    // ========================================================================
+    // =========================================================================
     // 页面内容边距
-    // ========================================================================
+    // =========================================================================
     if (auto *contentLayout =
             findChild<QVBoxLayout *>(
                 QStringLiteral(
@@ -1475,9 +1629,9 @@ void ProfilePage::applyResponsiveStyle()
     }
 
 
-    // ========================================================================
+    // =========================================================================
     // 用户资料卡
-    // ========================================================================
+    // =========================================================================
     if (auto *userLayout =
             findChild<QHBoxLayout *>(
                 QStringLiteral(
@@ -1496,9 +1650,9 @@ void ProfilePage::applyResponsiveStyle()
     }
 
 
-    // ========================================================================
+    // =========================================================================
     // 头像大小
-    // ========================================================================
+    // =========================================================================
     if (auto *avatar =
             findChild<QLabel *>(
                 QStringLiteral(
@@ -1515,9 +1669,9 @@ void ProfilePage::applyResponsiveStyle()
     }
 
 
-    // ========================================================================
+    // =========================================================================
     // 钱包卡
-    // ========================================================================
+    // =========================================================================
     if (auto *walletLayout =
             findChild<QVBoxLayout *>(
                 QStringLiteral(
@@ -1536,9 +1690,9 @@ void ProfilePage::applyResponsiveStyle()
     }
 
 
-    // ========================================================================
+    // =========================================================================
     // 快捷充值网格
-    // ========================================================================
+    // =========================================================================
     if (auto *quickLayout =
             findChild<QGridLayout *>(
                 QStringLiteral(
@@ -1556,9 +1710,9 @@ void ProfilePage::applyResponsiveStyle()
     }
 
 
-    // ========================================================================
+    // =========================================================================
     // 自定义金额区
-    // ========================================================================
+    // =========================================================================
     if (auto *customLayout =
             findChild<QHBoxLayout *>(
                 QStringLiteral(
@@ -1591,9 +1745,9 @@ void ProfilePage::applyResponsiveStyle()
     }
 
 
-    // ========================================================================
+    // =========================================================================
     // 账户说明卡
-    // ========================================================================
+    // =========================================================================
     if (auto *noteLayout =
             findChild<QVBoxLayout *>(
                 QStringLiteral(

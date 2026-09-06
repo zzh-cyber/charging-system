@@ -29,6 +29,9 @@ public:
     void setNickname(
         const QString &nickname);
 
+    // 从其它页面跳转到充值区域
+    void openRechargeSection();
+
 protected:
     void resizeEvent(
         QResizeEvent *event) override;

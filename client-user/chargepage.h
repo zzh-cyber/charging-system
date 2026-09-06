@@ -10,6 +10,7 @@ class QPushButton;
 class QResizeEvent;
 class QTimer;
 class QFrame;
+class QProgressBar;
 
 class ChargePage : public QWidget
 {
@@ -23,13 +24,21 @@ public:
     void setReservedOrder(
         const QString &orderNo);
 
-    // start_charge 成功后调用
-    // powerKw / unitPrice 暂时允许为 0，
-    // 兼容当前服务端
+    // start_charge / unfinished_order 的 charging 状态成功后调用
+    //
+    // 新增：
+    // startSoc            模拟初始 SOC
+    // batteryCapacityKwh  模拟电池容量
+    // targetSoc           目标 SOC，缺省 100
+    //
+    // 保留默认参数，兼容暂时还没传新字段的调用位置
     void setChargingState(
         const QString &startTime = QString(),
         double powerKw = 0.0,
-        double unitPrice = 0.0);
+        double unitPrice = 0.0,
+        double startSoc = -1.0,
+        double batteryCapacityKwh = 0.0,
+        double targetSoc = 100.0);
 
     // finish_charge 成功：
     // 充电结束，进入待支付
@@ -70,6 +79,7 @@ private:
     void startChargeTimer();
     void stopChargeTimer();
     void updateChargingInfo();
+    void resetBatteryInfo();
 
     enum class ChargeState
     {
@@ -99,6 +109,13 @@ private:
     // 充电实时记录
     QFrame *m_chargingRecordCard = nullptr;
 
+    // SOC 电量进度
+    QLabel *m_batteryIconLabel = nullptr;
+    QLabel *m_batteryPercentLabel = nullptr;
+    QLabel *m_batteryStateLabel = nullptr;
+    QLabel *m_batteryRangeLabel = nullptr;
+    QProgressBar *m_batteryProgressBar = nullptr;
+
     QLabel *m_elapsedLabel = nullptr;
     QLabel *m_powerLabel = nullptr;
     QLabel *m_currentKwhLabel = nullptr;
@@ -125,6 +142,13 @@ private:
     // 当前实时预估值
     double m_currentKwh = 0.0;
     double m_estimatedAmount = 0.0;
+
+    // 模拟车辆 SOC
+    double m_startSoc = -1.0;
+    double m_batteryCapacityKwh = 0.0;
+    double m_targetSoc = 100.0;
+    double m_currentSoc = -1.0;
+    bool m_hasBatteryInfo = false;
 
     // 最终账单
     qint64 m_finalDurationSeconds = 0;

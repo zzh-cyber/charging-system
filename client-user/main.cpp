@@ -53,41 +53,35 @@ int main(
     // 页面背景
     palette.setColor(
         QPalette::Window,
-        QColor(
-            "#F6F4EF"));
+        QColor("#F6F4EF"));
 
 
     // 输入控件背景
     palette.setColor(
         QPalette::Base,
-        QColor(
-            "#FFFFFF"));
+        QColor("#FFFFFF"));
 
 
     // 普通文字
     palette.setColor(
         QPalette::WindowText,
-        QColor(
-            "#202824"));
+        QColor("#202824"));
 
 
     palette.setColor(
         QPalette::Text,
-        QColor(
-            "#202824"));
+        QColor("#202824"));
 
 
     // 选中区域
     palette.setColor(
         QPalette::Highlight,
-        QColor(
-            "#315B4D"));
+        QColor("#315B4D"));
 
 
     palette.setColor(
         QPalette::HighlightedText,
-        QColor(
-            "#FFFFFF"));
+        QColor("#FFFFFF"));
 
 
     app.setPalette(
@@ -98,14 +92,11 @@ int main(
     // 全局 UI 样式
     //
     // 页面自己的 objectName 样式优先级更高，
-    // 所以前面已经美化过的 Login / Station / Pile / Charge /
-    // Profile / Navigation 页面不会被这里破坏。
+    // 所以前面已经美化过的 Login / Station / Pile /
+    // Charge / Profile / Navigation 页面不会被这里破坏。
     //
-    // 这里主要负责：
-    // 1. 没有单独样式的基础控件
-    // 2. QMessageBox
-    // 3. 普通 QDialog
-    // 4. QDialogButtonBox
+    // 提示弹窗统一由 AppMessageBox 负责，
+    // 因此这里不再保留任何 QMessageBox 样式。
     // ========================================================================
     app.setStyleSheet(
         QStringLiteral(
@@ -256,7 +247,6 @@ int main(
 
             // ================================================================
             // 底部导航
-            // 保留原 objectName，但改为当前深绿色主题
             // ================================================================
             "QWidget#navBar{"
             "background:#FFFFFF;"
@@ -288,57 +278,19 @@ int main(
 
 
             // ================================================================
-            // QMessageBox
-            //
-            // mainwindow.cpp / pilelistpage.cpp /
-            // loginwindow.cpp / profilepage.cpp 中原来的
-            // QMessageBox 调用都不需要改。
-            // ================================================================
-            "QMessageBox{"
-            "background:#F6F4EF;"
-            "}"
-
-
-            // QMessageBox 内部普通文字
-            "QMessageBox QLabel{"
-"background:transparent;"
-"color:#202824;"
-"font-size:14px;"
-"}"
-
-
-            // QMessageBox 按钮
-            "QMessageBox QPushButton{"
-            "background:#315B4D;"
-            "color:#FFFFFF;"
-            "border:none;"
-            "border-radius:10px;"
-            "min-width:82px;"
-            "min-height:36px;"
-            "padding:7px 16px;"
-            "font-size:14px;"
-            "font-weight:700;"
-            "}"
-
-            "QMessageBox QPushButton:hover{"
-            "background:#284C41;"
-            "}"
-
-            "QMessageBox QPushButton:pressed{"
-            "background:#203F36;"
-            "}"
-
-
-            // ================================================================
             // 普通 QDialog
-            // =================================================================
+            //
+            // 注意：
+            // 这里只控制内部颜色。
+            // 需要完全无系统边框的弹窗，
+            // 会在对应 Dialog 中设置 FramelessWindowHint。
+            // ================================================================
             "QDialog{"
             "background:#F6F4EF;"
             "color:#202824;"
             "}"
 
 
-            // Dialog 普通 Label
             "QDialog QLabel{"
             "background:transparent;"
             "color:#202824;"
