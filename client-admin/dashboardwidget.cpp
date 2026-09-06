@@ -78,12 +78,9 @@ void DashboardWidget::initUi()
 
     auto *cardsLayout = new QHBoxLayout;
     cardsLayout->setSpacing(16);
-    cardsLayout->addWidget(createKpiCard(
-        QStringLiteral("今日营收"), &m_todayRevenueLabel));
-    cardsLayout->addWidget(createKpiCard(
-        QStringLiteral("本月营收"), &m_monthRevenueLabel));
-    cardsLayout->addWidget(createKpiCard(
-        QStringLiteral("总营收"), &m_totalRevenueLabel));
+    cardsLayout->addWidget(createKpiCard(QStringLiteral("今日营收"), QStringLiteral("已结算金额"), &m_todayRevenueLabel));
+    cardsLayout->addWidget(createKpiCard(QStringLiteral("本月营收"), QStringLiteral("本月累计已结算"), &m_monthRevenueLabel));
+    cardsLayout->addWidget(createKpiCard(QStringLiteral("总营收"), QStringLiteral("历史累计已结算"), &m_totalRevenueLabel));
     mainLayout->addLayout(cardsLayout);
 
     auto *chartHeader = new QHBoxLayout;
@@ -145,24 +142,23 @@ void DashboardWidget::initUi()
             this, &DashboardWidget::onPointHovered);
 }
 
-QWidget *DashboardWidget::createKpiCard(const QString &title, QLabel **valueLabel)
+QWidget *DashboardWidget::createKpiCard(const QString &title, const QString &description, QLabel **valueLabel)
 {
     auto *card = new QFrame(this);
     card->setObjectName(QStringLiteral("kpiCard"));
-    card->setStyleSheet(QStringLiteral(
-        "QFrame#kpiCard { background: white; border: 1px solid #dfe6e9;"
-        " border-radius: 8px; }"));
     card->setMinimumHeight(120);
     auto *layout = new QVBoxLayout(card);
     layout->setContentsMargins(20, 16, 20, 16);
     auto *titleLabel = new QLabel(title, card);
-    titleLabel->setStyleSheet(QStringLiteral("font-size: 14px; color: #7f8c8d;"));
-    *valueLabel = new QLabel(QStringLiteral("¥0.00"), card);
-    (*valueLabel)->setStyleSheet(QStringLiteral(
-        "font-size: 28px; font-weight: 600; color: #2c3e50;"));
+    titleLabel->setObjectName("kpiTitle");
+    *valueLabel = new QLabel(QStringLiteral("--"), card);
+    (*valueLabel)->setObjectName("kpiValue");
+    auto *descLabel = new QLabel(description, card);
+    descLabel->setObjectName("kpiDescription");
     layout->addWidget(titleLabel);
     layout->addStretch();
     layout->addWidget(*valueLabel);
+    layout->addWidget(descLabel);
     return card;
 }
 
@@ -212,16 +208,20 @@ void DashboardWidget::refreshData()
     }
 
     const QJsonObject data = response.value(QStringLiteral("data")).toObject();
-    m_todayRevenueLabel->setText(moneyText(numberValue(
-        data, {QStringLiteral("todayRevenue"), QStringLiteral("today_revenue")})));
-    m_monthRevenueLabel->setText(moneyText(numberValue(
-        data, {QStringLiteral("monthRevenue"), QStringLiteral("month_revenue")})));
-    m_totalRevenueLabel->setText(moneyText(numberValue(
-        data, {QStringLiteral("totalRevenue"), QStringLiteral("total_revenue")})));
+    if (m_todayRevenueLabel)
+        m_todayRevenueLabel->setText(moneyText(numberValue(
+            data, {QStringLiteral("todayRevenue"), QStringLiteral("today_revenue")})));
+    if (m_monthRevenueLabel)
+        m_monthRevenueLabel->setText(moneyText(numberValue(
+            data, {QStringLiteral("monthRevenue"), QStringLiteral("month_revenue")})));
+    if (m_totalRevenueLabel)
+        m_totalRevenueLabel->setText(moneyText(numberValue(
+            data, {QStringLiteral("totalRevenue"), QStringLiteral("total_revenue")})));
     updateChart(data, days);
-    m_lastUpdateLabel->setText(
-        QStringLiteral("最后更新: %1").arg(
-            QTime::currentTime().toString(QStringLiteral("HH:mm:ss"))));
+    if (m_lastUpdateLabel)
+        m_lastUpdateLabel->setText(
+            QStringLiteral("最后更新: %1").arg(
+                QTime::currentTime().toString(QStringLiteral("HH:mm:ss"))));
 }
 
 double DashboardWidget::numberValue(const QJsonObject &object,

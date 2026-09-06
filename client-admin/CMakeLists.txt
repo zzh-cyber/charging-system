@@ -17,6 +17,7 @@ add_executable(charging-admin
     pilemanagerwidget.h
     stationmanagerwidget.cpp
     stationmanagerwidget.h
+    resources.qrc
 )
 
 set_target_properties(charging-admin PROPERTIES

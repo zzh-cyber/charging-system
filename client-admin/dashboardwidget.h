@@ -30,7 +30,7 @@ private slots:
 
 private:
     void initUi();
-    QWidget *createKpiCard(const QString &title, QLabel **valueLabel);
+    QWidget *createKpiCard(const QString &title, const QString &description, QLabel **valueLabel);
     void updateChart(const QJsonObject &data, int days);
     static double numberValue(const QJsonObject &object,
                               const QStringList &keys);
