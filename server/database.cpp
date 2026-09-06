@@ -1371,6 +1371,19 @@ QJsonObject Database::adminPileList(const QJsonObject &input, int &code, QString
         return {};
     }
     if (stationId > 0) {
+        QSqlQuery stationQuery(m_db);
+        stationQuery.prepare(QStringLiteral("SELECT COUNT(*) FROM station WHERE id = ?"));
+        stationQuery.addBindValue(stationId);
+        if (!stationQuery.exec() || !stationQuery.next()) {
+            code = Protocol::DbError;
+            msg = stationQuery.lastError().text();
+            return {};
+        }
+        if (stationQuery.value(0).toInt() == 0) {
+            code = Protocol::NotFound;
+            msg = QStringLiteral("电站不存在");
+            return {};
+        }
         conds.append(QStringLiteral("p.station_id = ?"));
         binds.append(stationId);
     }
@@ -1409,7 +1422,11 @@ QJsonObject Database::adminPileList(const QJsonObject &input, int &code, QString
 
     QString sql =
         "SELECT p.id, p.code, s.name AS station, "
-        "p.type, p.power_kw, p.status, p.total_count, p.total_hours "
+        "p.type, p.power_kw, p.status, p.total_count, p.total_hours, "
+        "p.last_online_at, "
+        "(SELECT o.order_no FROM charge_order o "
+        " WHERE o.pile_id = p.id AND o.status IN ('reserved','charging') "
+        " ORDER BY o.id DESC LIMIT 1) AS order_no "
         "FROM pile p "
         "LEFT JOIN station s ON p.station_id = s.id ";
     const QString where = conds.isEmpty()
@@ -1451,6 +1468,11 @@ QJsonObject Database::adminPileList(const QJsonObject &input, int &code, QString
         o["status"]   = prepared.value("status").toString();
         o["total_count"] = prepared.value("total_count").toInt();
         o["total_hours"] = prepared.value("total_hours").toDouble();
+        const QVariant lastOnline = prepared.value("last_online_at");
+        o["last_online_at"] = lastOnline.isNull()
+            ? QString()
+            : formatSqlDateTime(lastOnline);
+        o["order_no"] = prepared.value("order_no").toString();
 
         arr.append(o);
     }
