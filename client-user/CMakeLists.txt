@@ -1,4 +1,5 @@
 # 充电用户端（Qt Widgets GUI）
+find_package(Qt6 REQUIRED COMPONENTS WebEngineWidgets)
 add_executable(charging-user
     main.cpp
     loginwindow.cpp
@@ -36,4 +37,6 @@ target_link_libraries(charging-user
         Qt6::Gui
         Qt6::Widgets
         Qt6::Network
+        Qt6::WebEngineWidgets
 )
+
