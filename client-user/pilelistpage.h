@@ -17,12 +17,19 @@ class QResizeEvent;
 class PileListPage : public QWidget
 {
     Q_OBJECT
+
 public:
-    explicit PileListPage(NetClient *net, QWidget *parent = nullptr);
+    explicit PileListPage(
+        NetClient *net,
+        QWidget *parent = nullptr);
 
     // 加载指定充电站的桩列表
-    void loadStation(qint64 stationId, const QString &name);
-    void setUserId(qint64 userId);
+    void loadStation(
+        qint64 stationId,
+        const QString &name);
+
+    void setUserId(
+        qint64 userId);
 
 protected:
     void resizeEvent(
@@ -30,19 +37,23 @@ protected:
 
 signals:
     void back();
-    void reservationSucceeded(const QString &orderNo);
 
+    void reservationSucceeded(
+        const QString &orderNo);
 
 private:
     void applyResponsiveStyle();
+
     void clearList();
 
-    NetClient     *m_net;
-    QLabel        *m_title;
-    QLabel        *m_tip;
-    QPushButton   *m_backBtn;
-    QVBoxLayout   *m_listLayout;
+    NetClient *m_net = nullptr;
+
+    QLabel *m_title = nullptr;
+    QLabel *m_tip = nullptr;
+
+    QPushButton *m_backBtn = nullptr;
+
+    QVBoxLayout *m_listLayout = nullptr;
 
     qint64 m_userId = 0;
-
 };
