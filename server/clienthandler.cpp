@@ -296,8 +296,7 @@ void ClientHandler::dispatch(const QJsonObject &req)
 
     // ================= 管理端：用户管理 =================
     if (type == MsgType::AdminUserList) {
-        QJsonObject out;
-        out["list"] = m_db->adminUserList(data.value("keyword").toString(), code, msg);
+        const QJsonObject out = m_db->adminUserList(data, code, msg);
         reply(makeResponse(type, code, msg, out));
         return;
     }

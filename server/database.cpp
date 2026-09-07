@@ -1250,27 +1250,55 @@ QJsonObject Database::recharge(qint64 userId, double amount, int &code, QString 
     return data;
 }
 
-QJsonArray Database::adminUserList(const QString &keyword, int &code, QString &msg)
+QJsonObject Database::adminUserList(const QJsonObject &input, int &code, QString &msg)
 {
-    QJsonArray arr;
+    const QString keyword = input.value(QStringLiteral("keyword")).toString().trimmed();
+    int page = input.value(QStringLiteral("page")).toInt(1);
+    int pageSize = input.value(QStringLiteral("page_size")).toInt(20);
+    if (page < 1)
+        page = 1;
+    if (pageSize < 1)
+        pageSize = 20;
+    if (pageSize > 50)
+        pageSize = 50;
+
+    QStringList conds;
+    QVariantList binds;
+    if (!keyword.isEmpty()) {
+        conds.append(QStringLiteral(
+            "(phone LIKE ? ESCAPE '|' OR nickname LIKE ? ESCAPE '|')"));
+        const QString like = QStringLiteral("%") + escapeLike(keyword) + QLatin1Char('%');
+        binds.append(like);
+        binds.append(like);
+    }
+    const QString where = conds.isEmpty()
+        ? QString()
+        : QStringLiteral(" WHERE ") + conds.join(QStringLiteral(" AND "));
+
+    QSqlQuery countQuery(m_db);
+    countQuery.prepare(QStringLiteral("SELECT COUNT(*) FROM `user`") + where);
+    bindAll(&countQuery, binds);
+    if (!countQuery.exec() || !countQuery.next()) {
+        code = Protocol::DbError;
+        msg = countQuery.lastError().text();
+        return {};
+    }
+    const int total = countQuery.value(0).toInt();
 
     QSqlQuery q(m_db);
-    if (keyword.trimmed().isEmpty()) {
-        q.prepare("SELECT id, phone, nickname, balance, status, created_at "
-                  "FROM `user` ORDER BY id");
-    } else {
-        q.prepare("SELECT id, phone, nickname, balance, status, created_at "
-                  "FROM `user` WHERE phone LIKE ? OR nickname LIKE ? ORDER BY id");
-        const QString like = "%" + keyword.trimmed() + "%";
-        q.addBindValue(like);
-        q.addBindValue(like);
-    }
+    q.prepare(QStringLiteral(
+                  "SELECT id, phone, nickname, balance, status, created_at FROM `user`")
+              + where + QStringLiteral(" ORDER BY id LIMIT ? OFFSET ?"));
+    bindAll(&q, binds);
+    q.addBindValue(pageSize);
+    q.addBindValue((page - 1) * pageSize);
     if (!q.exec()) {
         code = Protocol::DbError;
         msg = q.lastError().text();
-        return arr;
+        return {};
     }
 
+    QJsonArray arr;
     while (q.next()) {
         QJsonObject o;
         o["id"]         = q.value("id").toLongLong();
@@ -1278,13 +1306,16 @@ QJsonArray Database::adminUserList(const QString &keyword, int &code, QString &m
         o["nickname"]   = q.value("nickname").toString();
         o["balance"]    = q.value("balance").toDouble();
         o["status"]     = q.value("status").toString();
-        o["created_at"] = q.value("created_at").toString();
+        o["created_at"] = formatSqlDateTime(q.value("created_at"));
         arr.append(o);
     }
 
     code = Protocol::Ok;
     msg = "ok";
-    return arr;
+    return QJsonObject{{QStringLiteral("list"), arr},
+                       {QStringLiteral("total"), total},
+                       {QStringLiteral("page"), page},
+                       {QStringLiteral("page_size"), pageSize}};
 }
 
 QJsonObject Database::adminUserFreeze(qint64 adminId, qint64 userId, bool frozen, int &code, QString &msg)
@@ -1537,9 +1568,9 @@ QJsonObject Database::adminPileRestart(qint64 adminId, qint64 pileId, int &code,
         return data;
     }
 
-    // 确认电桩存在并记录旧状态（日志 before_value 用）
+    // 锁电桩行，确认存在并记下旧状态（审计 before_value）
     QSqlQuery existsQuery(m_db);
-    existsQuery.prepare("SELECT status FROM pile WHERE id = ? LIMIT 1");
+    existsQuery.prepare("SELECT status FROM pile WHERE id = ? FOR UPDATE");
     existsQuery.addBindValue(pileId);
     if (!existsQuery.exec()) {
         m_db.rollback();
@@ -1555,11 +1586,30 @@ QJsonObject Database::adminPileRestart(qint64 adminId, qint64 pileId, int &code,
     }
     const QString oldStatus = existsQuery.value("status").toString();
 
-    // 写设备指令（模拟重启，直接标记成功）
+    // 充电中禁止重启（预约占用仍允许管理员强制恢复）
+    QSqlQuery charging(m_db);
+    charging.prepare("SELECT id FROM charge_order "
+                     "WHERE pile_id = ? AND status = 'charging' LIMIT 1");
+    charging.addBindValue(pileId);
+    if (!charging.exec()) {
+        m_db.rollback();
+        code = Protocol::DbError;
+        msg = charging.lastError().text();
+        return data;
+    }
+    if (charging.next()) {
+        m_db.rollback();
+        code = Protocol::InvalidRequest;
+        msg = "电桩正在充电中，禁止远程重启";
+        return data;
+    }
+
+    // 无独立桩程序：指令先落 pending，事务内模拟执行后再记 success
+    const QString commandNo = QUuid::createUuid().toString(QUuid::WithoutBraces);
     QSqlQuery cmd(m_db);
-    cmd.prepare("INSERT INTO device_commands (command_no, pile_id, command, status, response_at) "
-                "VALUES (?, ?, 'restart', 'success', NOW())");
-    cmd.addBindValue(QUuid::createUuid().toString(QUuid::WithoutBraces));
+    cmd.prepare("INSERT INTO device_commands (command_no, pile_id, command, status) "
+                "VALUES (?, ?, 'restart', 'pending')");
+    cmd.addBindValue(commandNo);
     cmd.addBindValue(pileId);
     if (!cmd.exec()) {
         m_db.rollback();
@@ -1568,7 +1618,6 @@ QJsonObject Database::adminPileRestart(qint64 adminId, qint64 pileId, int &code,
         return data;
     }
 
-    // 模拟重启：恢复为 idle
     QSqlQuery q(m_db);
     q.prepare("UPDATE pile SET status = 'idle' WHERE id = ?");
     q.addBindValue(pileId);
@@ -1579,8 +1628,18 @@ QJsonObject Database::adminPileRestart(qint64 adminId, qint64 pileId, int &code,
         return data;
     }
 
-    // 写操作日志（NO.58）
-    if (!logOperation(adminId, "restart_pile", "pile", pileId, oldStatus, "idle")) {
+    QSqlQuery done(m_db);
+    done.prepare("UPDATE device_commands SET status = 'success', response_at = NOW() "
+                 "WHERE command_no = ?");
+    done.addBindValue(commandNo);
+    if (!done.exec()) {
+        m_db.rollback();
+        code = Protocol::DbError;
+        msg = done.lastError().text();
+        return data;
+    }
+
+    if (!logOperation(adminId, "pile_restart", "pile", pileId, oldStatus, "idle")) {
         m_db.rollback();
         code = Protocol::DbError;
         msg = m_lastError;
@@ -1594,8 +1653,9 @@ QJsonObject Database::adminPileRestart(qint64 adminId, qint64 pileId, int &code,
         return data;
     }
 
-    data["id"]     = pileId;
-    data["status"] = "idle";
+    data["id"]         = pileId;
+    data["status"]     = "idle";
+    data["command_no"] = commandNo;
     code = Protocol::Ok;
     msg = "重启成功";
     return data;
