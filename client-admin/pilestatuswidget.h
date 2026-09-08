@@ -1,171 +1,75 @@
 #pragma once
 
-#include <QWidget>
-#include <QAbstractTableModel>
-#include <QSortFilterProxyModel>
-#include <QVector>
 #include <QDateTime>
-#include <QHash>
+#include <QJsonObject>
+#include <QVector>
+#include <QWidget>
 
 class NetClient;
-class QTableView;
 class QComboBox;
-class QPushButton;
 class QLabel;
+class QLineEdit;
+class QPushButton;
+class QResizeEvent;
+class QScrollArea;
 class QTimer;
+class QVBoxLayout;
 
-// 单条电桩状态数据
 struct PileStatusItem
 {
     qint64 id = 0;
-
     QString code;
     QString station;
     QString type;
-
     double powerKw = 0.0;
-
     QString status;
-
-    QDateTime updatedAt;
 };
-
-
-// ==================== 数据模型 ====================
-
-class PileStatusModel : public QAbstractTableModel
-{
-    Q_OBJECT
-
-public:
-    enum Column
-    {
-        CodeColumn = 0,
-        StationColumn,
-        TypeColumn,
-        PowerColumn,
-        StatusColumn,
-        UpdatedAtColumn,
-        ColumnCount
-    };
-
-    enum Role
-    {
-        PileIdRole = Qt::UserRole + 1,
-        RawStatusRole,
-        SortRole
-    };
-
-    explicit PileStatusModel(QObject *parent = nullptr);
-
-    int rowCount(
-        const QModelIndex &parent = QModelIndex()
-    ) const override;
-
-    int columnCount(
-        const QModelIndex &parent = QModelIndex()
-    ) const override;
-
-    QVariant data(
-        const QModelIndex &index,
-        int role = Qt::DisplayRole
-    ) const override;
-
-    QVariant headerData(
-        int section,
-        Qt::Orientation orientation,
-        int role = Qt::DisplayRole
-    ) const override;
-
-    void setItems(const QVector<PileStatusItem> &items);
-
-    const PileStatusItem &itemAt(int row) const;
-
-private:
-    QVector<PileStatusItem> m_items;
-
-    QString statusText(const QString &status) const;
-};
-
-
-// ==================== 筛选模型 ====================
-
-class PileStatusProxyModel : public QSortFilterProxyModel
-{
-    Q_OBJECT
-
-public:
-    explicit PileStatusProxyModel(QObject *parent = nullptr);
-
-    void setStatusFilter(const QString &status);
-
-protected:
-    bool filterAcceptsRow(
-        int sourceRow,
-        const QModelIndex &sourceParent
-    ) const override;
-
-private:
-    QString m_statusFilter;
-};
-
-
-// ==================== 页面 ====================
 
 class PileStatusWidget : public QWidget
 {
     Q_OBJECT
-
 public:
-    explicit PileStatusWidget(
-        NetClient *netClient,
-        QWidget *parent = nullptr
-    );
+    explicit PileStatusWidget(NetClient *netClient, QWidget *parent = nullptr);
+    void applyRefreshSettings(bool autoRefresh, int intervalMs, bool pauseWhenHidden, bool pageVisible);
 
 signals:
-
-    // 双击一行后通知主窗口跳转到“电桩管理”
     void openPileManageRequested(qint64 pileId);
 
+protected:
+    void resizeEvent(QResizeEvent *event) override;
+
 private slots:
-
     void loadStatus();
-
-    void onFilterChanged(int index);
-
-    void onTableDoubleClicked(
-        const QModelIndex &index
-    );
+    void applyFilters();
 
 private:
-
     void initUI();
-
+    void rebuildCards(bool preserveScrollPosition = true);
+    void updateStationFilter();
     void updateSummary(const QJsonObject &stats);
-
-    QDateTime parseDateTime(
-        const QString &text
-    ) const;
-
-
-private:
+    QWidget *createPileCard(const PileStatusItem &item);
+    QString statusText(const QString &status) const;
+    int cardColumnCount() const;
+    QDateTime parseDateTime(const QString &text) const;
 
     NetClient *m_net = nullptr;
-
-    PileStatusModel *m_model = nullptr;
-
-    PileStatusProxyModel *m_proxyModel = nullptr;
-
-    QTableView *m_table = nullptr;
-
+    QVector<PileStatusItem> m_items;
+    QLineEdit *m_searchEdit = nullptr;
+    QComboBox *m_stationCombo = nullptr;
     QComboBox *m_statusCombo = nullptr;
-
     QPushButton *m_refreshBtn = nullptr;
-
-    QLabel *m_summaryLabel = nullptr;
-
+    QLabel *m_totalValue = nullptr;
+    QLabel *m_idleValue = nullptr;
+    QLabel *m_busyValue = nullptr;
+    QLabel *m_faultValue = nullptr;
     QLabel *m_lastUpdateLabel = nullptr;
-
+    QScrollArea *m_scrollArea = nullptr;
+    QWidget *m_cardsContainer = nullptr;
+    QVBoxLayout *m_cardsLayout = nullptr;
     QTimer *m_timer = nullptr;
+    int m_currentColumnCount = 0;
     bool m_requestInFlight = false;
+    bool m_autoRefresh = true;
+    bool m_pauseWhenHidden = true;
+    bool m_pageVisible = false;
 };

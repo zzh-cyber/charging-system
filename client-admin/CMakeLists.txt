@@ -9,6 +9,10 @@ add_executable(charging-admin
     adminloginwindow.h
     adminmainwindow.cpp
     adminmainwindow.h
+    adminsettings.cpp
+    adminsettings.h
+    settingswidget.cpp
+    settingswidget.h
     dashboardwidget.cpp
     dashboardwidget.h
     usermanagerwidget.cpp
@@ -17,6 +21,8 @@ add_executable(charging-admin
     pilemanagerwidget.h
     stationmanagerwidget.cpp
     stationmanagerwidget.h
+    ordermanagerwidget.cpp
+    ordermanagerwidget.h
     resources.qrc
 )
 

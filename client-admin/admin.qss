@@ -1,5 +1,6 @@
-* { font-family: "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 14px; color: #1F2937; }
+* { font-family: "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; color: #1F2937; }
 QMainWindow, QWidget { background: #F5F7FA; }
+QLabel { background: transparent; }
 #appHeader { background: #FFFFFF; border-bottom: 1px solid #E5E7EB; }
 #menuToggle, #headerAction { border: 0; background: transparent; padding: 8px 10px; border-radius: 6px; }
 #menuToggle { font-size: 22px; color: #1677FF; }
@@ -19,7 +20,110 @@ QLineEdit:focus, QComboBox:focus { border: 1px solid #1677FF; }
 QTableWidget, QTableView { background: white; border: 1px solid #E5E7EB; border-radius: 8px; gridline-color: #F0F2F5; }
 QHeaderView::section { background: #F9FAFB; color: #6B7280; border: 0; border-bottom: 1px solid #E5E7EB; padding: 9px; font-weight: 600; }
 #placeholderLabel { color: #6B7280; font-size: 18px; }
-#kpiCard { background: white; border: 1px solid #E5E7EB; border-radius: 10px; }
+#kpiCard { background: white; border: 1px solid #EEF1F4; border-radius: 10px; }
 #kpiTitle { color: #6B7280; font-size: 14px; }
 #kpiValue { color: #1F2937; font-size: 26px; font-weight: 700; }
 #kpiDescription { color: #6B7280; font-size: 12px; }
+
+/* 实时监控页专用样式 */
+#monitorHeading { font-size: 20px; font-weight: 700; color: #111827; }
+#monitorKpiCard { background: #FFFFFF; border: 1px solid #EEF1F4; border-radius: 8px; }
+#monitorKpiTitle { color: #6B7280; font-size: 13px; }
+#monitorKpiValue { color: #111827; font-size: 24px; font-weight: 700; }
+#monitorToolbar { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 8px; }
+#monitorLastUpdate { color: #6B7280; font-size: 13px; }
+#monitorScrollArea, #monitorCardsContainer { background: transparent; }
+#monitorStationGroup { background: #FFFFFF; border: 0; border-radius: 8px; }
+#monitorStationTitle { color: #374151; font-size: 16px; font-weight: 600; }
+#monitorPileCard { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 8px; }
+#monitorPileCard:hover { background: #FAFCFF; border: 1px solid #BFDBFE; }
+#monitorPileCode { color: #111827; font-size: 15px; font-weight: 700; }
+#monitorPileMeta { color: #6B7280; font-size: 13px; }
+#monitorPileStatus { font-size: 14px; font-weight: 600; }
+#monitorPileStatus[pileStatus="idle"] { color: #16A34A; }
+#monitorPileStatus[pileStatus="busy"] { color: #1677FF; }
+#monitorPileStatus[pileStatus="fault"] { color: #DC2626; }
+#monitorEmptyState { color: #9CA3AF; font-size: 15px; padding: 48px; }
+
+/* 系统设置页专用样式 */
+#settingsPage, #settingsScroll, #settingsCanvas, #settingsContent, #settingsRow { background: transparent; }
+#settingsHeading { color: #111827; font-size: 22px; font-weight: 700; }
+#settingsSubtitle { color: #64748B; }
+#settingsCard { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 8px; }
+#settingsSectionTitle { color: #1F2937; font-size: 16px; font-weight: 700; }
+#settingsItemTitle { color: #1F2937; font-weight: 600; }
+#settingsItemDescription { color: #64748B; }
+#settingsValue { color: #475569; }
+#settingsConnectionValue[connected="true"] { color: #22C55E; font-weight: 600; }
+#settingsConnectionValue[connected="false"] { color: #EF4444; font-weight: 600; }
+#settingsResetButton { background: #FFFFFF; color: #475569; border: 1px solid #CBD5E1; }
+#settingsResetButton:hover { background: #F8FAFC; border-color: #94A3B8; }
+#settingsPage QCheckBox { spacing: 10px; }
+#settingsPage QCheckBox::indicator { width: 34px; height: 18px; border-radius: 9px; background: #CBD5E1; }
+#settingsPage QCheckBox::indicator:checked { background: #1677FF; }
+
+/* 电站管理页专用样式 */
+#stationPageHeading { color: #111827; font-size: 20px; font-weight: 700; }
+#stationSplitter::handle { background: transparent; width: 10px; }
+#stationPanel { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 8px; }
+#stationSectionTitle { color: #111827; font-size: 16px; font-weight: 600; }
+#stationDetailName { color: #111827; font-size: 20px; font-weight: 700; }
+#stationInfoCard { background: #FFFFFF; border: 1px solid #EEF1F4; border-radius: 7px; }
+#stationDetailValue { color: #374151; }
+#stationMetricName { color: #6B7280; font-size: 13px; }
+#stationMetricValue { color: #111827; font-size: 20px; font-weight: 700; }
+#stationPileHint { color: #6B7280; font-size: 13px; }
+
+/* 电桩管理页专用样式 */
+#pileAssetHeading { color: #111827; font-size: 20px; font-weight: 700; }
+#pileAssetSummary { background: #FFFFFF; border: 1px solid #EEF1F4; border-radius: 7px; }
+#pileAssetSummaryTitle { color: #6B7280; font-size: 13px; }
+#pileAssetSummaryValue { color: #111827; font-size: 18px; font-weight: 700; }
+#pileAssetToolbar { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 8px; }
+#pileAssetTextAction { background: transparent; color: #1677FF; border: 0; padding: 5px 7px; }
+#pileAssetTextAction:hover { background: #EFF6FF; border-radius: 5px; }
+#pileAssetActions { background: transparent; }
+#pileAssetFooter { color: #6B7280; font-size: 13px; }
+#pileAssetEmpty { color: #9CA3AF; font-size: 15px; background: #FFFFFF; }
+#pileDetailHeading { color: #111827; font-size: 18px; font-weight: 700; }
+
+/* 用户管理页专用样式 */
+#userPageHeading { color: #111827; font-size: 20px; font-weight: 700; }
+#userSummaryCard { background: #FFFFFF; border: 1px solid #EEF1F4; border-radius: 7px; }
+#userSummaryTitle { color: #64748B; font-size: 13px; }
+#userSummaryValue, #userFrozenSummaryValue { color: #1F2937; font-size: 18px; font-weight: 700; }
+#userFrozenSummaryValue { color: #EF4444; }
+#userToolbar { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 8px; }
+#userTextAction, #userMoreAction { background: transparent; color: #1677FF; border: 0; padding: 5px 7px; }
+#userTextAction:hover, #userMoreAction:hover { background: #EFF6FF; border-radius: 5px; }
+#userMoreAction { font-size: 18px; font-weight: 700; }
+#userActions { background: transparent; }
+#userFooter { color: #64748B; font-size: 13px; }
+#userEmptyState { color: #94A3B8; font-size: 15px; background: #FFFFFF; }
+#userDetailHeading { color: #111827; font-size: 20px; font-weight: 700; }
+#userDetailStatus { font-weight: 600; }
+#userDetailStatus[userStatus="normal"] { color: #22C55E; }
+#userDetailStatus[userStatus="frozen"] { color: #EF4444; }
+#userDetailSection { color: #64748B; font-size: 13px; font-weight: 600; margin-top: 6px; }
+
+/* 管理员登录页：样式严格限定在登录窗口内，避免影响管理主界面 */
+#adminLoginWindow { background: #161916; }
+#loginBrandPanel { background: #171A18; }
+#loginFormPanel, #loginForm { background: #F2EFE7; }
+#loginBrandName { color: #F7F6F0; font-size: 20px; font-weight: 700; }
+#loginBrandEnglish { color: #72E594; font-size: 11px; font-weight: 700; letter-spacing: 2px; }
+#loginStatement { color: #FFFFFF; font-size: 30px; font-weight: 700; }
+#loginBrandCaption { color: #929A94; font-size: 12px; }
+#loginBrandVisual { background: transparent; }
+#loginEyebrow { color: #288A49; font-size: 11px; font-weight: 700; letter-spacing: 2px; }
+#loginTitle { color: #171A18; font-size: 32px; font-weight: 700; }
+#loginWelcome { color: #74766F; font-size: 14px; }
+#loginFieldLabel { color: #30332F; font-size: 13px; font-weight: 600; }
+#loginSecurityHint { color: #92948D; font-size: 12px; }
+#adminLoginWindow QLineEdit { background: #FAF9F4; color: #171A18; border: 1px solid #D5D2C8; border-radius: 8px; padding: 0 14px; selection-background-color: #3FAC62; }
+#adminLoginWindow QLineEdit:hover { border-color: #AAA99F; }
+#adminLoginWindow QLineEdit:focus { border: 2px solid #3FAC62; padding: 0 13px; }
+#adminLoginWindow QPushButton { background: #20241F; color: #FFFFFF; border: 0; border-radius: 8px; font-weight: 700; }
+#adminLoginWindow QPushButton:hover { background: #318E50; }
+#adminLoginWindow QPushButton:pressed { background: #267440; }
+#adminLoginWindow QPushButton:disabled { background: #8D928C; color: #E5E5DF; }

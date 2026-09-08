@@ -1,1 +1,5 @@
-<RCC><qresource prefix="/"><file>admin.qss</file></qresource></RCC>
+<RCC><qresource prefix="/">
+    <file>admin.qss</file>
+    <file alias="login-car.jpg">image/login-car.jpg</file>
+    <file alias="login-charger.jpg">image/login-charger.jpg</file>
+</qresource></RCC>
