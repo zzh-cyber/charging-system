@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/maps">
+        <file alias="amap-map.html">resources/amap-map.html</file>
+    </qresource>
+</RCC>

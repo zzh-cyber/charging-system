@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>map-loading</title>
+    <style>
+        html,
+        body,
+        #map {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #status {
+            display: none;
+            box-sizing: border-box;
+            width: 100%;
+            height: 100%;
+            align-items: center;
+            justify-content: center;
+            color: #7a837e;
+            background: #faf8f3;
+            font-family: sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div id="status">地图暂不可用</div>
+
+    <script>
+        const amapKey = **AMAP_KEY**;
+        const amapSecret = **AMAP_SECRET**;
+        let map = null;
+        let userMarker = null;
+        let stationMarkers = [];
+        let routePolyline = null;
+        let routeMarkers = [];
+
+        function reportUnavailable() {
+            document.getElementById("map").style.display = "none";
+            document.getElementById("status").style.display = "flex";
+            document.title = "map-unavailable";
+        }
+
+        window.setMapCenter = function(lat, lng) {
+            if (!map) {
+                return;
+            }
+
+            map.setCenter([lng, lat]);
+        };
+
+        window.setUserLocation = function(lat, lng) {
+            if (!map) {
+                return;
+            }
+
+            const position = [lng, lat];
+
+            if (!userMarker) {
+                userMarker = new AMap.Marker({
+                    position: position,
+                    title: "当前位置",
+                    content: '<div style="width:18px;height:18px;'
+                        + 'background:#2F80ED;border:3px solid #fff;'
+                        + 'border-radius:50%;box-sizing:border-box;'
+                        + 'box-shadow:0 1px 4px rgba(0,0,0,.35);'
+                        + '"></div>'
+                });
+                map.add(userMarker);
+            } else {
+                userMarker.setPosition(position);
+            }
+
+            map.setCenter(position);
+        };
+
+        window.setStations = function(stations) {
+            if (!map) {
+                return;
+            }
+
+            if (stationMarkers.length > 0) {
+                map.remove(stationMarkers);
+                stationMarkers = [];
+            }
+
+            if (!Array.isArray(stations)) {
+                return;
+            }
+
+            stations.forEach(function(station, index) {
+                const longitude = Number(station.longitude);
+                const latitude = Number(station.latitude);
+
+                if (!Number.isFinite(longitude) ||
+                    !Number.isFinite(latitude) ||
+                    longitude < -180 || longitude > 180 ||
+                    latitude < -90 || latitude > 90) {
+                    return;
+                }
+
+                const isNearest = index === 0;
+                const marker = new AMap.Marker({
+                    position: [longitude, latitude],
+                    title: station.name || "充电站",
+                    content: isNearest
+                        ? '<div style="background:#315B4D;color:#fff;'
+                          + 'border:2px solid #fff;border-radius:50%;'
+                          + 'width:30px;height:30px;line-height:30px;'
+                          + 'text-align:center;font-weight:700;">★</div>'
+                        : '<div style="background:#D79A4B;color:#fff;'
+                          + 'border:2px solid #fff;border-radius:50%;'
+                          + 'width:26px;height:26px;line-height:26px;'
+                          + 'text-align:center;font-weight:700;">'
+                          + String(index + 1)
+                          + '</div>'
+                });
+
+                stationMarkers.push(marker);
+            });
+
+            if (stationMarkers.length > 0) {
+                map.add(stationMarkers);
+            }
+        };
+
+        window.setRoute = function(points) {
+            if (!map) {
+                return;
+            }
+
+            if (routePolyline) {
+                map.remove(routePolyline);
+                routePolyline = null;
+            }
+
+            if (routeMarkers.length > 0) {
+                map.remove(routeMarkers);
+                routeMarkers = [];
+            }
+
+            if (!Array.isArray(points) || points.length < 2) {
+                return;
+            }
+
+            routePolyline = new AMap.Polyline({
+                path: points,
+                strokeColor: "#2F80ED",
+                strokeWeight: 7,
+                strokeOpacity: 0.9,
+                lineJoin: "round",
+                lineCap: "round"
+            });
+
+            const startMarker = new AMap.Marker({
+                position: points[0],
+                title: "起点",
+                content: '<div style="width:20px;height:20px;'
+                    + 'background:#2F80ED;border:3px solid #fff;'
+                    + 'border-radius:50%;box-sizing:border-box;'
+                    + 'box-shadow:0 1px 4px rgba(0,0,0,.35);'
+                    + '"></div>'
+            });
+
+            const endMarker = new AMap.Marker({
+                position: points[points.length - 1],
+                title: "终点",
+                content: '<div style="width:22px;height:22px;'
+                    + 'background:#D9534F;border:3px solid #fff;'
+                    + 'border-radius:50%;box-sizing:border-box;'
+                    + 'box-shadow:0 1px 4px rgba(0,0,0,.35);'
+                    + '"></div>'
+            });
+
+            routeMarkers = [startMarker, endMarker];
+            map.add([routePolyline, startMarker, endMarker]);
+            map.setFitView(
+                [routePolyline, startMarker, endMarker],
+                false,
+                [48, 48, 48, 48]);
+        };
+
+        window.initAmap = function() {
+            if (map) {
+                return;
+            }
+
+            try {
+                map = new AMap.Map("map", {
+                    viewMode: "2D",
+                    zoom: 12,
+                    center: [116.397428, 39.90923]
+                });
+                document.title = "map-ready";
+            } catch (error) {
+                reportUnavailable();
+            }
+        };
+
+        if (!amapKey || !amapSecret) {
+            reportUnavailable();
+        } else {
+            window._AMapSecurityConfig = {
+                securityJsCode: amapSecret
+            };
+
+            const script = document.createElement("script");
+            script.src =
+                "https://webapi.amap.com/maps?v=2.0&key="
+                + encodeURIComponent(amapKey)
+                + "&callback=initAmap";
+            script.onerror = reportUnavailable;
+            document.head.appendChild(script);
+        }
+    </script>
+</body>
+</html>

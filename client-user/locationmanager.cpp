@@ -1,5 +1,7 @@
 #include "locationmanager.h"
 
+#include "amapconfig.h"
+
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -13,9 +15,8 @@
 LocationManager::LocationManager(QObject *parent)
     : QObject(parent)
     , m_manager(new QNetworkAccessManager(this))
+    , m_mapKey(AmapConfig::webServiceKey())
 {
-    // TODO：替换成你自己的高德开放平台 Web 服务 Key
-    m_mapKey = QStringLiteral("fb0c67955c4186d685902dd8eb477782");
 }
 
 void LocationManager::geocode(const QString &address,
@@ -33,11 +34,11 @@ void LocationManager::geocode(const QString &address,
         return;
     }
 
-    if (m_mapKey.trimmed().isEmpty() ||
-        m_mapKey == QStringLiteral("你的高德Web服务Key")) {
+    if (m_mapKey.isEmpty()) {
 
         emit locationError(
-            QStringLiteral("请先配置高德地图 Web 服务 Key"));
+            QStringLiteral(
+                "未配置 AMAP_WEB_SERVICE_KEY，无法进行地址定位"));
         return;
     }
 
