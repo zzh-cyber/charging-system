@@ -27,8 +27,9 @@ void OrderManagerWidget::buildUi() {
     m_pile = new QComboBox; m_pile->addItem(QStringLiteral("全部电桩"), 0);
     m_status = new QComboBox; m_status->addItem(QStringLiteral("全部"), "");
     for (const auto &p : {qMakePair(QStringLiteral("已预约"), QStringLiteral("reserved")), qMakePair(QStringLiteral("充电中"), QStringLiteral("charging")), qMakePair(QStringLiteral("待支付"), QStringLiteral("pending_payment")), qMakePair(QStringLiteral("已结算"), QStringLiteral("settled")), qMakePair(QStringLiteral("已取消"), QStringLiteral("cancelled"))}) m_status->addItem(p.first, p.second);
-    m_start = new QDateTimeEdit; m_start->setCalendarPopup(true); m_start->setDisplayFormat("yyyy-MM-dd HH:mm"); m_start->setSpecialValueText(QStringLiteral("不限")); m_start->setDateTime(QDateTime());
-    m_end = new QDateTimeEdit; m_end->setCalendarPopup(true); m_end->setDisplayFormat("yyyy-MM-dd HH:mm"); m_end->setSpecialValueText(QStringLiteral("不限")); m_end->setDateTime(QDateTime());
+    const QDate today = QDate::currentDate();
+    m_start = new QDateTimeEdit; m_start->setCalendarPopup(true); m_start->setDisplayFormat("yyyy-MM-dd HH:mm"); m_start->setMinimumWidth(190); m_start->setDateTime(today.addDays(-6).startOfDay());
+    m_end = new QDateTimeEdit; m_end->setCalendarPopup(true); m_end->setDisplayFormat("yyyy-MM-dd HH:mm"); m_end->setMinimumWidth(190); m_end->setDateTime(today.endOfDay());
     form->addRow(QStringLiteral("订单号"), m_orderNo); form->addRow(QStringLiteral("手机号/用户"), m_phone); form->addRow(QStringLiteral("电站"), m_station); form->addRow(QStringLiteral("电桩"), m_pile); form->addRow(QStringLiteral("状态"), m_status); form->addRow(QStringLiteral("开始时间"), m_start); form->addRow(QStringLiteral("结束时间"), m_end);
     auto *buttons = new QHBoxLayout; auto *search = new QPushButton(QStringLiteral("查询")); auto *clear = new QPushButton(QStringLiteral("重置")); auto *refresh = new QPushButton(QStringLiteral("刷新")); buttons->addWidget(search); buttons->addWidget(clear); buttons->addWidget(refresh); buttons->addStretch(); root->addLayout(form); root->addLayout(buttons);
     m_table = new QTableWidget(0, 12); m_table->setHorizontalHeaderLabels({QStringLiteral("订单号"),QStringLiteral("用户/手机号"),QStringLiteral("电站"),QStringLiteral("电桩"),QStringLiteral("状态"),QStringLiteral("充电量"),QStringLiteral("充电时长"),QStringLiteral("单价"),QStringLiteral("订单金额"),QStringLiteral("开始时间"),QStringLiteral("结束时间"),QStringLiteral("操作")}); m_table->horizontalHeader()->setStretchLastSection(true); m_table->setSelectionBehavior(QAbstractItemView::SelectRows); m_table->setEditTriggers(QAbstractItemView::NoEditTriggers); root->addWidget(m_table);
@@ -59,7 +60,7 @@ void OrderManagerWidget::loadFilterOptions() {
         }
     }
 }
-void OrderManagerWidget::reset() { m_orderNo->clear(); m_phone->clear(); m_station->setCurrentIndex(0); m_pile->setCurrentIndex(0); m_status->setCurrentIndex(0); m_start->clear(); m_end->clear(); loadPage(1); }
+void OrderManagerWidget::reset() { m_orderNo->clear(); m_phone->clear(); m_station->setCurrentIndex(0); m_pile->setCurrentIndex(0); m_status->setCurrentIndex(0); const QDate today = QDate::currentDate(); m_start->setDateTime(today.addDays(-6).startOfDay()); m_end->setDateTime(today.endOfDay()); loadPage(1); }
 QString OrderManagerWidget::valueText(const QJsonObject &o,const QString &k) const { return o.value(k).toString(); }
 QString OrderManagerWidget::statusText(const QString &s) const { static const QHash<QString,QString> m{{"reserved","已预约"},{"charging","充电中"},{"pending_payment","待支付"},{"settled","已结算"},{"cancelled","已取消"}}; return m.value(s,s); }
 QString OrderManagerWidget::formatDuration(qint64 s) const { return QStringLiteral("%1小时%2分%3秒").arg(s/3600).arg((s%3600)/60,2,10,QChar('0')).arg(s%60,2,10,QChar('0')); }

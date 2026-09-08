@@ -106,24 +106,100 @@ QHeaderView::section { background: #F9FAFB; color: #6B7280; border: 0; border-bo
 #userDetailStatus[userStatus="frozen"] { color: #EF4444; }
 #userDetailSection { color: #64748B; font-size: 13px; font-weight: 600; margin-top: 6px; }
 
+/* 管理端视觉系统：炭黑侧栏 + 暖白工作区 + 低饱和信息卡片 */
+QMainWindow, #workspace, #appBody, QStackedWidget { background: #F3F2EC; }
+#sidebarShell { background: #292927; border: 0; }
+#sidebarBrand { color: #F8F7F1; font-size: 19px; font-weight: 700; letter-spacing: 1px; }
+#sidebarBrandCaption { color: #91918B; font-size: 10px; letter-spacing: 2px; margin-left: 27px; }
+#sidebarCaption { color: #777772; font-size: 11px; font-weight: 600; letter-spacing: 2px; }
+#sidebar { background: transparent; border: 0; outline: 0; padding: 0; color: #D8D7D1; }
+#sidebar::item { color: #CECDC7; background: transparent; border: 0; border-radius: 10px; padding: 0 14px; margin: 3px 0; }
+#sidebar::item:hover { color: #FFFFFF; background: #353532; }
+#sidebar::item:selected { color: #242522; background: #DCE6C9; font-weight: 700; }
+#sidebarProfileLine { background: #41413E; border: 0; }
+#sidebarProfile { color: #F1F0EA; font-size: 13px; line-height: 1.5; }
+
+#appHeader { background: #F8F7F2; border: 0; border-bottom: 1px solid #E5E3DB; }
+#menuToggle { color: #2D2D2A; background: transparent; border: 0; font-size: 20px; padding: 6px 9px; }
+#menuToggle:hover { background: #EAE9E2; border-radius: 8px; }
+#pageTitle { color: #20211E; font-size: 20px; font-weight: 700; }
+#connectionStatus { color: #477558; font-size: 12px; background: #E6EEE5; border-radius: 10px; padding: 5px 10px; }
+#lastUpdate { color: #888A84; font-size: 12px; }
+#headerAction { color: #3B3C38; background: #F8F7F2; border: 1px solid #DEDDD5; border-radius: 9px; padding: 7px 11px; }
+#headerAction:hover { color: #171815; background: #EFEEE8; border-color: #C9C8C0; }
+
+QStackedWidget > QWidget { background: #F3F2EC; }
+QPushButton { background: #2B2C29; color: #FFFFFF; border: 0; border-radius: 9px; padding: 8px 16px; font-weight: 600; }
+QPushButton:hover { background: #41423E; }
+QPushButton:pressed { background: #1E1F1C; }
+QPushButton:disabled { background: #C8C8C1; color: #EEEEEA; }
+QLineEdit, QComboBox, QDateTimeEdit, QSpinBox { background: #FCFCF8; color: #252622; border: 1px solid #DDDCD4; border-radius: 8px; padding: 8px 10px; selection-background-color: #9BAE78; }
+QLineEdit:hover, QComboBox:hover, QDateTimeEdit:hover { border-color: #BCBDB5; }
+QLineEdit:focus, QComboBox:focus, QDateTimeEdit:focus, QSpinBox:focus { border: 1px solid #78934F; }
+QComboBox::drop-down { border: 0; width: 24px; }
+QTableWidget, QTableView { background: #FCFCF8; alternate-background-color: #F7F6F0; border: 1px solid #E1E0D8; border-radius: 12px; gridline-color: #ECEBE5; selection-background-color: #E3E9D8; selection-color: #20211E; }
+QTableWidget::item, QTableView::item { padding: 8px; border-bottom: 1px solid #EFEEE8; }
+QHeaderView::section { background: #F0EFE9; color: #696B65; border: 0; border-bottom: 1px solid #DDDCD4; padding: 10px; font-size: 12px; font-weight: 700; }
+QScrollArea { border: 0; background: transparent; }
+QScrollBar:vertical { background: transparent; width: 8px; margin: 2px; }
+QScrollBar::handle:vertical { background: #C8C8C0; min-height: 28px; border-radius: 4px; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+QRadioButton { color: #555752; spacing: 7px; }
+QRadioButton::indicator { width: 15px; height: 15px; }
+QRadioButton::indicator:checked { background: #2B2C29; border: 3px solid #DCE6C9; border-radius: 7px; }
+QCalendarWidget { min-width: 320px; min-height: 240px; background: #FCFCF8; }
+QCalendarWidget QAbstractItemView { background: #FCFCF8; alternate-background-color: #FCFCF8; border: 0; border-radius: 0; selection-background-color: #78934F; selection-color: #FFFFFF; }
+QCalendarWidget QAbstractItemView::item { padding: 0; margin: 0; border: 0; }
+
+#dashboardHeading { color: #20211E; font-size: 23px; font-weight: 700; }
+#dashboardLoading { color: #78934F; }
+#dashboardUpdate { color: #888A84; font-size: 12px; }
+#dashboardSectionTitle { color: #292A27; font-size: 18px; font-weight: 700; }
+#kpiCard { border: 0; border-radius: 18px; }
+#kpiCard[tone="sage"] { background: #D9E2CE; }
+#kpiCard[tone="sand"] { background: #F2DFA7; }
+#kpiCard[tone="lavender"] { background: #D8D5F2; }
+#kpiTitle { color: #4C5048; font-size: 13px; font-weight: 600; }
+#kpiValue { color: #20211E; font-size: 28px; font-weight: 800; }
+#kpiDescription { color: #696C65; font-size: 12px; }
+#dashboardChart { background: #FCFCF8; border: 1px solid #E1E0D8; border-radius: 16px; }
+
+#monitorKpiCard, #monitorToolbar, #monitorStationGroup, #monitorPileCard,
+#settingsCard, #stationPanel, #stationInfoCard, #pileAssetSummary, #pileAssetToolbar,
+#userSummaryCard, #userToolbar { background: #FCFCF8; border: 1px solid #E1E0D8; border-radius: 12px; }
+#monitorPileCard:hover { background: #F8F8F3; border-color: #C9D2B9; }
+#monitorHeading, #stationPageHeading, #pileAssetHeading, #userPageHeading,
+#settingsHeading, #pileDetailHeading, #userDetailHeading { color: #20211E; font-size: 22px; font-weight: 700; }
+#monitorKpiTitle, #stationMetricName, #pileAssetSummaryTitle, #userSummaryTitle,
+#settingsSubtitle, #settingsItemDescription, #monitorLastUpdate, #pileAssetFooter,
+#userFooter { color: #777A73; }
+#monitorKpiValue, #stationMetricValue, #pileAssetSummaryValue,
+#userSummaryValue, #userFrozenSummaryValue { color: #262723; font-weight: 700; }
+#pileAssetTextAction, #userTextAction, #userMoreAction { color: #627A42; background: transparent; }
+#pileAssetTextAction:hover, #userTextAction:hover, #userMoreAction:hover { color: #344322; background: #E8ECDf; }
+#settingsResetButton { background: #FCFCF8; color: #4F514B; border: 1px solid #D4D3CB; }
+#settingsResetButton:hover { background: #EFEEE8; border-color: #BDBCB4; }
+
 /* 管理员登录页：样式严格限定在登录窗口内，避免影响管理主界面 */
-#adminLoginWindow { background: #161916; }
-#loginBrandPanel { background: #171A18; }
-#loginFormPanel, #loginForm { background: #F2EFE7; }
-#loginBrandName { color: #F7F6F0; font-size: 20px; font-weight: 700; }
-#loginBrandEnglish { color: #72E594; font-size: 11px; font-weight: 700; letter-spacing: 2px; }
-#loginStatement { color: #FFFFFF; font-size: 30px; font-weight: 700; }
-#loginBrandCaption { color: #929A94; font-size: 12px; }
+#adminLoginWindow { background: #F7F8F6; }
+#loginBrandPanel { background: #F7F8F6; }
+#loginFormPanel { background: #121715; }
+#loginForm { background: rgba(29, 35, 32, 184); border: 1px solid rgba(255, 255, 255, 32); border-radius: 16px; }
+#loginBrandName { color: #151A17; font-size: 21px; font-weight: 600; }
+#loginBrandEnglish { color: #2D9F56; font-size: 11px; font-weight: 700; letter-spacing: 2px; }
+#loginAccentLine { background: #35C66B; border-radius: 1px; }
+#loginStatement { color: #151A17; font-size: 31px; font-weight: 700; }
+#loginBrandCaption { color: #7D8580; font-size: 13px; }
 #loginBrandVisual { background: transparent; }
-#loginEyebrow { color: #288A49; font-size: 11px; font-weight: 700; letter-spacing: 2px; }
-#loginTitle { color: #171A18; font-size: 32px; font-weight: 700; }
-#loginWelcome { color: #74766F; font-size: 14px; }
-#loginFieldLabel { color: #30332F; font-size: 13px; font-weight: 600; }
-#loginSecurityHint { color: #92948D; font-size: 12px; }
-#adminLoginWindow QLineEdit { background: #FAF9F4; color: #171A18; border: 1px solid #D5D2C8; border-radius: 8px; padding: 0 14px; selection-background-color: #3FAC62; }
-#adminLoginWindow QLineEdit:hover { border-color: #AAA99F; }
-#adminLoginWindow QLineEdit:focus { border: 2px solid #3FAC62; padding: 0 13px; }
-#adminLoginWindow QPushButton { background: #20241F; color: #FFFFFF; border: 0; border-radius: 8px; font-weight: 700; }
-#adminLoginWindow QPushButton:hover { background: #318E50; }
-#adminLoginWindow QPushButton:pressed { background: #267440; }
-#adminLoginWindow QPushButton:disabled { background: #8D928C; color: #E5E5DF; }
+#loginEyebrow { color: #45CE76; font-size: 12px; font-weight: 700; letter-spacing: 2px; }
+#loginTitle { color: #F4F6F4; font-size: 34px; font-weight: 700; }
+#loginWelcome { color: #A4AAA6; font-size: 14px; }
+#loginFieldLabel { color: #D9DEDA; font-size: 14px; font-weight: 600; }
+#loginSecurityHint { color: #858C87; font-size: 12px; }
+#adminLoginWindow QLineEdit { background: rgba(255, 255, 255, 15); color: #F4F6F4; placeholder-text-color: #747C77; border: 1px solid rgba(255, 255, 255, 46); border-radius: 9px; padding: 0 14px; font-size: 15px; selection-background-color: #35C66B; }
+#adminLoginWindow QLineEdit:hover { background: rgba(255, 255, 255, 20); border-color: rgba(255, 255, 255, 68); }
+#adminLoginWindow QLineEdit:focus { border: 1px solid #38C86A; background: rgba(255, 255, 255, 22); }
+#adminLoginWindow QPushButton { background: #2AAF60; color: #FFFFFF; border: 0; border-radius: 9px; font-size: 15px; font-weight: 600; }
+#adminLoginWindow QPushButton:hover { background: #32BC69; }
+#adminLoginWindow QPushButton:pressed { background: #239653; }
+#adminLoginWindow QPushButton:disabled { background: #496756; color: #AEB8B1; }

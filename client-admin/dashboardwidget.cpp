@@ -57,18 +57,17 @@ DashboardWidget::DashboardWidget(NetClient *netClient, QWidget *parent)
 void DashboardWidget::initUi()
 {
     auto *mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(24, 20, 24, 20);
-    mainLayout->setSpacing(18);
+    mainLayout->setContentsMargins(26, 18, 26, 24);
+    mainLayout->setSpacing(16);
 
     auto *toolbar = new QHBoxLayout;
     auto *title = new QLabel(QStringLiteral("数据总览 / 销售业绩"), this);
-    title->setStyleSheet(QStringLiteral(
-        "font-size: 22px; font-weight: 600; color: #2c3e50;"));
+    title->setObjectName(QStringLiteral("dashboardHeading"));
     m_loadingLabel = new QLabel(this);
-    m_loadingLabel->setStyleSheet(QStringLiteral("color: #3498db;"));
+    m_loadingLabel->setObjectName(QStringLiteral("dashboardLoading"));
     m_refreshButton = new QPushButton(QStringLiteral("刷新数据"), this);
     m_lastUpdateLabel = new QLabel(QStringLiteral("最后更新: --:--:--"), this);
-    m_lastUpdateLabel->setStyleSheet(QStringLiteral("color: #7f8c8d;"));
+    m_lastUpdateLabel->setObjectName(QStringLiteral("dashboardUpdate"));
     toolbar->addWidget(title);
     toolbar->addStretch();
     toolbar->addWidget(m_loadingLabel);
@@ -78,17 +77,24 @@ void DashboardWidget::initUi()
 
     auto *cardsLayout = new QHBoxLayout;
     cardsLayout->setSpacing(16);
-    cardsLayout->addWidget(createKpiCard(QStringLiteral("今日营收"), QStringLiteral("已结算金额"), &m_todayRevenueLabel));
-    cardsLayout->addWidget(createKpiCard(QStringLiteral("本月营收"), QStringLiteral("本月累计已结算"), &m_monthRevenueLabel));
-    cardsLayout->addWidget(createKpiCard(QStringLiteral("总营收"), QStringLiteral("历史累计已结算"), &m_totalRevenueLabel));
+    auto *todayCard = createKpiCard(QStringLiteral("今日营收"), QStringLiteral("已结算金额"), &m_todayRevenueLabel);
+    auto *monthCard = createKpiCard(QStringLiteral("本月营收"), QStringLiteral("本月累计已结算"), &m_monthRevenueLabel);
+    auto *totalCard = createKpiCard(QStringLiteral("总营收"), QStringLiteral("历史累计已结算"), &m_totalRevenueLabel);
+    todayCard->setProperty("tone", "sage");
+    monthCard->setProperty("tone", "sand");
+    totalCard->setProperty("tone", "lavender");
+    cardsLayout->addWidget(todayCard);
+    cardsLayout->addWidget(monthCard);
+    cardsLayout->addWidget(totalCard);
     mainLayout->addLayout(cardsLayout);
 
     auto *chartHeader = new QHBoxLayout;
     auto *chartTitle = new QLabel(QStringLiteral("营收趋势"), this);
-    chartTitle->setStyleSheet(QStringLiteral(
-        "font-size: 17px; font-weight: 600; color: #34495e;"));
+    chartTitle->setObjectName(QStringLiteral("dashboardSectionTitle"));
     m_sevenDaysButton = new QRadioButton(QStringLiteral("近 7 日"), this);
     m_thirtyDaysButton = new QRadioButton(QStringLiteral("近 30 日"), this);
+    m_sevenDaysButton->setMinimumWidth(82);
+    m_thirtyDaysButton->setMinimumWidth(96);
     m_sevenDaysButton->setChecked(true);
     auto *rangeGroup = new QButtonGroup(this);
     rangeGroup->setExclusive(true);
@@ -102,7 +108,7 @@ void DashboardWidget::initUi()
 
     m_series = new QLineSeries(this);
     m_series->setName(QStringLiteral("营收"));
-    m_series->setColor(QColor(QStringLiteral("#3498db")));
+    m_series->setColor(QColor(QStringLiteral("#2B2B29")));
     m_series->setPointsVisible(true);
     m_series->setPointLabelsVisible(false);
 
@@ -110,7 +116,10 @@ void DashboardWidget::initUi()
     m_chart->addSeries(m_series);
     m_chart->legend()->hide();
     m_chart->setAnimationOptions(QChart::SeriesAnimations);
-    m_chart->setBackgroundRoundness(8);
+    m_chart->setBackgroundBrush(QColor(QStringLiteral("#FCFCF8")));
+    m_chart->setPlotAreaBackgroundBrush(QColor(QStringLiteral("#FCFCF8")));
+    m_chart->setPlotAreaBackgroundVisible(true);
+    m_chart->setBackgroundRoundness(14);
     m_chart->setMargins(QMargins(8, 8, 8, 8));
 
     m_dateAxis = new QDateTimeAxis(this);
@@ -123,12 +132,23 @@ void DashboardWidget::initUi()
     m_valueAxis->setLabelFormat(QStringLiteral("%.2f"));
     m_valueAxis->setRange(0.0, 1.0);
     m_valueAxis->setTickCount(6);
+    const QPen axisPen(QColor(QStringLiteral("#C9C8C0")));
+    const QPen gridPen(QColor(QStringLiteral("#E9E8E1")));
+    m_dateAxis->setLinePen(axisPen);
+    m_dateAxis->setGridLinePen(gridPen);
+    m_dateAxis->setLabelsBrush(QColor(QStringLiteral("#777A73")));
+    m_dateAxis->setTitleBrush(QColor(QStringLiteral("#62645E")));
+    m_valueAxis->setLinePen(axisPen);
+    m_valueAxis->setGridLinePen(gridPen);
+    m_valueAxis->setLabelsBrush(QColor(QStringLiteral("#777A73")));
+    m_valueAxis->setTitleBrush(QColor(QStringLiteral("#62645E")));
     m_chart->addAxis(m_dateAxis, Qt::AlignBottom);
     m_chart->addAxis(m_valueAxis, Qt::AlignLeft);
     m_series->attachAxis(m_dateAxis);
     m_series->attachAxis(m_valueAxis);
 
     m_chartView = new QChartView(m_chart, this);
+    m_chartView->setObjectName(QStringLiteral("dashboardChart"));
     m_chartView->setRenderHint(QPainter::Antialiasing);
     m_chartView->setMinimumHeight(380);
     m_chartView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);

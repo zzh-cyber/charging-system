@@ -35,14 +35,67 @@ void AdminMainWindow::initUI()
     QWidget *centralWidget = new QWidget(this);
     setCentralWidget(centralWidget);
 
-    QVBoxLayout *rootLayout = new QVBoxLayout(centralWidget);
+    QHBoxLayout *rootLayout = new QHBoxLayout(centralWidget);
     rootLayout->setContentsMargins(0, 0, 0, 0);
     rootLayout->setSpacing(0);
 
-    auto *header = new QFrame(centralWidget);
+    m_sidebarContainer = new QFrame(centralWidget);
+    m_sidebarContainer->setObjectName(QStringLiteral("sidebarShell"));
+    m_sidebarContainer->setFixedWidth(224);
+    auto *sidebarLayout = new QVBoxLayout(m_sidebarContainer);
+    sidebarLayout->setContentsMargins(18, 24, 18, 22);
+    sidebarLayout->setSpacing(0);
+    auto *brand = new QLabel(QStringLiteral("◆  VOLTERRA"), m_sidebarContainer);
+    brand->setObjectName(QStringLiteral("sidebarBrand"));
+    auto *brandCaption = new QLabel(QStringLiteral("EV OPERATIONS"), m_sidebarContainer);
+    brandCaption->setObjectName(QStringLiteral("sidebarBrandCaption"));
+    auto *menuCaption = new QLabel(QStringLiteral("工作台"), m_sidebarContainer);
+    menuCaption->setObjectName(QStringLiteral("sidebarCaption"));
+    sidebarLayout->addWidget(brand);
+    sidebarLayout->addWidget(brandCaption);
+    sidebarLayout->addSpacing(42);
+    sidebarLayout->addWidget(menuCaption);
+    sidebarLayout->addSpacing(10);
+
+    sidebarList = new QListWidget(m_sidebarContainer);
+    sidebarList->setObjectName("sidebar");
+    sidebarList->setFrameShape(QFrame::NoFrame);
+    sidebarList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+    m_menuLabels = {
+        QStringLiteral("运营总览"), QStringLiteral("实时监控"),
+        QStringLiteral("电站管理"), QStringLiteral("电桩管理"),
+        QStringLiteral("订单管理"), QStringLiteral("用户管理"),
+        QStringLiteral("系统设置")
+    };
+    const QStringList icons = {"◈", "◉", "⌂", "▤", "▦", "♙", "⚙"};
+    for (int i = 0; i < m_menuLabels.size(); ++i) {
+        auto *item = new QListWidgetItem(icons[i] + QStringLiteral("   ") + m_menuLabels[i], sidebarList);
+        item->setData(Qt::UserRole, icons[i]);
+        item->setToolTip(m_menuLabels[i]);
+        item->setSizeHint(QSize(188, 46));
+    }
+    sidebarLayout->addWidget(sidebarList, 1);
+    auto *profileLine = new QFrame(m_sidebarContainer);
+    profileLine->setObjectName(QStringLiteral("sidebarProfileLine"));
+    profileLine->setFixedHeight(1);
+    auto *profile = new QLabel(QStringLiteral("●   管理员\n     系统运营账户"), m_sidebarContainer);
+    profile->setObjectName(QStringLiteral("sidebarProfile"));
+    sidebarLayout->addWidget(profileLine);
+    sidebarLayout->addSpacing(16);
+    sidebarLayout->addWidget(profile);
+    rootLayout->addWidget(m_sidebarContainer);
+
+    auto *workspace = new QWidget(centralWidget);
+    workspace->setObjectName(QStringLiteral("workspace"));
+    auto *workspaceLayout = new QVBoxLayout(workspace);
+    workspaceLayout->setContentsMargins(0, 0, 0, 0);
+    workspaceLayout->setSpacing(0);
+
+    auto *header = new QFrame(workspace);
     header->setObjectName("appHeader");
     auto *headerLayout = new QHBoxLayout(header);
-    headerLayout->setContentsMargins(18, 12, 18, 12);
+    headerLayout->setContentsMargins(26, 16, 26, 14);
     m_toggleButton = new QPushButton(QStringLiteral("☰"), header);
     m_toggleButton->setObjectName("menuToggle");
     m_toggleButton->setToolTip(QStringLiteral("展开/收起导航栏"));
@@ -52,10 +105,6 @@ void AdminMainWindow::initUI()
     m_connectionStatus->setObjectName("connectionStatus");
     m_lastUpdate = new QLabel(QStringLiteral("最后更新  %1").arg(QDateTime::currentDateTime().toString("HH:mm:ss")), header);
     m_lastUpdate->setObjectName("lastUpdate");
-    auto *notice = new QPushButton(QStringLiteral("🔔  通知"), header);
-    notice->setObjectName("headerAction");
-    auto *admin = new QPushButton(QStringLiteral("管理员  ▾"), header);
-    admin->setObjectName("headerAction");
     headerLayout->addWidget(m_toggleButton);
     headerLayout->addSpacing(14);
     headerLayout->addWidget(m_pageTitle);
@@ -63,37 +112,15 @@ void AdminMainWindow::initUI()
     headerLayout->addWidget(m_connectionStatus);
     headerLayout->addSpacing(18);
     headerLayout->addWidget(m_lastUpdate);
-    headerLayout->addSpacing(14);
-    headerLayout->addWidget(notice);
-    headerLayout->addWidget(admin);
-    rootLayout->addWidget(header);
+    workspaceLayout->addWidget(header);
 
-    auto *body = new QWidget(centralWidget);
+    auto *body = new QWidget(workspace);
+    body->setObjectName(QStringLiteral("appBody"));
     QHBoxLayout *mainLayout = new QHBoxLayout(body);
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
 
-    // 1. 左侧菜单栏
-    sidebarList = new QListWidget(this);
-    sidebarList->setObjectName("sidebar");
-    sidebarList->setFixedWidth(210);
-
-    m_menuLabels = {
-        QStringLiteral("运营总览"), QStringLiteral("实时监控"),
-        QStringLiteral("电站管理"), QStringLiteral("电桩管理"),
-        QStringLiteral("订单管理"), QStringLiteral("用户管理"),
-        QStringLiteral("系统设置")
-    };
-
-    const QStringList icons = {"⌂", "◉", "▣", "▤", "▥", "♙", "⚙"};
-    for (int i = 0; i < m_menuLabels.size(); ++i) {
-        QListWidgetItem *item = new QListWidgetItem(icons[i] + QStringLiteral("  ") + m_menuLabels[i], sidebarList);
-        item->setData(Qt::UserRole, icons[i]);
-        item->setToolTip(m_menuLabels[i]);
-        item->setSizeHint(QSize(210, 48));
-    }
-
-    // 2. 右侧内容区
+    // 右侧业务内容区
     contentStack = new QStackedWidget(this);
 
     // 索引 0: 数据总览
@@ -118,9 +145,9 @@ void AdminMainWindow::initUI()
     m_settingsPage = new SettingsWidget(m_net, this);
     contentStack->addWidget(m_settingsPage);
 
-    mainLayout->addWidget(sidebarList);
     mainLayout->addWidget(contentStack);
-    rootLayout->addWidget(body);
+    workspaceLayout->addWidget(body, 1);
+    rootLayout->addWidget(workspace, 1);
 
     connect(sidebarList, &QListWidget::currentRowChanged, this, &AdminMainWindow::onMenuSelected);
     connect(m_toggleButton, &QPushButton::clicked, this, &AdminMainWindow::toggleSidebar);
@@ -166,12 +193,18 @@ void AdminMainWindow::toggleSidebar()
 void AdminMainWindow::setSidebarCollapsed(bool collapsed)
 {
     m_sidebarCollapsed = collapsed;
-    sidebarList->setFixedWidth(collapsed ? 60 : 210);
+    m_sidebarContainer->setFixedWidth(collapsed ? 76 : 224);
+    if (auto *caption = m_sidebarContainer->findChild<QLabel *>(QStringLiteral("sidebarBrandCaption")))
+        caption->setVisible(!collapsed);
+    if (auto *caption = m_sidebarContainer->findChild<QLabel *>(QStringLiteral("sidebarCaption")))
+        caption->setVisible(!collapsed);
+    if (auto *profile = m_sidebarContainer->findChild<QLabel *>(QStringLiteral("sidebarProfile")))
+        profile->setVisible(!collapsed);
     for (int i = 0; i < sidebarList->count(); ++i) {
         auto *item = sidebarList->item(i);
         item->setText(collapsed ? item->data(Qt::UserRole).toString()
                                 : item->data(Qt::UserRole).toString() + QStringLiteral("  ") + m_menuLabels[i]);
         item->setTextAlignment(collapsed ? Qt::AlignCenter : Qt::AlignLeft | Qt::AlignVCenter);
-        item->setSizeHint(QSize(collapsed ? 60 : 210, 48));
+        item->setSizeHint(QSize(collapsed ? 40 : 188, 46));
     }
 }

@@ -32,6 +32,7 @@ private:
     NetClient *m_net;
     QListWidget *sidebarList;
     QStackedWidget *contentStack;
+    QWidget *m_sidebarContainer;
     QPushButton *m_toggleButton;
     QLabel *m_pageTitle;
     QLabel *m_connectionStatus;
