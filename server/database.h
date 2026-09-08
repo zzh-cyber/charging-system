@@ -68,8 +68,8 @@ public:
 
     // ---- 管理端 ----
 
-    // 用户列表（keyword 为空则全部；否则按手机号/昵称模糊搜索）
-    QJsonArray adminUserList(const QString &keyword, int &code, QString &msg);
+    // 用户列表（keyword 空=全部；否则参数化 LIKE 手机号/昵称，带分页）
+    QJsonObject adminUserList(const QJsonObject &input, int &code, QString &msg);
 
     // 冻结/解冻用户（frozen = true 冻结，false 解冻）
     QJsonObject adminUserFreeze(qint64 adminId, qint64 userId, bool frozen, int &code, QString &msg);
@@ -79,7 +79,7 @@ public:
     // 启用电桩状态数量及占比统计
     QJsonObject adminPileStats(int &code, QString &msg);
 
-    // 远程重启电桩：fault/busy → idle，返回新状态
+    // 远程重启：写 device_commands + 桩置 idle + 审计；充电中拒绝
     QJsonObject adminPileRestart(qint64 adminId, qint64 pileId, int &code, QString &msg);
 
     // 订单列表（筛选+分页，NO.107）

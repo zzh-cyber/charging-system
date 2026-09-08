@@ -297,6 +297,33 @@
 
 ---
 
+## 服务器 - admin_user_list 分页 / admin_pile_restart - 2026-09-07 - 组长
+
+### 线程职责
+
+| 线程 | 职责 |
+|------|------|
+| **ClientHandler 线程** | `dispatch` 校验管理员 token 后调用 `adminUserList` / `adminPileRestart` |
+
+### 跨线程通信
+
+- 无新增跨线程对象；未改 `TcpServer` / `NetClient` / 帧格式
+- 重启无独立桩进程：`device_commands` 在同一事务内 pending→success
+
+### 共享资源与锁
+
+| 资源 | 保护方式 | 访问线程 |
+|------|----------|----------|
+| `user` | 每连接独立 `Database`；列表只读 | 该连接所在 Handler 线程 |
+| `pile` / `device_commands` / `operation_logs` | 事务 + `pile FOR UPDATE` | 该连接所在 Handler 线程 |
+
+### 验证
+
+- `admin_user_list` 无 token / 用户 token → `code=9`；无匹配空 list；`page_size` 分页；`keyword` LIKE 绑定参数
+- `admin_pile_restart`：`pile_id≤0` → `code=2`；不存在 → `code=4`；charging 订单 → `code=2` 且桩不变；成功写 `device_commands` + `operation_logs(action=pile_restart)` 且桩 `idle`
+
+---
+
 ## 客户端 - NetClient - 2026-09-01 - 组长（地基）
 
 ### 线程职责

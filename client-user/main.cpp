@@ -1,16 +1,111 @@
 #include "loginwindow.h"
+#include "runtimebootstrap.h"
 
 #include <QApplication>
+#include <QByteArray>
 #include <QColor>
+#include <QDir>
+#include <QFileInfo>
 #include <QFont>
 #include <QFontDatabase>
 #include <QPalette>
+#include <QSettings>
+
+
+namespace
+{
+
+void loadRuntimeConfiguration(
+    const char *executablePath)
+{
+    const QFileInfo executableInfo(
+        QString::fromLocal8Bit(
+            executablePath));
+
+    const QDir executableDir(
+        executableInfo.absolutePath());
+
+    const QString configPath =
+        QDir::cleanPath(
+            executableDir.filePath(
+                QStringLiteral(
+                    "../../config/runtime.ini")));
+
+    const QFileInfo configInfo(
+        configPath);
+
+    if (!configInfo.isFile()) {
+        return;
+    }
+
+    QSettings settings(
+        configPath,
+        QSettings::IniFormat);
+
+    const auto applySetting =
+        [&settings](
+            const QString &settingName,
+            const char *environmentName) {
+
+            const QByteArray value =
+                settings.value(settingName)
+                    .toString()
+                    .trimmed()
+                    .toUtf8();
+
+            if (!value.isEmpty()) {
+                qputenv(
+                    environmentName,
+                    value);
+            }
+        };
+
+    applySetting(
+        QStringLiteral(
+            "runtime/libgl_always_software"),
+        "LIBGL_ALWAYS_SOFTWARE");
+
+    applySetting(
+        QStringLiteral(
+            "runtime/qt_qpa_platform"),
+        "QT_QPA_PLATFORM");
+
+    applySetting(
+        QStringLiteral(
+            "runtime/qtwebengine_chromium_flags"),
+        "QTWEBENGINE_CHROMIUM_FLAGS");
+}
+
+} // namespace
 
 
 int main(
     int argc,
     char *argv[])
 {
+    // ========================================================================
+    // WSLg + Qt 6.2 WebEngine GPU 兼容
+    //
+    // 你已经实际验证：
+    // Qt WebEngine 使用 GPU 时，进入导航页可能出现
+    //
+    // malloc(): smallbin double linked list corrupted
+    //
+    // 仅在 WSL 环境禁用 Chromium GPU。
+    // 普通 Linux / Windows 环境不受影响。
+    //
+    // 必须在 QApplication 创建之前设置。
+    // ========================================================================
+
+
+
+    loadRuntimeConfiguration(
+        argv[0]);
+
+    RuntimeBootstrap::configureIbusEnvironment();
+    RuntimeBootstrap::ensureIbusLibpinyin();
+
+
     QApplication app(
         argc,
         argv);
@@ -44,44 +139,45 @@ int main(
 
     // ========================================================================
     // 全局基础色
-    // 只修改视觉主题，不涉及任何业务逻辑
     // ========================================================================
     QPalette palette =
         app.palette();
 
 
-    // 页面背景
     palette.setColor(
         QPalette::Window,
-        QColor("#F6F4EF"));
+        QColor(
+            "#F6F4EF"));
 
 
-    // 输入控件背景
     palette.setColor(
         QPalette::Base,
-        QColor("#FFFFFF"));
+        QColor(
+            "#FFFFFF"));
 
 
-    // 普通文字
     palette.setColor(
         QPalette::WindowText,
-        QColor("#202824"));
+        QColor(
+            "#202824"));
 
 
     palette.setColor(
         QPalette::Text,
-        QColor("#202824"));
+        QColor(
+            "#202824"));
 
 
-    // 选中区域
     palette.setColor(
         QPalette::Highlight,
-        QColor("#315B4D"));
+        QColor(
+            "#315B4D"));
 
 
     palette.setColor(
         QPalette::HighlightedText,
-        QColor("#FFFFFF"));
+        QColor(
+            "#FFFFFF"));
 
 
     app.setPalette(
@@ -90,13 +186,6 @@ int main(
 
     // ========================================================================
     // 全局 UI 样式
-    //
-    // 页面自己的 objectName 样式优先级更高，
-    // 所以前面已经美化过的 Login / Station / Pile /
-    // Charge / Profile / Navigation 页面不会被这里破坏。
-    //
-    // 提示弹窗统一由 AppMessageBox 负责，
-    // 因此这里不再保留任何 QMessageBox 样式。
     // ========================================================================
     app.setStyleSheet(
         QStringLiteral(
@@ -178,9 +267,6 @@ int main(
 
             // ================================================================
             // 普通按钮
-            //
-            // 页面中带 objectName 的按钮，
-            // 仍然会使用对应页面自己的样式。
             // ================================================================
             "QPushButton{"
             "background:#315B4D;"
@@ -278,18 +364,46 @@ int main(
 
 
             // ================================================================
+            // QMessageBox
+            // ================================================================
+            "QMessageBox{"
+            "background:#F6F4EF;"
+            "}"
+
+            "QMessageBox QLabel{"
+            "background:transparent;"
+            "color:#202824;"
+            "font-size:14px;"
+            "}"
+
+            "QMessageBox QPushButton{"
+            "background:#315B4D;"
+            "color:#FFFFFF;"
+            "border:none;"
+            "border-radius:10px;"
+            "min-width:82px;"
+            "min-height:36px;"
+            "padding:7px 16px;"
+            "font-size:14px;"
+            "font-weight:700;"
+            "}"
+
+            "QMessageBox QPushButton:hover{"
+            "background:#284C41;"
+            "}"
+
+            "QMessageBox QPushButton:pressed{"
+            "background:#203F36;"
+            "}"
+
+
+            // ================================================================
             // 普通 QDialog
-            //
-            // 注意：
-            // 这里只控制内部颜色。
-            // 需要完全无系统边框的弹窗，
-            // 会在对应 Dialog 中设置 FramelessWindowHint。
             // ================================================================
             "QDialog{"
             "background:#F6F4EF;"
             "color:#202824;"
             "}"
-
 
             "QDialog QLabel{"
             "background:transparent;"

@@ -5,6 +5,7 @@
 
 #include <QDebug>
 #include <QJsonObject>
+#include <QJsonValue>
 #include <QTcpSocket>
 #include <QThread>
 
@@ -236,33 +237,66 @@ void ClientHandler::dispatch(const QJsonObject &req)
     }
 
     // ------------------------------------------------------------------------
-    // 资料维护：改昵称（NO.18/76）。身份取自会话，忽略报文里的 user_id。
-    // 头像（NO.17/75）后续在本分支追加 avatar 字段处理。
+    // 资料维护：改昵称（NO.18/76）和/或头像（NO.17/75）。
+    // 身份取自会话，忽略报文里的 user_id。可只传 nickname、只传 avatar，或两者都传。
+    // avatar 为路径/标识字符串（库字段 VARCHAR(255)），不接收图片二进制。
     // ------------------------------------------------------------------------
     if (type == MsgType::UpdateProfile) {
-        const QString nickname = data.value("nickname").toString().trimmed();
-        if (nickname.isEmpty()) {
-            reply(makeResponse(type, InvalidRequest, "昵称不能为空"));
+        const bool hasNickname = data.contains(QStringLiteral("nickname"));
+        const bool hasAvatar = data.contains(QStringLiteral("avatar"));
+        if (!hasNickname && !hasAvatar) {
+            reply(makeResponse(type, InvalidRequest, "请提供 nickname 或 avatar"));
             return;
         }
-        if (nickname.size() < 2 || nickname.size() > 20) {
-            reply(makeResponse(type, InvalidRequest, "昵称长度需为 2~20 个字符"));
-            return;
+
+        QString nickname;
+        if (hasNickname) {
+            nickname = data.value(QStringLiteral("nickname")).toString().trimmed();
+            if (nickname.isEmpty()) {
+                reply(makeResponse(type, InvalidRequest, "昵称不能为空"));
+                return;
+            }
+            if (nickname.size() < 2 || nickname.size() > 20) {
+                reply(makeResponse(type, InvalidRequest, "昵称长度需为 2~20 个字符"));
+                return;
+            }
         }
-        if (!m_db->updateNickname(sess.userId, nickname)) {
+
+        QString avatar;
+        if (hasAvatar) {
+            const QJsonValue avatarVal = data.value(QStringLiteral("avatar"));
+            if (!avatarVal.isString() && !avatarVal.isNull()) {
+                reply(makeResponse(type, InvalidRequest, "avatar 须为字符串"));
+                return;
+            }
+            avatar = avatarVal.toString().trimmed();
+            if (avatar.size() > 255) {
+                reply(makeResponse(type, InvalidRequest, "头像路径最长 255 个字符"));
+                return;
+            }
+        }
+
+        if (hasNickname && !m_db->updateNickname(sess.userId, nickname)) {
             reply(makeResponse(type, DbError, "昵称更新失败: " + m_db->lastError()));
             return;
         }
+        if (hasAvatar && !m_db->updateAvatar(sess.userId, avatar)) {
+            reply(makeResponse(type, DbError, "头像更新失败: " + m_db->lastError()));
+            return;
+        }
+
         QJsonObject out;
-        out["nickname"] = nickname;
+        if (hasNickname)
+            out[QStringLiteral("nickname")] = nickname;
+        if (hasAvatar)
+            out[QStringLiteral("avatar")] = avatar;
         reply(makeResponse(type, Ok, "更新成功", out));
         return;
     }
 
     // ================= 管理端：用户管理 =================
     if (type == MsgType::AdminUserList) {
-        QJsonObject out;
-        out["list"] = m_db->adminUserList(data.value("keyword").toString(), code, msg);
+        const QJsonObject out = m_db->adminUserList(data, code, msg);
         reply(makeResponse(type, code, msg, out));
         return;
     }

@@ -42,7 +42,7 @@
 |-------------|------|-----------|-----------|--------|------|
 | `login` | 手机号免密登录/注册 | `{phone}` | `{id,phone,nickname,avatar,balance,token}` | 服务器A / 用户端B | ✅ 已实现（样板，已下发 token） |
 | `user_info` | 获取用户信息 | `{user_id}` | `{id,phone,nickname,avatar,balance}` | 服务器A | ⬜ 待实现 |
-| `update_profile` | 修改昵称/头像 | `{user_id,nickname?,avatar?}` | `{}` | 服务器A / 用户端B | ⬜ |
+| `update_profile` | 修改昵称和/或头像 | 顶层必须带 `token`；`data` 为 `{nickname?,avatar?}`，至少一项。身份取自会话，忽略 `data.user_id`。`nickname` 2～20 字符；`avatar` 为路径/标识字符串，最长 255（对应 `user.avatar` VARCHAR，不是图片二进制） | 成功 `{nickname?,avatar?}`（只回本次改过的字段） | 服务器A / 用户端B | ✅ 已实现 |
 | `recharge` | 余额充值 | 顶层必须带 `token`；`data` 仅 `{amount}`。入账用户取自会话，忽略 `data.user_id` | `{balance}` | 服务器A / 用户端B | ✅ 已实现 |
 | `station_list` | 充电站列表 | `{}` | `{list:[{id,name,address,longitude,latitude,price,total,idle}]}` | 服务器A / 成员D | ✅ 已实现（样板） |
 | `pile_list` | 某站电桩列表 | `{station_id}` | `{list:[{id,code,type,power_kw,status}]}` | 服务器A / 成员D | ⬜ |
@@ -59,10 +59,10 @@
 | 接口 (type) | 说明 | 请求 data | 响应 data | 负责人 | 状态 |
 |-------------|------|-----------|-----------|--------|------|
 | `admin_login` | 管理员登录 | `{username,password}` | `{id,username,token}` | 服务器A / 管理端C | ✅ 已实现（样板，已下发 token） |
-| `admin_user_list` | 用户列表（keyword 空=全部；否则按手机号/昵称模糊搜索） | `{keyword?}` | `{list:[{id,phone,nickname,balance,status,created_at}]}` | 服务器A(组长) / 管理端C | ✅ 已实现 |
+| `admin_user_list` | 用户列表（keyword 空=全部；否则参数化 LIKE 手机号/昵称，带分页） | `{keyword?,page?,page_size?}`。`page` 默认 1，`page_size` 默认 20、最大 50 | `{list:[{id,phone,nickname,balance,status,created_at}],total,page,page_size}`。无匹配时 `list=[]`、`total=0` | 服务器A(组长) / 管理端C | ✅ 已实现 |
 | `admin_user_freeze` | 冻结/解冻用户 | `{user_id,frozen:bool}`。`user_id` 是操作对象。冻结成功后该用户全部 user token 立即失效 | `{id,status}` | 服务器A(组长) / 管理端C | ✅ 已实现 |
-| `admin_pile_list` | 电桩列表（含所属站名，支持服务端筛选+分页）及启用电桩状态统计 | `{station_id?,type?,status?,code?,page?,page_size?}`；`type` 为 `fast/slow`，`status` 为 `idle/busy/fault`，`code` 模糊匹配；`page` 默认 1，`page_size` 默认 20、最大 50 | `{list:[{id,code,station,type,power_kw,status,total_count,total_hours}],total,page,page_size,stats:{idle:{count,rate},busy:{count,rate},fault:{count,rate},total,stat_time}}`；`stats` 仍为全局启用电桩统计 | 服务器A(组长) / 管理端C | ✅ 已实现 |
-| `admin_pile_restart` | 远程重启电桩（fault/busy→idle） | `{pile_id}` | `{id,status}` | 服务器A(组长) / 管理端C | ✅ 已实现 |
+| `admin_pile_list` | 电桩列表（含所属站名，支持服务端筛选+分页）及启用电桩状态统计。管理端站内桩明细（NO.100）复用本接口，传 `station_id` | `{station_id?,type?,status?,code?,page?,page_size?}`；`type` 为 `fast/slow`，`status` 为 `idle/busy/fault`，`code` 模糊匹配；`page` 默认 1，`page_size` 默认 20、最大 50。`station_id` 必须为正整数，否则 `code=2`；有效但不存在/已删 → `code=4`。站内详情建议 `page_size=50` | `{list:[{id,code,station,type,power_kw,status,total_count,total_hours,order_no,last_online_at}],total,page,page_size,stats:{idle:{count,rate},busy:{count,rate},fault:{count,rate},total,stat_time}}`。`order_no` 为该桩 `reserved/charging` 订单号，无则为空串；`last_online_at` 无心跳为空串。`stats` 仍为全局启用电桩统计（不随站过滤） | 服务器A(组长) / 管理端C | ✅ 已实现 |
+| `admin_pile_restart` | 远程重启电桩。写 `device_commands(command=restart)` 后把桩置 `idle`，并写 `operation_logs(action=pile_restart)`。充电中（存在 `charge_order.status=charging`）拒绝 | `{pile_id}`。`pile_id≤0` → `code=2`；电桩不存在 → `code=4`；充电中 → `code=2` | `{id,status,command_no}`。成功时 `status=idle` | 服务器A(组长) / 管理端C | ✅ 已实现 |
 | `admin_station_list` | 电站列表（含桩数、在线率） | `{}` | `{list:[{id,name,address,longitude,latitude,total,online_rate}]}` | 服务器A(组长) / 管理端C | ✅ 已实现 |
 | `admin_station_add` | 新增电站 | `{name,address,longitude,latitude,price}` | `{id}` | 管理端C | ⬜ |
 | `admin_order_list` | 订单列表（筛选+分页；仪表盘今日单量/最近订单复用本接口） | 空字段/`0` 表示不筛。`{order_no?,phone?,user_id?,station_id?,pile_id?,pile_code?,keyword?,status?,start_time?,end_time?,page?,page_size?}`。`keyword` 匹配订单号/手机号/桩编号；`start_time`/`end_time` 按 `COALESCE(start_time,reserve_time,created_at)` 过滤（可只传 `yyyy-MM-dd`）。`page` 从 1，`page_size` 默认 20、最大 50。`status` 须为 `reserved/charging/pending_payment/settled/cancelled` | `{list:[{id,order_no,user_id,nickname,phone,station_id,station_name,pile_id,pile_code,status,kwh,duration_seconds,unit_price,amount,reserve_time,start_time,end_time,created_at,updated_at}],total,page,page_size}`。默认 `created_at DESC`。金额/电量/时长取库中值 | 服务器A(组长) / 管理端C | ✅ 已实现 |

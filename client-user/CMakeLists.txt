@@ -1,26 +1,54 @@
 # 充电用户端（Qt Widgets GUI）
+
+find_package(Qt6 REQUIRED COMPONENTS WebEngineWidgets)
+
 add_executable(charging-user
     main.cpp
+
     loginwindow.cpp
     loginwindow.h
+
     mainwindow.cpp
     mainwindow.h
+
     stationlistpage.cpp
     stationlistpage.h
-    pilelistpage.cpp
-    pilelistpage.h
-    chargepage.cpp
-    chargepage.h
-    profilepage.cpp
-    profilepage.h
-    fonts.qrc
-    locationmanager.cpp
-    locationmanager.h
+
     stationcardwidget.cpp
     stationcardwidget.h
+
+    pilelistpage.cpp
+    pilelistpage.h
+
+    chargepage.cpp
+    chargepage.h
+
+    profilepage.cpp
+    profilepage.h
+
+    locationmanager.cpp
+    locationmanager.h
+
     navigationpage.cpp
     navigationpage.h
+
+    routeplanner.cpp
+    routeplanner.h
+    routeresult.h
+
+    amapwidget.cpp
+    amapwidget.h
+
+    amapconfig.cpp
+    amapconfig.h
+
+    routerequest.h
+    appmessagebox.h
+    uitheme.h
     windowhelper.h
+
+    fonts.qrc
+    mapresources.qrc
 )
 
 set_target_properties(charging-user PROPERTIES
@@ -36,4 +64,5 @@ target_link_libraries(charging-user
         Qt6::Gui
         Qt6::Widgets
         Qt6::Network
+        Qt6::WebEngineWidgets
 )

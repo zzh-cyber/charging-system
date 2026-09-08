@@ -4,6 +4,8 @@
 #include <QDateTime>
 #include <QString>
 #include <QWidget>
+#include <QElapsedTimer>
+
 
 class QLabel;
 class QPushButton;
@@ -57,6 +59,13 @@ public:
 
     // 清空当前订单
     void reset();
+    public slots:
+    // 网络断开时冻结本地实时预估
+    void handleNetworkDisconnected();
+
+    // 网络恢复后继续刷新
+    void handleNetworkReconnected();
+
 
 protected:
     void resizeEvent(
@@ -153,6 +162,18 @@ private:
     // 最终账单
     qint64 m_finalDurationSeconds = 0;
     double m_finalBalance = 0.0;
+        // 当前网络状态。
+    // 断线时 ChargePage 暂停本地 kWh / 金额 / SOC 增长。
+    bool m_networkAvailable = true;
+ // 当前订单已经累计的“有效在线充电时间”
+qint64 m_accumulatedChargeMs = 0;
+
+// 只统计当前这一段连续在线时间
+QElapsedTimer m_onlineChargeTimer;
+
+// 用订单号判断 setChargingState() 是新订单还是重连后的状态同步
+QString m_elapsedOrderNo;
+
 };
 
 #endif // CHARGEPAGE_H

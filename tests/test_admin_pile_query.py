@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""NO.38 admin_pile_list TCP 端到端筛选/分页测试（只读数据库）。"""
+"""NO.38/NO.100 admin_pile_list TCP 端到端筛选/分页/站不存在测试（只读数据库）。"""
 import json, socket, struct, subprocess, sys
 
 HOST, PORT = "127.0.0.1", 9000
@@ -89,7 +89,20 @@ def main():
     filtered = pile({"status":"idle", "page":1, "page_size":2})
     assert filtered.get("code") == 0 and (filtered.get("data") or {}).get("total",-1) >= len(piles(filtered))
     assert stats_shape(filtered) == base_stats
-    print("ALL NO.38 ASSERTIONS PASSED")
+    missing = pile({"station_id": 999999999})
+    assert missing.get("code") == 4, "不存在的 station_id 应返回 code=4"
+
+    by_station = pile({"station_id": station_id, "page_size": 50})
+    assert by_station.get("code") == 0
+    assert stats_shape(by_station) == base_stats, "按站过滤不应改变全局 stats"
+    rows = piles(by_station)
+    assert rows, "站内应有电桩"
+    for x in rows:
+        assert "order_no" in x and "last_online_at" in x
+        assert "code" in x and "type" in x and "power_kw" in x and "status" in x
+        sid = int(db(f"SELECT station_id FROM pile WHERE id={int(x['id'])}"))
+        assert sid == station_id, "list 中混入了其他站的桩"
+    print("ALL NO.38/NO.100 ASSERTIONS PASSED")
 
 if __name__ == "__main__":
     try: main()

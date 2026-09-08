@@ -13,6 +13,41 @@
 #include <QScrollArea>
 #include <QTimer>
 #include <QVBoxLayout>
+#include <QDebug>
+
+// ============================================================================
+// NO.24：进程内充电计时恢复快照
+//
+// 服务器重启后 Session 可能失效，MainWindow / ChargePage 会重新创建。
+// 普通成员变量会因此丢失，所以把断网瞬间已经累计的有效充电时间
+// 暂存在当前客户端进程中。
+//
+// 不写数据库、不改协议，也不会跨客户端进程伪造服务端数据。
+// ============================================================================
+namespace
+{
+
+QString s_no24ResumeOrderNo;
+
+qint64 s_no24ResumeAccumulatedMs =
+    0;
+
+bool s_no24ResumeValid =
+    false;
+
+
+void clearNo24ResumeSnapshot()
+{
+    s_no24ResumeOrderNo.clear();
+
+    s_no24ResumeAccumulatedMs =
+        0;
+
+    s_no24ResumeValid =
+        false;
+}
+
+}
 
 
 // ============================================================================
@@ -923,16 +958,35 @@ ChargePage::ChargePage(
 void ChargePage::setReservedOrder(
     const QString &orderNo)
 {
-    m_orderNo =
+    const QString newOrderNo =
         orderNo.trimmed();
 
 
-    if (m_orderNo.isEmpty()) {
+    if (newOrderNo.isEmpty()) {
 
         reset();
 
         return;
     }
+
+
+    // ========================================================================
+    // NO.24：
+    // 如果现在来的是真正不同的新订单，
+    // 上一张订单留下的断网恢复快照就不能继续使用。
+    //
+    // 如果订单号相同，则保留。
+    // 这是服务器重启 / Session 失效后重新恢复 charging 订单所需要的。
+    // ========================================================================
+    if (s_no24ResumeValid &&
+        s_no24ResumeOrderNo != newOrderNo) {
+
+        clearNo24ResumeSnapshot();
+    }
+
+
+    m_orderNo =
+        newOrderNo;
 
 
     m_state =
@@ -977,8 +1031,8 @@ void ChargePage::setReservedOrder(
 
 
     refreshUi();
-
 }
+
 
 
 // ============================================================================
@@ -993,12 +1047,28 @@ void ChargePage::setChargingState(
     double targetSoc)
 
 {
+    qInfo().noquote()
+    << "[NO24] setChargingState ENTER"
+    << "order=" << m_orderNo
+    << "elapsedOrder=" << m_elapsedOrderNo
+    << "startTime=" << startTime
+    << "network=" << m_networkAvailable
+    << "accMs=" << m_accumulatedChargeMs
+    << "timerValid=" << m_onlineChargeTimer.isValid()
+    << "timerMs="
+    << (m_onlineChargeTimer.isValid()
+            ? m_onlineChargeTimer.elapsed()
+            : -1);
+
     if (m_orderNo.isEmpty())
         return;
 
 
     m_state =
         ChargeState::Charging;
+
+
+
 
 
     // ========================================================================
@@ -1041,6 +1111,88 @@ void ChargePage::setChargingState(
             QDateTime::currentDateTime();
     }
 
+    // ========================================================================
+    // NO.24：初始化有效充电时间
+    //
+    // 优先级：
+    //
+    // 1. 如果当前客户端进程中保存着同一订单的断网快照，
+    //    优先使用快照；
+    //
+    // 2. 否则才根据服务器 start_time 恢复。
+    //
+    // 这样服务器重启导致 Session 失效、MainWindow 被重新创建时，
+    // 就不会重新把断网期间补进来。
+    // ========================================================================
+    if (m_elapsedOrderNo !=
+        m_orderNo) {
+
+        m_elapsedOrderNo =
+            m_orderNo;
+
+        m_accumulatedChargeMs =
+            0;
+
+        m_onlineChargeTimer.invalidate();
+
+
+        if (s_no24ResumeValid &&
+            s_no24ResumeOrderNo ==
+                m_orderNo) {
+
+            // ---------------------------------------------------------------
+            // 同一订单：
+            // 使用断网时已经冻结的有效充电时间。
+            // ---------------------------------------------------------------
+            m_accumulatedChargeMs =
+                qMax<qint64>(
+                    0,
+                    s_no24ResumeAccumulatedMs);
+
+
+            qInfo().noquote()
+                << "[NO24] RESTORE SNAPSHOT"
+                << "order="
+                << m_orderNo
+                << "accMs="
+                << m_accumulatedChargeMs;
+
+        } else if (
+            m_chargeStartedAt.isValid()) {
+
+            // ---------------------------------------------------------------
+            // 没有客户端断网快照：
+            // 例如应用第一次打开时恢复 unfinished_order。
+            //
+            // 此时仍使用原来的 start_time 恢复方式。
+            // ---------------------------------------------------------------
+            m_accumulatedChargeMs =
+                qMax<qint64>(
+                    0,
+                    m_chargeStartedAt.msecsTo(
+                        QDateTime::
+                            currentDateTime()));
+        }
+    }
+
+
+    // 当前已经处于可用网络状态时，
+    // 从现在开始记录新的在线时间段。
+    if (m_networkAvailable &&
+        !m_onlineChargeTimer.isValid()) {
+
+        m_onlineChargeTimer.start();
+    }
+
+
+
+// 当前网络在线，并且当前在线段还没有开始计时，
+// 就从“现在”开始计算新的在线时间。
+if (m_networkAvailable &&
+    !m_onlineChargeTimer.isValid()) {
+
+    m_onlineChargeTimer.start();
+}
 
     // 当前服务端没有这两个字段时会得到 0
     // 等服务端补接口后这里无需再次修改
@@ -1127,6 +1279,13 @@ void ChargePage::setPendingPaymentResult(
 
 
     stopChargeTimer();
+        if (s_no24ResumeValid &&
+        s_no24ResumeOrderNo ==
+            m_orderNo) {
+
+        clearNo24ResumeSnapshot();
+    }
+
 
 
     m_state =
@@ -1169,6 +1328,12 @@ void ChargePage::setPaidResult(
 
 
     stopChargeTimer();
+    if (s_no24ResumeValid &&
+    s_no24ResumeOrderNo ==
+        m_orderNo) {
+
+    clearNo24ResumeSnapshot();
+}
 
 
     m_state =
@@ -1208,6 +1373,19 @@ void ChargePage::setPaidResult(
 // ============================================================================
 void ChargePage::reset()
 {
+    qInfo().noquote()
+        << "[NO24] RESET CALLED"
+        << "state=" << static_cast<int>(m_state)
+        << "order=" << m_orderNo
+        << "elapsedOrder=" << m_elapsedOrderNo
+        << "accMs=" << m_accumulatedChargeMs
+        << "timerValid=" << m_onlineChargeTimer.isValid()
+        << "timerMs="
+        << (m_onlineChargeTimer.isValid()
+                ? m_onlineChargeTimer.elapsed()
+                : -1);
+
+
     m_state =
         ChargeState::Empty;
 
@@ -1236,10 +1414,31 @@ void ChargePage::reset()
         0.0;
 
 
+    m_currentKwh =
+        0.0;
 
+    m_estimatedAmount =
+        0.0;
+
+
+    m_finalDurationSeconds =
+        0;
 
     m_finalBalance =
         0.0;
+
+
+    // 当前 ChargePage 真正 reset 时，
+    // 清空本对象自己的实时计时状态。
+    m_accumulatedChargeMs =
+        0;
+
+    m_onlineChargeTimer.invalidate();
+
+    m_elapsedOrderNo.clear();
+
+
+    resetBatteryInfo();
 
 
     refreshUi();
@@ -2463,39 +2662,66 @@ void ChargePage::updateChargingInfo()
     }
 
 
-    if (!m_chargeStartedAt.isValid())
+    // 断网期间保留最后一次值，
+    // 不允许时长 / kWh / 金额 / SOC 继续变化。
+    if (!m_networkAvailable) {
+
         return;
-
-
-    qint64 elapsedSeconds =
-        m_chargeStartedAt.secsTo(
-            QDateTime::currentDateTime());
-
-
-    if (elapsedSeconds < 0) {
-
-        elapsedSeconds =
-            0;
     }
+
+
+    if (!m_chargeStartedAt.isValid()) {
+
+        return;
+    }
+
+
+
+
+
+     // ========================================================================
+    // 有效充电时间
+    //
+    // 这里只统计：
+    // 1. 断网前已经累计的在线时间
+    // 2. 当前这一段在线时间
+    //
+    // 断网期间不会出现在这个公式里。
+    // ========================================================================
+    qint64 elapsedMs =
+        m_accumulatedChargeMs;
+
+
+    if (m_networkAvailable &&
+        m_onlineChargeTimer.isValid()) {
+
+        elapsedMs +=
+            m_onlineChargeTimer.elapsed();
+    }
+
+
+    if (elapsedMs < 0) {
+
+        elapsedMs = 0;
+    }
+
+
+    const qint64 elapsedSeconds =
+        elapsedMs / 1000;
+
 
 
     // ========================================================================
     // 已充时间
     // ========================================================================
     const qint64 hours =
-        elapsedSeconds /
-        3600;
-
+        elapsedSeconds / 3600;
 
     const qint64 minutes =
-        (elapsedSeconds %
-         3600) /
-        60;
-
+        (elapsedSeconds % 3600) / 60;
 
     const qint64 seconds =
-        elapsedSeconds %
-        60;
+        elapsedSeconds % 60;
 
 
     if (m_elapsedLabel) {
@@ -2522,7 +2748,7 @@ void ChargePage::updateChargingInfo()
 
 
     // ========================================================================
-    // 当前功率 + 已充电量
+    // 功率 + 已充电量
     // ========================================================================
     if (m_powerKw > 0.0) {
 
@@ -2539,17 +2765,17 @@ void ChargePage::updateChargingInfo()
         }
 
 
-        // 原有公式保持不变
+        // 注意：
+        // 这里必须使用已经排除了断网时间的 elapsedSeconds。
         m_currentKwh =
             m_powerKw *
             static_cast<double>(
                 elapsedSeconds) /
             3600.0;
+
+
         // ====================================================================
-        // 模拟当前 SOC
-        //
-        // current_soc =
-        // start_soc + charged_kwh / battery_capacity_kwh * 100
+        // SOC
         // ====================================================================
         if (m_hasBatteryInfo &&
             m_batteryCapacityKwh > 0.0) {
@@ -2561,7 +2787,6 @@ void ChargePage::updateChargingInfo()
                     100.0;
 
 
-            // 当前 SOC 不低于初始值，也不超过目标值
             m_currentSoc =
                 qBound(
                     m_startSoc,
@@ -2572,8 +2797,7 @@ void ChargePage::updateChargingInfo()
             if (m_batteryPercentLabel) {
 
                 m_batteryPercentLabel->setText(
-                    QStringLiteral(
-                        "%1%")
+                    QStringLiteral("%1%")
                         .arg(
                             qRound(
                                 m_currentSoc)));
@@ -2656,7 +2880,6 @@ void ChargePage::updateChargingInfo()
     if (m_powerKw > 0.0 &&
         m_unitPrice > 0.0) {
 
-        // 原有公式保持不变
         m_estimatedAmount =
             m_currentKwh *
             m_unitPrice;
@@ -2684,6 +2907,7 @@ void ChargePage::updateChargingInfo()
         }
     }
 }
+
 // ============================================================================
 // 重置模拟车辆电量信息
 // ============================================================================
@@ -2726,4 +2950,174 @@ void ChargePage::resetBatteryInfo()
             QStringLiteral(
                 "初始电量 --%    ·    目标 100%"));
     }
+}
+
+// ============================================================================
+// 网络断开
+// ============================================================================
+void ChargePage::handleNetworkDisconnected()
+{
+    if (!m_networkAvailable) {
+
+        return;
+    }
+
+
+    qInfo().noquote()
+        << "[NO24] DISCONNECTED ENTER"
+        << "order=" << m_orderNo
+        << "accMs=" << m_accumulatedChargeMs
+        << "timerValid="
+        << m_onlineChargeTimer.isValid()
+        << "timerMs="
+        << (m_onlineChargeTimer.isValid()
+                ? m_onlineChargeTimer.elapsed()
+                : -1);
+
+
+    if (m_state ==
+        ChargeState::Charging) {
+
+        // 断网瞬间先显示最后一次有效数据。
+        updateChargingInfo();
+
+
+        // ================================================================
+        // 保存当前连续在线时间段。
+        // ================================================================
+        if (m_onlineChargeTimer.isValid()) {
+
+            m_accumulatedChargeMs +=
+                m_onlineChargeTimer.elapsed();
+
+            m_onlineChargeTimer.invalidate();
+        }
+
+
+        // ================================================================
+        // NO.24：
+        // 保存到当前客户端进程的恢复快照。
+        //
+        // 即使随后服务器重启导致 Session 失效，
+        // MainWindow / ChargePage 被重新创建，
+        // 新 ChargePage 仍然能拿回这里冻结的时间。
+        // ================================================================
+        if (!m_orderNo.isEmpty()) {
+
+            s_no24ResumeOrderNo =
+                m_orderNo;
+
+            s_no24ResumeAccumulatedMs =
+                m_accumulatedChargeMs;
+
+            s_no24ResumeValid =
+                true;
+        }
+
+
+        qInfo().noquote()
+            << "[NO24] SNAPSHOT SAVED"
+            << "order="
+            << s_no24ResumeOrderNo
+            << "accMs="
+            << s_no24ResumeAccumulatedMs;
+
+
+        stopChargeTimer();
+    }
+
+
+    m_networkAvailable =
+        false;
+
+
+    if (m_state !=
+        ChargeState::Charging) {
+
+        return;
+    }
+
+
+    if (m_batteryStateLabel) {
+
+        m_batteryStateLabel->setText(
+            QStringLiteral(
+                "等待重连"));
+    }
+
+
+    if (m_tipLabel) {
+
+        m_tipLabel->setText(
+            QStringLiteral(
+                "网络已断开，正在重新连接，实时数据已暂停更新"));
+    }
+}
+
+void ChargePage::handleNetworkReconnected()
+{
+    qInfo().noquote()
+    << "[NO24] RECONNECTED ENTER"
+    << "order=" << m_orderNo
+    << "elapsedOrder=" << m_elapsedOrderNo
+    << "network=" << m_networkAvailable
+    << "accMs=" << m_accumulatedChargeMs
+    << "timerValid=" << m_onlineChargeTimer.isValid()
+    << "timerMs="
+    << (m_onlineChargeTimer.isValid()
+            ? m_onlineChargeTimer.elapsed()
+            : -1);
+
+    // 已经在线，不重复处理
+    if (m_networkAvailable) {
+        return;
+    }
+
+
+    m_networkAvailable =
+        true;
+
+
+    if (m_state !=
+        ChargeState::Charging) {
+
+        return;
+    }
+
+
+    // ================================================================
+    // NO.24：
+    // 从重连成功这一刻开始新的在线计时段
+    //
+    // 断网期间 m_onlineChargeTimer 是 invalid，
+    // 因此那段时间完全不会被累计。
+    // ================================================================
+    if (!m_onlineChargeTimer.isValid()) {
+
+        m_onlineChargeTimer.start();
+        qInfo().noquote()
+    << "[NO24] RECONNECTED STARTED"
+    << "accMs=" << m_accumulatedChargeMs
+    << "timerMs=" << m_onlineChargeTimer.elapsed();
+
+    }
+
+
+    if (m_batteryStateLabel) {
+
+        m_batteryStateLabel->setText(
+            QStringLiteral(
+                "充电中"));
+    }
+
+
+    if (m_tipLabel) {
+
+        m_tipLabel->setText(
+            QStringLiteral(
+                "网络已恢复，实时充电记录继续更新"));
+    }
+
+
+    startChargeTimer();
 }
