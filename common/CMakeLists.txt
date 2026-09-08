@@ -3,6 +3,8 @@ add_library(common STATIC
     netclient.cpp
     netclient.h
     protocol.h
+    runtimebootstrap.cpp
+    runtimebootstrap.h
 )
 
 set_target_properties(common PROPERTIES AUTOMOC ON)
