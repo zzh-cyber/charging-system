@@ -7,6 +7,8 @@
 
 class QLabel;
 class QPushButton;
+class PileStatusWidget;
+class SettingsWidget;
 
 class NetClient;
 
@@ -25,6 +27,7 @@ private slots:
 private:
     void initUI();
     void setSidebarCollapsed(bool collapsed);
+    void applyRefreshSettings();
 
     NetClient *m_net;
     QListWidget *sidebarList;
@@ -35,6 +38,9 @@ private:
     QLabel *m_lastUpdate;
     bool m_sidebarCollapsed = false;
     QStringList m_menuLabels;
+    QStringList m_pageIds;
+    PileStatusWidget *m_monitorPage = nullptr;
+    SettingsWidget *m_settingsPage = nullptr;
 };
 
 #endif // ADMINMAINWINDOW_H

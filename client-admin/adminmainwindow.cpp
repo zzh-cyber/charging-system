@@ -4,6 +4,9 @@
 #include "usermanagerwidget.h"
 #include "pilemanagerwidget.h"
 #include "stationmanagerwidget.h"
+#include "ordermanagerwidget.h"
+#include "settingswidget.h"
+#include "adminsettings.h"
 
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -79,10 +82,10 @@ void AdminMainWindow::initUI()
         QStringLiteral("运营总览"), QStringLiteral("实时监控"),
         QStringLiteral("电站管理"), QStringLiteral("电桩管理"),
         QStringLiteral("订单管理"), QStringLiteral("用户管理"),
-        QStringLiteral("告警中心"), QStringLiteral("系统设置")
+        QStringLiteral("系统设置")
     };
 
-    const QStringList icons = {"⌂", "◉", "▣", "▤", "▥", "♙", "!", "⚙"};
+    const QStringList icons = {"⌂", "◉", "▣", "▤", "▥", "♙", "⚙"};
     for (int i = 0; i < m_menuLabels.size(); ++i) {
         QListWidgetItem *item = new QListWidgetItem(icons[i] + QStringLiteral("  ") + m_menuLabels[i], sidebarList);
         item->setData(Qt::UserRole, icons[i]);
@@ -97,7 +100,8 @@ void AdminMainWindow::initUI()
     contentStack->addWidget(new DashboardWidget(m_net, this));
 
     // 索引 1: 电桩状态
-    contentStack->addWidget(new PileStatusWidget(m_net, this));
+    m_monitorPage = new PileStatusWidget(m_net, this);
+    contentStack->addWidget(m_monitorPage);
 
     // 索引 2: 电站管理
     contentStack->addWidget(new StationManagerWidget(m_net, this));
@@ -106,27 +110,13 @@ void AdminMainWindow::initUI()
     contentStack->addWidget(new PileManagerWidget(m_net, this));
 
     // 索引 4: 订单管理
-    QWidget *pageOrder = new QWidget();
-    QVBoxLayout *layoutOrder = new QVBoxLayout(pageOrder);
-    QLabel *labelOrder = new QLabel("订单管理 界面内容区（开发中）", pageOrder);
-    labelOrder->setAlignment(Qt::AlignCenter);
-    labelOrder->setObjectName("placeholderLabel");
-    layoutOrder->addWidget(labelOrder);
-    contentStack->addWidget(pageOrder);
+    contentStack->addWidget(new OrderManagerWidget(m_net, this));
 
     // 索引 5: 用户管理
     contentStack->addWidget(new UserManagerWidget(m_net, this));
 
-    // 预留后续模块页面，导航项先保持可用
-    for (const QString &name : {QStringLiteral("告警中心"), QStringLiteral("系统设置")}) {
-        auto *placeholder = new QWidget();
-        auto *placeholderLayout = new QVBoxLayout(placeholder);
-        auto *placeholderLabel = new QLabel(name + QStringLiteral("（即将上线）"), placeholder);
-        placeholderLabel->setAlignment(Qt::AlignCenter);
-        placeholderLabel->setObjectName("placeholderLabel");
-        placeholderLayout->addWidget(placeholderLabel);
-        contentStack->addWidget(placeholder);
-    }
+    m_settingsPage = new SettingsWidget(m_net, this);
+    contentStack->addWidget(m_settingsPage);
 
     mainLayout->addWidget(sidebarList);
     mainLayout->addWidget(contentStack);
@@ -134,7 +124,17 @@ void AdminMainWindow::initUI()
 
     connect(sidebarList, &QListWidget::currentRowChanged, this, &AdminMainWindow::onMenuSelected);
     connect(m_toggleButton, &QPushButton::clicked, this, &AdminMainWindow::toggleSidebar);
-    sidebarList->setCurrentRow(0);
+    m_pageIds = {QStringLiteral("dashboard"), QStringLiteral("monitor"), QStringLiteral("station"), QStringLiteral("pile"), QStringLiteral("order"), QStringLiteral("user"), QStringLiteral("settings")};
+    connect(m_settingsPage, &SettingsWidget::displaySettingsChanged, this, [] { AdminSettings::applyDisplaySettings(); });
+    connect(m_settingsPage, &SettingsWidget::refreshSettingsChanged, this, &AdminMainWindow::applyRefreshSettings);
+    connect(m_settingsPage, &SettingsWidget::sidebarPreferenceChanged, this, [this](bool expanded) { setSidebarCollapsed(!expanded); });
+    AdminSettings::applyDisplaySettings();
+    setSidebarCollapsed(!AdminSettings::sidebarExpanded());
+    QString initialPage = AdminSettings::rememberLastPage() ? AdminSettings::lastPage() : AdminSettings::defaultPage();
+    int initialIndex = m_pageIds.indexOf(initialPage);
+    if (initialIndex < 0) initialIndex = 0;
+    sidebarList->setCurrentRow(initialIndex);
+    applyRefreshSettings();
 }
 
 void AdminMainWindow::onMenuSelected(int index)
@@ -142,12 +142,25 @@ void AdminMainWindow::onMenuSelected(int index)
     if (index >= 0 && index < contentStack->count()) {
         contentStack->setCurrentIndex(index);
         m_pageTitle->setText(m_menuLabels.value(index));
+        AdminSettings::setValue(QStringLiteral("navigation/lastPage"), m_pageIds.value(index, QStringLiteral("dashboard")));
+        if (contentStack->currentWidget() == m_settingsPage) m_settingsPage->reloadValues();
+        applyRefreshSettings();
     }
+}
+
+void AdminMainWindow::applyRefreshSettings()
+{
+    if (!m_monitorPage || !contentStack) return;
+    m_monitorPage->applyRefreshSettings(AdminSettings::monitorAutoRefresh(),
+                                        AdminSettings::monitorRefreshInterval(),
+                                        AdminSettings::pauseWhenHidden(),
+                                        contentStack->currentWidget() == m_monitorPage);
 }
 
 void AdminMainWindow::toggleSidebar()
 {
     setSidebarCollapsed(!m_sidebarCollapsed);
+    AdminSettings::setValue(QStringLiteral("navigation/sidebarExpanded"), !m_sidebarCollapsed);
 }
 
 void AdminMainWindow::setSidebarCollapsed(bool collapsed)

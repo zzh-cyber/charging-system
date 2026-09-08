@@ -13,6 +13,7 @@
 #include <QJsonObject>
 #include <QObject>
 #include <QString>
+#include <QDateTime>
 
 class QTcpSocket;
 class QTimer;
@@ -27,6 +28,9 @@ public:
     // 连接服务器，成功返回 true（会记住 host/port 用于断线重连）
     bool connectToServer(const QString &host, quint16 port, int timeoutMs = 3000);
     bool isConnected() const;
+    QString serverHost() const { return m_host; }
+    quint16 serverPort() const { return m_port; }
+    QDateTime lastSuccessfulCommunication() const { return m_lastSuccessfulCommunication; }
 
     // 登录成功后把服务器下发的 token 存下来；send/request 会自动附到 JSON 顶层。
     void setToken(const QString &token);
@@ -62,4 +66,5 @@ private:
     QString     m_token;
     quint16     m_port = 0;
     int         m_reconnectAttempts = 0;
+    QDateTime   m_lastSuccessfulCommunication;
 };
