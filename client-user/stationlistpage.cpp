@@ -9,6 +9,7 @@
 #include <QComboBox>
 #include <QFrame>
 #include <QHBoxLayout>
+#include <QIcon>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QLabel>
@@ -17,6 +18,7 @@
 #include <QScrollArea>
 #include <QSet>
 #include <QShowEvent>
+#include <QSize>
 #include <QStackedWidget>
 #include <QVBoxLayout>
 #include <QVector>
@@ -25,6 +27,9 @@
 #include <cmath>
 
 
+// ============================================================================
+// 构造函数
+// ============================================================================
 StationListPage::StationListPage(
     NetClient *net,
     QWidget *parent)
@@ -36,9 +41,9 @@ StationListPage::StationListPage(
             "stationListPage"));
 
 
-    // ========================================================================
+    // =========================================================================
     // 页头卡片
-    // ========================================================================
+    // =========================================================================
     auto *headerCard =
         new QFrame(this);
 
@@ -46,10 +51,15 @@ StationListPage::StationListPage(
         QStringLiteral(
             "stationHeaderCard"));
 
+    headerCard->setAttribute(
+        Qt::WA_StyledBackground,
+        true);
+
+
     UiTheme::applyCardShadow(
         headerCard,
-        18,
-        4);
+        22,
+        5);
 
 
     auto *headerCardLayout =
@@ -62,14 +72,18 @@ StationListPage::StationListPage(
 
     headerCardLayout->setContentsMargins(
         16,
-        14,
+        15,
         16,
         14);
 
     headerCardLayout->setSpacing(
-        9);
+        10);
 
 
+    // =========================================================================
+    // 第一行：
+    // 图标 + 标题 + 5/10 条选择 + 刷新
+    // =========================================================================
     auto *header =
         new QHBoxLayout;
 
@@ -81,6 +95,24 @@ StationListPage::StationListPage(
         8);
 
 
+    // -------------------------------------------------------------------------
+    // 标题图标
+    // -------------------------------------------------------------------------
+    auto *titleIcon =
+        new QLabel(
+            headerCard);
+
+    titleIcon->setObjectName(
+        QStringLiteral(
+            "stationTitleIcon"));
+
+    titleIcon->setAlignment(
+        Qt::AlignCenter);
+
+
+    // -------------------------------------------------------------------------
+    // 标题
+    // -------------------------------------------------------------------------
     auto *title =
         new QLabel(
             QStringLiteral(
@@ -92,10 +124,12 @@ StationListPage::StationListPage(
             "stationTitle"));
 
 
-    // ========================================================================
-    // NO.4：显示最近 5 / 10 个
-    // 业务逻辑保持最新 main 原样
-    // ========================================================================
+    // =========================================================================
+    // NO.4：
+    // 显示最近 5 / 10 个
+    //
+    // 原业务逻辑不变
+    // =========================================================================
     m_limitCombo =
         new QComboBox(
             headerCard);
@@ -104,18 +138,22 @@ StationListPage::StationListPage(
         QStringLiteral(
             "stationLimitCombo"));
 
+
     m_limitCombo->addItem(
         QStringLiteral(
             "最近 5 个"),
         5);
+
 
     m_limitCombo->addItem(
         QStringLiteral(
             "最近 10 个"),
         10);
 
+
     m_limitCombo->setCurrentIndex(
         0);
+
 
     m_limitCombo->setCursor(
         Qt::PointingHandCursor);
@@ -133,6 +171,7 @@ StationListPage::StationListPage(
                     ->currentData()
                     .toInt();
 
+
             if (!m_cachedList.isEmpty()) {
 
                 renderStations();
@@ -140,6 +179,9 @@ StationListPage::StationListPage(
         });
 
 
+    // -------------------------------------------------------------------------
+    // 刷新按钮
+    // -------------------------------------------------------------------------
     auto *refreshBtn =
         new QPushButton(
             QStringLiteral(
@@ -150,8 +192,15 @@ StationListPage::StationListPage(
         QStringLiteral(
             "stationRefreshButton"));
 
+
     refreshBtn->setCursor(
         Qt::PointingHandCursor);
+
+
+    refreshBtn->setIcon(
+        QIcon(
+            QStringLiteral(
+                ":/icons/refresh.svg")));
 
 
     connect(
@@ -160,6 +209,9 @@ StationListPage::StationListPage(
         this,
         &StationListPage::loadStations);
 
+
+    header->addWidget(
+        titleIcon);
 
     header->addWidget(
         title,
@@ -176,9 +228,9 @@ StationListPage::StationListPage(
         header);
 
 
-    // ========================================================================
+    // =========================================================================
     // 状态提示
-    // ========================================================================
+    // =========================================================================
     m_tip =
         new QLabel(
             headerCard);
@@ -195,9 +247,9 @@ StationListPage::StationListPage(
         m_tip);
 
 
-    // ========================================================================
+    // =========================================================================
     // 四态 Stack
-    // ========================================================================
+    // =========================================================================
     m_stack =
         new QStackedWidget(
             this);
@@ -207,15 +259,19 @@ StationListPage::StationListPage(
             "stationStack"));
 
 
-    // ========================================================================
+    // =========================================================================
     // 页0：加载中
-    // ========================================================================
+    // =========================================================================
     auto *loadingPage =
         new QFrame;
 
     loadingPage->setObjectName(
         QStringLiteral(
             "stationStatePage"));
+
+    loadingPage->setAttribute(
+        Qt::WA_StyledBackground,
+        true);
 
 
     {
@@ -227,8 +283,10 @@ StationListPage::StationListPage(
             QStringLiteral(
                 "stationLoadingLayout"));
 
+
         layout->setAlignment(
             Qt::AlignCenter);
+
 
         layout->setSpacing(
             12);
@@ -244,6 +302,7 @@ StationListPage::StationListPage(
             QStringLiteral(
                 "stationStateLabel"));
 
+
         label->setAlignment(
             Qt::AlignCenter);
 
@@ -257,9 +316,9 @@ StationListPage::StationListPage(
         loadingPage);
 
 
-    // ========================================================================
-    // 页1：内容
-    // ========================================================================
+    // =========================================================================
+    // 页1：站点内容
+    // =========================================================================
     auto *contentPage =
         new QWidget;
 
@@ -272,6 +331,7 @@ StationListPage::StationListPage(
         auto *layout =
             new QVBoxLayout(
                 contentPage);
+
 
         layout->setContentsMargins(
             0,
@@ -288,11 +348,14 @@ StationListPage::StationListPage(
             QStringLiteral(
                 "stationScrollArea"));
 
+
         scroll->setWidgetResizable(
             true);
 
+
         scroll->setFrameShape(
             QFrame::NoFrame);
+
 
         scroll->setHorizontalScrollBarPolicy(
             Qt::ScrollBarAlwaysOff);
@@ -310,11 +373,13 @@ StationListPage::StationListPage(
             new QVBoxLayout(
                 container);
 
+
         m_listLayout->setContentsMargins(
             2,
             2,
             2,
             12);
+
 
         m_listLayout->setSpacing(
             12);
@@ -322,6 +387,7 @@ StationListPage::StationListPage(
 
         scroll->setWidget(
             container);
+
 
         layout->addWidget(
             scroll);
@@ -332,15 +398,19 @@ StationListPage::StationListPage(
         contentPage);
 
 
-    // ========================================================================
+    // =========================================================================
     // 页2：空数据
-    // ========================================================================
+    // =========================================================================
     auto *emptyPage =
         new QFrame;
 
     emptyPage->setObjectName(
         QStringLiteral(
             "stationStatePage"));
+
+    emptyPage->setAttribute(
+        Qt::WA_StyledBackground,
+        true);
 
 
     {
@@ -352,8 +422,10 @@ StationListPage::StationListPage(
             QStringLiteral(
                 "stationEmptyLayout"));
 
+
         layout->setAlignment(
             Qt::AlignCenter);
+
 
         layout->setSpacing(
             12);
@@ -369,6 +441,7 @@ StationListPage::StationListPage(
             QStringLiteral(
                 "stationStateLabel"));
 
+
         label->setAlignment(
             Qt::AlignCenter);
 
@@ -382,6 +455,7 @@ StationListPage::StationListPage(
         button->setObjectName(
             QStringLiteral(
                 "stationStateButton"));
+
 
         button->setCursor(
             Qt::PointingHandCursor);
@@ -397,6 +471,7 @@ StationListPage::StationListPage(
         layout->addWidget(
             label);
 
+
         layout->addWidget(
             button,
             0,
@@ -408,15 +483,19 @@ StationListPage::StationListPage(
         emptyPage);
 
 
-    // ========================================================================
+    // =========================================================================
     // 页3：错误
-    // ========================================================================
+    // =========================================================================
     auto *errorPage =
         new QFrame;
 
     errorPage->setObjectName(
         QStringLiteral(
             "stationStatePage"));
+
+    errorPage->setAttribute(
+        Qt::WA_StyledBackground,
+        true);
 
 
     {
@@ -428,8 +507,10 @@ StationListPage::StationListPage(
             QStringLiteral(
                 "stationErrorLayout"));
 
+
         layout->setAlignment(
             Qt::AlignCenter);
+
 
         layout->setSpacing(
             12);
@@ -445,8 +526,10 @@ StationListPage::StationListPage(
             QStringLiteral(
                 "stationErrorLabel"));
 
+
         label->setAlignment(
             Qt::AlignCenter);
+
 
         label->setWordWrap(
             true);
@@ -462,6 +545,7 @@ StationListPage::StationListPage(
             QStringLiteral(
                 "stationStateButton"));
 
+
         button->setCursor(
             Qt::PointingHandCursor);
 
@@ -476,6 +560,7 @@ StationListPage::StationListPage(
         layout->addWidget(
             label);
 
+
         layout->addWidget(
             button,
             0,
@@ -487,21 +572,27 @@ StationListPage::StationListPage(
         errorPage);
 
 
-    // ========================================================================
-    // 总布局
-    // ========================================================================
+    // =========================================================================
+    // 页面总布局
+    //
+    // MainWindow 外层已经有 14px 左右留白，
+    // 这里不再重复增加横向边距。
+    // =========================================================================
     auto *layout =
-        new QVBoxLayout(this);
+        new QVBoxLayout(
+            this);
 
     layout->setObjectName(
         QStringLiteral(
             "stationPageLayout"));
 
+
     layout->setContentsMargins(
-        14,
-        14,
-        14,
+        0,
+        0,
+        0,
         14);
+
 
     layout->setSpacing(
         12);
@@ -509,6 +600,7 @@ StationListPage::StationListPage(
 
     layout->addWidget(
         headerCard);
+
 
     layout->addWidget(
         m_stack,
@@ -519,9 +611,10 @@ StationListPage::StationListPage(
         0);
 
 
-    // ========================================================================
-    // 最新 main：断线重连成功后自动刷新
-    // ========================================================================
+    // =========================================================================
+    // 最新 main：
+    // 断线重连成功后自动刷新
+    // =========================================================================
     connect(
         m_net,
         &NetClient::reconnected,
@@ -542,12 +635,13 @@ void StationListPage::resizeEvent(
     QWidget::resizeEvent(
         event);
 
+
     applyResponsiveStyle();
 }
 
 
 // ============================================================================
-// UI
+// 响应式 UI
 // ============================================================================
 void StationListPage::applyResponsiveStyle()
 {
@@ -560,192 +654,303 @@ void StationListPage::applyResponsiveStyle()
     const int titleFont =
         scaledUi(
             scaleBase,
-            22);
+            21);
+
 
     const int normalFont =
         scaledUi(
             scaleBase,
-            14);
+            13);
+
 
     const int smallFont =
         scaledUi(
             scaleBase,
-            12);
+            11);
+
 
     const int stateFont =
         scaledUi(
             scaleBase,
-            15);
+            14);
+
 
     const int buttonFont =
         scaledUi(
             scaleBase,
-            13);
+            12);
+
 
     const int cardRadius =
         scaledUi(
             scaleBase,
-            18);
+            22);
 
-    const int smallRadius =
+
+    const int controlRadius =
         scaledUi(
             scaleBase,
-            10);
+            13);
 
 
+    const int controlHeight =
+        scaledUi(
+            scaleBase,
+            40);
+
+
+    const int iconBoxSize =
+        scaledUi(
+            scaleBase,
+            36);
+
+
+    const int titleIconSize =
+        scaledUi(
+            scaleBase,
+            19);
+
+
+    const int refreshIconSize =
+        scaledUi(
+            scaleBase,
+            16);
+
+
+    // =========================================================================
+    // 页面样式
+    // =========================================================================
     setStyleSheet(
         QStringLiteral(
 
+            // -----------------------------------------------------------------
+            // Root
+            // -----------------------------------------------------------------
             "QWidget#stationListPage{"
             "background:transparent;"
-            "color:#202824;"
+            "color:#151C24;"
             "}"
 
+
+            // -----------------------------------------------------------------
+            // Header
+            // -----------------------------------------------------------------
             "QFrame#stationHeaderCard{"
             "background:#FFFFFF;"
-            "border:1px solid #E7E3DA;"
+            "border:1px solid #E7EBE9;"
             "border-radius:%1px;"
             "}"
 
+
+            "QLabel#stationTitleIcon{"
+            "background:#E2F9E7;"
+            "border:none;"
+            "border-radius:%2px;"
+            "}"
+
+
             "QLabel#stationTitle{"
             "background:transparent;"
-            "color:#202824;"
-            "font-size:%2px;"
+            "color:#151C24;"
+            "font-size:%3px;"
             "font-weight:800;"
             "}"
 
+
             "QLabel#stationTip{"
             "background:transparent;"
-            "color:#7A837E;"
-            "font-size:%3px;"
+            "color:#7E8893;"
+            "font-size:%4px;"
             "}"
 
+
+            // -----------------------------------------------------------------
+            // 最近 5 / 10 个
+            // -----------------------------------------------------------------
             "QComboBox#stationLimitCombo{"
-            "background:#FAF8F3;"
-            "color:#315B4D;"
-            "border:1px solid #E1DDD4;"
-            "border-radius:%4px;"
+            "background:#F7F9F8;"
+            "color:#151C24;"
+            "border:1px solid #E7EBE9;"
+            "border-radius:%5px;"
             "padding:7px 10px;"
-            "font-size:%5px;"
-            "font-weight:600;"
+            "font-size:%6px;"
+            "font-weight:650;"
             "}"
+
 
             "QComboBox#stationLimitCombo:hover{"
-            "border-color:#C9D8CF;"
+            "border-color:#D5DDD9;"
             "}"
 
+
             "QComboBox#stationLimitCombo:focus{"
-            "border:1px solid #315B4D;"
+            "background:#FFFFFF;"
+            "border:1px solid #45D86B;"
             "}"
+
+
+            "QComboBox#stationLimitCombo::drop-down{"
+            "border:none;"
+            "width:20px;"
+            "}"
+
 
             "QComboBox#stationLimitCombo QAbstractItemView{"
             "background:#FFFFFF;"
-            "color:#202824;"
-            "border:1px solid #E7E3DA;"
-            "selection-background-color:#E9F0EC;"
-            "selection-color:#315B4D;"
-            "outline:0;"
+            "color:#151C24;"
+            "border:1px solid #E7EBE9;"
+            "selection-background-color:#E2F9E7;"
+            "selection-color:#151C24;"
+            "outline:none;"
+            "padding:4px;"
             "}"
 
+
+            // -----------------------------------------------------------------
+            // 刷新
+            // 荧光绿作为首页操作高亮
+            // -----------------------------------------------------------------
             "QPushButton#stationRefreshButton{"
-            "background:#315B4D;"
-            "color:#FFFFFF;"
+            "background:#74EC8B;"
+            "color:#171D27;"
             "border:none;"
-            "border-radius:%4px;"
-            "font-size:%5px;"
-            "font-weight:700;"
-            "padding:8px 14px;"
+            "border-radius:%5px;"
+            "font-size:%6px;"
+            "font-weight:750;"
+            "padding:7px 13px;"
             "}"
+
 
             "QPushButton#stationRefreshButton:hover{"
-            "background:#284C41;"
+            "background:#63E27C;"
             "}"
 
+
+            "QPushButton#stationRefreshButton:pressed{"
+            "background:#52D96E;"
+            "}"
+
+
+            // -----------------------------------------------------------------
+            // Stack
+            // -----------------------------------------------------------------
             "QStackedWidget#stationStack{"
             "background:transparent;"
             "border:none;"
             "}"
 
+
             "QWidget#stationContentPage{"
             "background:transparent;"
             "}"
+
 
             "QScrollArea#stationScrollArea{"
             "background:transparent;"
             "border:none;"
             "}"
 
+
+            "QScrollArea#stationScrollArea > QWidget > QWidget{"
+            "background:transparent;"
+            "}"
+
+
             "QWidget#stationListContainer{"
             "background:transparent;"
             "}"
 
+
+            // -----------------------------------------------------------------
+            // 四态卡
+            // -----------------------------------------------------------------
             "QFrame#stationStatePage{"
             "background:#FFFFFF;"
-            "border:1px solid #E7E3DA;"
+            "border:1px solid #E7EBE9;"
             "border-radius:%1px;"
             "}"
 
+
             "QLabel#stationStateLabel{"
             "background:transparent;"
-            "color:#7A837E;"
-            "font-size:%6px;"
+            "color:#7E8893;"
+            "font-size:%7px;"
+            "font-weight:600;"
             "}"
+
 
             "QLabel#stationErrorLabel{"
             "background:transparent;"
-            "color:#C96C66;"
-            "font-size:%6px;"
+            "color:#E26868;"
+            "font-size:%7px;"
+            "font-weight:600;"
             "}"
 
+
+            // -----------------------------------------------------------------
+            // 空态 / 错误页按钮
+            // -----------------------------------------------------------------
             "QPushButton#stationStateButton{"
-            "background:#E9F0EC;"
-            "color:#315B4D;"
-            "border:1px solid #D6E1DA;"
-            "border-radius:%4px;"
-            "font-size:%7px;"
+            "background:#171D27;"
+            "color:#FFFFFF;"
+            "border:none;"
+            "border-radius:%5px;"
+            "font-size:%8px;"
             "font-weight:700;"
-            "padding:8px 16px;"
+            "padding:9px 18px;"
             "}"
+
 
             "QPushButton#stationStateButton:hover{"
-            "background:#DFE9E3;"
+            "background:#252E3A;"
+            "}"
+
+
+            "QPushButton#stationStateButton:pressed{"
+            "background:#10151C;"
             "}")
 
-        .arg(
-            cardRadius)
+            .arg(
+                cardRadius)          // %1
 
-        .arg(
-            titleFont)
+            .arg(
+                iconBoxSize / 2)     // %2
 
-        .arg(
-            smallFont)
+            .arg(
+                titleFont)           // %3
 
-        .arg(
-            smallRadius)
+            .arg(
+                smallFont)           // %4
 
-        .arg(
-            normalFont)
+            .arg(
+                controlRadius)       // %5
 
-        .arg(
-            stateFont)
+            .arg(
+                normalFont)          // %6
 
-        .arg(
-            buttonFont));
+            .arg(
+                stateFont)           // %7
+
+            .arg(
+                buttonFont));        // %8
 
 
-    // ========================================================================
-    // 页面边距
-    // ========================================================================
+    // =========================================================================
+    // 页面布局
+    // =========================================================================
     if (auto *pageLayout =
             findChild<QVBoxLayout *>(
                 QStringLiteral(
                     "stationPageLayout"))) {
 
         pageLayout->setContentsMargins(
-            scaledUi(scaleBase, 14),
-            scaledUi(scaleBase, 14),
-            scaledUi(scaleBase, 14),
-            scaledUi(scaleBase, 14));
+            0,
+            0,
+            0,
+            scaledUi(
+                scaleBase,
+                14));
+
 
         pageLayout->setSpacing(
             scaledUi(
@@ -754,24 +959,36 @@ void StationListPage::applyResponsiveStyle()
     }
 
 
-    // ========================================================================
-    // Header 卡
-    // ========================================================================
+    // =========================================================================
+    // Header 卡布局
+    // =========================================================================
     if (auto *headerCardLayout =
             findChild<QVBoxLayout *>(
                 QStringLiteral(
                     "stationHeaderCardLayout"))) {
 
         headerCardLayout->setContentsMargins(
-            scaledUi(scaleBase, 16),
-            scaledUi(scaleBase, 14),
-            scaledUi(scaleBase, 16),
-            scaledUi(scaleBase, 14));
+            scaledUi(
+                scaleBase,
+                16),
+
+            scaledUi(
+                scaleBase,
+                15),
+
+            scaledUi(
+                scaleBase,
+                16),
+
+            scaledUi(
+                scaleBase,
+                14));
+
 
         headerCardLayout->setSpacing(
             scaledUi(
                 scaleBase,
-                9));
+                10));
     }
 
 
@@ -787,16 +1004,81 @@ void StationListPage::applyResponsiveStyle()
     }
 
 
-    // ========================================================================
+    // =========================================================================
+    // 标题图标
+    // =========================================================================
+    if (auto *iconLabel =
+            findChild<QLabel *>(
+                QStringLiteral(
+                    "stationTitleIcon"))) {
+
+        iconLabel->setFixedSize(
+            iconBoxSize,
+            iconBoxSize);
+
+
+        iconLabel->setPixmap(
+            QIcon(
+                QStringLiteral(
+                    ":/icons/location.svg"))
+                .pixmap(
+                    QSize(
+                        titleIconSize,
+                        titleIconSize)));
+    }
+
+
+    // =========================================================================
+    // 选择器
+    // =========================================================================
+    if (m_limitCombo) {
+
+        m_limitCombo->setMinimumHeight(
+            controlHeight);
+    }
+
+
+    // =========================================================================
+    // 刷新按钮
+    // =========================================================================
+    if (auto *refreshButton =
+            findChild<QPushButton *>(
+                QStringLiteral(
+                    "stationRefreshButton"))) {
+
+        refreshButton->setMinimumHeight(
+            controlHeight);
+
+
+        refreshButton->setIconSize(
+            QSize(
+                refreshIconSize,
+                refreshIconSize));
+    }
+
+
+    // =========================================================================
     // 列表区域
-    // ========================================================================
+    // =========================================================================
     if (m_listLayout) {
 
         m_listLayout->setContentsMargins(
-            scaledUi(scaleBase, 2),
-            scaledUi(scaleBase, 2),
-            scaledUi(scaleBase, 2),
-            scaledUi(scaleBase, 12));
+            scaledUi(
+                scaleBase,
+                2),
+
+            scaledUi(
+                scaleBase,
+                2),
+
+            scaledUi(
+                scaleBase,
+                2),
+
+            scaledUi(
+                scaleBase,
+                12));
+
 
         m_listLayout->setSpacing(
             scaledUi(
@@ -805,19 +1087,31 @@ void StationListPage::applyResponsiveStyle()
     }
 
 
-    // ========================================================================
-    // 状态页
-    // ========================================================================
+    // =========================================================================
+    // 加载状态
+    // =========================================================================
     if (auto *loadingLayout =
             findChild<QVBoxLayout *>(
                 QStringLiteral(
                     "stationLoadingLayout"))) {
 
         loadingLayout->setContentsMargins(
-            scaledUi(scaleBase, 18),
-            scaledUi(scaleBase, 18),
-            scaledUi(scaleBase, 18),
-            scaledUi(scaleBase, 18));
+            scaledUi(
+                scaleBase,
+                20),
+
+            scaledUi(
+                scaleBase,
+                20),
+
+            scaledUi(
+                scaleBase,
+                20),
+
+            scaledUi(
+                scaleBase,
+                20));
+
 
         loadingLayout->setSpacing(
             scaledUi(
@@ -826,16 +1120,31 @@ void StationListPage::applyResponsiveStyle()
     }
 
 
+    // =========================================================================
+    // 空数据状态
+    // =========================================================================
     if (auto *emptyLayout =
             findChild<QVBoxLayout *>(
                 QStringLiteral(
                     "stationEmptyLayout"))) {
 
         emptyLayout->setContentsMargins(
-            scaledUi(scaleBase, 18),
-            scaledUi(scaleBase, 18),
-            scaledUi(scaleBase, 18),
-            scaledUi(scaleBase, 18));
+            scaledUi(
+                scaleBase,
+                20),
+
+            scaledUi(
+                scaleBase,
+                20),
+
+            scaledUi(
+                scaleBase,
+                20),
+
+            scaledUi(
+                scaleBase,
+                20));
+
 
         emptyLayout->setSpacing(
             scaledUi(
@@ -844,16 +1153,31 @@ void StationListPage::applyResponsiveStyle()
     }
 
 
+    // =========================================================================
+    // 错误状态
+    // =========================================================================
     if (auto *errorLayout =
             findChild<QVBoxLayout *>(
                 QStringLiteral(
                     "stationErrorLayout"))) {
 
         errorLayout->setContentsMargins(
-            scaledUi(scaleBase, 18),
-            scaledUi(scaleBase, 18),
-            scaledUi(scaleBase, 18),
-            scaledUi(scaleBase, 18));
+            scaledUi(
+                scaleBase,
+                20),
+
+            scaledUi(
+                scaleBase,
+                20),
+
+            scaledUi(
+                scaleBase,
+                20),
+
+            scaledUi(
+                scaleBase,
+                20));
+
 
         errorLayout->setSpacing(
             scaledUi(
@@ -863,9 +1187,9 @@ void StationListPage::applyResponsiveStyle()
 }
 
 
-// =============================================================================
+// ============================================================================
 // 设置用户当前位置
-// =============================================================================
+// ============================================================================
 void StationListPage::setLocation(
     double lat,
     double lng)
@@ -879,6 +1203,7 @@ void StationListPage::setLocation(
             QStringLiteral(
                 "定位坐标无效"));
 
+
         return;
     }
 
@@ -886,8 +1211,10 @@ void StationListPage::setLocation(
     m_latitude =
         lat;
 
+
     m_longitude =
         lng;
+
 
     m_hasLocation =
         true;
@@ -904,6 +1231,7 @@ void StationListPage::setLocation(
         m_loaded =
             true;
 
+
         loadStations();
 
     } else {
@@ -914,9 +1242,9 @@ void StationListPage::setLocation(
 }
 
 
-// =============================================================================
+// ============================================================================
 // 页面显示
-// =============================================================================
+// ============================================================================
 void StationListPage::showEvent(
     QShowEvent *event)
 {
@@ -929,14 +1257,15 @@ void StationListPage::showEvent(
         m_loaded =
             true;
 
+
         loadStations();
     }
 }
 
 
-// =============================================================================
+// ============================================================================
 // 清空站点卡片
-// =============================================================================
+// ============================================================================
 void StationListPage::clearList()
 {
     while (QLayoutItem *item =
@@ -955,9 +1284,9 @@ void StationListPage::clearList()
 }
 
 
-// =============================================================================
+// ============================================================================
 // 加载附近充电站
-// =============================================================================
+// ============================================================================
 void StationListPage::loadStations()
 {
     // -------------------------------------------------------------------------
@@ -973,6 +1302,7 @@ void StationListPage::loadStations()
         m_stack->setCurrentIndex(
             2);
 
+
         return;
     }
 
@@ -980,6 +1310,7 @@ void StationListPage::loadStations()
     // loading
     m_stack->setCurrentIndex(
         0);
+
 
     m_tip->clear();
 
@@ -1044,12 +1375,14 @@ void StationListPage::loadStations()
                 QStringLiteral(
                     "网络异常，当前为缓存数据"));
 
+
             return;
         }
 
 
         m_stack->setCurrentIndex(
             3);
+
 
         return;
     }
@@ -1072,12 +1405,14 @@ void StationListPage::loadStations()
         m_stack->setCurrentIndex(
             2);
 
+
         return;
     }
 
 
     // -------------------------------------------------------------------------
-    // 成功：排序并缓存
+    // 成功：
+    // 排序并缓存
     // -------------------------------------------------------------------------
     m_cachedList =
         sortStations(
@@ -1088,9 +1423,10 @@ void StationListPage::loadStations()
 }
 
 
-// =============================================================================
-// NO.4：按距离升序稳定排序 + 去重 + distance 兜底
-// =============================================================================
+// ============================================================================
+// NO.4：
+// 按距离升序稳定排序 + 去重 + distance 兜底
+// ============================================================================
 QJsonArray StationListPage::sortStations(
     const QJsonArray &raw) const
 {
@@ -1108,6 +1444,7 @@ QJsonArray StationListPage::sortStations(
 
 
     QVector<QJsonObject> items;
+
 
     items.reserve(
         raw.size());
@@ -1197,14 +1534,17 @@ QJsonArray StationListPage::sortStations(
                     dLat / 2) *
                     std::sin(
                         dLat / 2) +
+
                 std::cos(
                     toRad(
                         m_latitude)) *
-                    std::cos(
-                        toRad(
-                            stationLat)) *
-                    std::sin(
-                        dLng / 2) *
+
+                std::cos(
+                    toRad(
+                        stationLat)) *
+
+                std::sin(
+                    dLng / 2) *
                     std::sin(
                         dLng / 2);
 
@@ -1298,6 +1638,7 @@ QJsonArray StationListPage::sortStations(
                         QStringLiteral(
                             "name"))
                        .toString() <
+
                    b.value(
                         QStringLiteral(
                             "name"))
@@ -1320,9 +1661,10 @@ QJsonArray StationListPage::sortStations(
 }
 
 
-// =============================================================================
-// NO.4：按当前 5 / 10 限制渲染
-// =============================================================================
+// ============================================================================
+// NO.4：
+// 按当前 5 / 10 条限制渲染
+// ============================================================================
 void StationListPage::renderStations()
 {
     const int total =
@@ -1338,6 +1680,7 @@ void StationListPage::renderStations()
 
         m_stack->setCurrentIndex(
             2);
+
 
         return;
     }
@@ -1380,9 +1723,9 @@ void StationListPage::renderStations()
 }
 
 
-// =============================================================================
+// ============================================================================
 // 创建站点卡片
-// =============================================================================
+// ============================================================================
 void StationListPage::buildCards(
     const QJsonArray &list)
 {
@@ -1428,9 +1771,9 @@ void StationListPage::buildCards(
 
 
         // ---------------------------------------------------------------------
-        // 最新 main：
-        // 使用 RouteRequest 进入导航
-        // 这部分业务逻辑完整保留
+        // RouteRequest 路线规划
+        //
+        // 原业务逻辑完整保留
         // ---------------------------------------------------------------------
         connect(
             card,
@@ -1458,6 +1801,7 @@ void StationListPage::buildCards(
                         QStringLiteral(
                             "当前位置无效，请重新定位"));
 
+
                     return;
                 }
 
@@ -1472,32 +1816,41 @@ void StationListPage::buildCards(
                         QStringLiteral(
                             "该充电站缺少有效坐标"));
 
+
                     return;
                 }
 
 
                 RouteRequest request;
 
+
                 request.requestId =
                     ++m_nextRouteRequestId;
+
 
                 request.fromLat =
                     m_latitude;
 
+
                 request.fromLng =
                     m_longitude;
+
 
                 request.toName =
                     name;
 
+
                 request.toLat =
                     targetLat;
+
 
                 request.toLng =
                     targetLng;
 
+
                 request.distance =
                     distance;
+
 
                 request.mode =
                     QStringLiteral(

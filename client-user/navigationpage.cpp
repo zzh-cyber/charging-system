@@ -6,6 +6,7 @@
 #include <QButtonGroup>
 #include <QFrame>
 #include <QHBoxLayout>
+#include <QIcon>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -20,6 +21,7 @@
 #include <QRegularExpression>
 #include <QResizeEvent>
 #include <QScrollArea>
+#include <QSize>
 #include <QSizePolicy>
 #include <QTimer>
 #include <QUrl>
@@ -30,7 +32,8 @@
 #include <cmath>
 
 
-namespace {
+namespace
+{
 
 // ============================================================================
 // 坐标检查
@@ -51,17 +54,13 @@ bool validCoordinate(
 
 // ============================================================================
 // NO.11：步行路线最大距离保护
-//
-// 高德步行路径规划适用于 100 km 以内路线。
-// 超过该范围时不再发送 walking 请求，
-// 避免直接向用户显示 OVER_DIRECTION_RANGE。
 // ============================================================================
 constexpr double kMaxWalkingDistanceKm =
     100.0;
 
 
 // ============================================================================
-// 根据经纬度计算两点直线距离（Haversine）
+// Haversine 直线距离
 // ============================================================================
 double straightLineDistanceKm(
     double fromLat,
@@ -146,58 +145,64 @@ double straightLineDistanceKm(
 
 
 // ============================================================================
-// 高德坐标格式：经度,纬度
+// 高德坐标：经度,纬度
 // ============================================================================
 QString coordinateText(
     double lng,
     double lat)
 {
-    return QStringLiteral("%1,%2")
-        .arg(
-            lng,
-            0,
-            'f',
-            6)
-        .arg(
-            lat,
-            0,
-            'f',
-            6);
+    return
+        QStringLiteral(
+            "%1,%2")
+            .arg(
+                lng,
+                0,
+                'f',
+                6)
+            .arg(
+                lat,
+                0,
+                'f',
+                6);
 }
 
 
 // ============================================================================
 // JSON 数字兼容
-//
-// 高德部分字段是字符串：
-// "distance":"1234"
-//
-// 某些情况下也可能直接返回数字。
 // ============================================================================
 double jsonDouble(
     const QJsonValue &value,
     double fallback = 0.0)
 {
     if (value.isDouble()) {
-        return value.toDouble();
+
+        return
+            value.toDouble();
     }
 
 
     if (value.isString()) {
 
-        bool ok = false;
+        bool ok =
+            false;
+
 
         const double result =
-            value.toString().toDouble(
-                &ok);
+            value.toString()
+                .toDouble(
+                    &ok);
+
 
         if (ok) {
-            return result;
+
+            return
+                result;
         }
     }
 
 
-    return fallback;
+    return
+        fallback;
 }
 
 
@@ -207,57 +212,67 @@ qint64 jsonInt64(
 {
     if (value.isDouble()) {
 
-        return static_cast<qint64>(
-            value.toDouble());
+        return
+            static_cast<qint64>(
+                value.toDouble());
     }
 
 
     if (value.isString()) {
 
-        bool ok = false;
+        bool ok =
+            false;
+
 
         const qint64 result =
-            value.toString().toLongLong(
-                &ok);
+            value.toString()
+                .toLongLong(
+                    &ok);
+
 
         if (ok) {
-            return result;
+
+            return
+                result;
         }
     }
 
 
-    return fallback;
+    return
+        fallback;
 }
 
 
 // ============================================================================
-// 将可能是 Array / Object 的字段统一转成 Array
+// Array / Object -> Array
 // ============================================================================
 QJsonArray jsonArrayValue(
     const QJsonValue &value)
 {
     if (value.isArray()) {
-        return value.toArray();
+
+        return
+            value.toArray();
     }
 
 
     QJsonArray result;
 
+
     if (value.isObject()) {
+
         result.append(
             value.toObject());
     }
 
 
-    return result;
+    return
+        result;
 }
 
 
 // ============================================================================
-// 从单个 polyline 字符串提取坐标
-//
-// 不死依赖 ";"，直接使用正则提取：
-// 113.123456,22.123456
+// polyline 提取坐标
 // ============================================================================
 QStringList extractCoordinates(
     const QString &polyline)
@@ -285,8 +300,11 @@ QStringList extractCoordinates(
             iterator.next();
 
 
-        bool lngOk = false;
-        bool latOk = false;
+        bool lngOk =
+            false;
+
+        bool latOk =
+            false;
 
 
         const double lng =
@@ -317,7 +335,9 @@ QStringList extractCoordinates(
                 lat);
 
 
-        if (point == lastPoint) {
+        if (point ==
+            lastPoint) {
+
             continue;
         }
 
@@ -325,17 +345,19 @@ QStringList extractCoordinates(
         result.append(
             point);
 
+
         lastPoint =
             point;
     }
 
 
-    return result;
+    return
+        result;
 }
 
 
 // ============================================================================
-// 从高德 paths.steps 中提取完整路线
+// 路线点
 // ============================================================================
 QStringList extractRoutePoints(
     const QJsonObject &path)
@@ -386,6 +408,7 @@ QStringList extractRoutePoints(
 
 
         if (polyline.isEmpty()) {
+
             continue;
         }
 
@@ -408,21 +431,20 @@ QStringList extractRoutePoints(
             result.append(
                 point);
 
+
             lastPoint =
                 point;
         }
     }
 
 
-    return result;
+    return
+        result;
 }
 
 
 // ============================================================================
-// Static Map URL 不能无限长
-//
-// 路线点太多时均匀采样。
-// 起点和终点会在调用处再次确保保留。
+// Static Map 点数量保护
 // ============================================================================
 QStringList simplifyPoints(
     const QStringList &points,
@@ -431,7 +453,8 @@ QStringList simplifyPoints(
     if (points.size() <=
         maxPoints) {
 
-        return points;
+        return
+            points;
     }
 
 
@@ -442,7 +465,8 @@ QStringList simplifyPoints(
 
 
     const int lastIndex =
-        points.size() - 1;
+        points.size() -
+        1;
 
 
     for (int i = 0;
@@ -452,7 +476,8 @@ QStringList simplifyPoints(
         const double ratio =
             static_cast<double>(i) /
             static_cast<double>(
-                maxPoints - 1);
+                maxPoints -
+                1);
 
 
         const int index =
@@ -481,54 +506,66 @@ QStringList simplifyPoints(
     }
 
 
-    return result;
+    return
+        result;
 }
 
 
 // ============================================================================
-// 时长格式化
+// 时长格式
 // ============================================================================
 QString formatDuration(
     qint64 seconds)
 {
     if (seconds <= 0) {
-        return QStringLiteral("--");
+
+        return
+            QStringLiteral(
+                "--");
     }
 
 
     const qint64 hours =
-        seconds / 3600;
+        seconds /
+        3600;
 
 
     qint64 minutes =
-        (seconds % 3600) /
+        (seconds %
+         3600) /
         60;
 
 
     if (hours == 0 &&
         minutes == 0) {
 
-        minutes = 1;
+        minutes =
+            1;
     }
 
 
     if (hours > 0) {
 
-        return QStringLiteral(
-                   "%1小时%2分钟")
-            .arg(hours)
-            .arg(minutes);
+        return
+            QStringLiteral(
+                "%1小时%2分钟")
+                .arg(
+                    hours)
+                .arg(
+                    minutes);
     }
 
 
-    return QStringLiteral(
-               "%1分钟")
-        .arg(minutes);
+    return
+        QStringLiteral(
+            "%1分钟")
+            .arg(
+                minutes);
 }
 
 
 // ============================================================================
-// 尝试从 step 的 cost 中累计耗时
+// Step duration
 // ============================================================================
 qint64 stepDuration(
     const QJsonObject &path)
@@ -540,7 +577,8 @@ qint64 stepDuration(
                     "steps")));
 
 
-    qint64 total = 0;
+    qint64 total =
+        0;
 
 
     for (const QJsonValue &stepValue :
@@ -582,7 +620,8 @@ qint64 stepDuration(
     }
 
 
-    return total;
+    return
+        total;
 }
 
 } // namespace
@@ -603,11 +642,12 @@ NavigationPage::NavigationPage(
             "navigationPage"));
 
 
-    // ========================================================================
+    // =========================================================================
     // Root
-    // ========================================================================
+    // =========================================================================
     auto *rootLayout =
-        new QVBoxLayout(this);
+        new QVBoxLayout(
+            this);
 
     rootLayout->setContentsMargins(
         0,
@@ -615,14 +655,16 @@ NavigationPage::NavigationPage(
         0,
         0);
 
-    rootLayout->setSpacing(0);
+    rootLayout->setSpacing(
+        0);
 
 
-    // ========================================================================
+    // =========================================================================
     // Scroll
-    // ========================================================================
+    // =========================================================================
     auto *scrollArea =
-        new QScrollArea(this);
+        new QScrollArea(
+            this);
 
     scrollArea->setObjectName(
         QStringLiteral(
@@ -634,9 +676,8 @@ NavigationPage::NavigationPage(
     scrollArea->setFrameShape(
         QFrame::NoFrame);
 
-    scrollArea
-        ->setHorizontalScrollBarPolicy(
-            Qt::ScrollBarAlwaysOff);
+    scrollArea->setHorizontalScrollBarPolicy(
+        Qt::ScrollBarAlwaysOff);
 
 
     auto *content =
@@ -662,14 +703,18 @@ NavigationPage::NavigationPage(
         18);
 
     mainLayout->setSpacing(
-        14);
+        12);
 
 
-    // ========================================================================
-    // Header
-    // ========================================================================
+    // =========================================================================
+    // 1. Header
+    // =========================================================================
     auto *headerLayout =
         new QHBoxLayout;
+
+    headerLayout->setObjectName(
+        QStringLiteral(
+            "navigationHeaderLayout"));
 
     headerLayout->setSpacing(
         10);
@@ -678,7 +723,7 @@ NavigationPage::NavigationPage(
     auto *backButton =
         new QPushButton(
             QStringLiteral(
-                "← 返回"),
+                "返回"),
             content);
 
     backButton->setObjectName(
@@ -688,11 +733,23 @@ NavigationPage::NavigationPage(
     backButton->setCursor(
         Qt::PointingHandCursor);
 
+    backButton->setIcon(
+        QIcon(
+            QStringLiteral(
+                ":/icons/back.svg")));
+
+
+    auto *headerText =
+        new QVBoxLayout;
+
+    headerText->setSpacing(
+        2);
+
 
     auto *pageTitle =
         new QLabel(
             QStringLiteral(
-                "一键导航"),
+                "路线规划"),
             content);
 
     pageTitle->setObjectName(
@@ -700,11 +757,34 @@ NavigationPage::NavigationPage(
             "navigationTitle"));
 
 
-    headerLayout->addWidget(
-        backButton);
+    auto *pageSubtitle =
+        new QLabel(
+            QStringLiteral(
+                "查看路线概览、距离与预计耗时"),
+            content);
+
+    pageSubtitle->setObjectName(
+        QStringLiteral(
+            "navigationSubtitle"));
+
+    pageSubtitle->setWordWrap(
+        true);
+
+
+    headerText->addWidget(
+        pageTitle);
+
+    headerText->addWidget(
+        pageSubtitle);
+
 
     headerLayout->addWidget(
-        pageTitle,
+        backButton,
+        0,
+        Qt::AlignVCenter);
+
+    headerLayout->addLayout(
+        headerText,
         1);
 
 
@@ -719,42 +799,73 @@ NavigationPage::NavigationPage(
         headerLayout);
 
 
-    // ========================================================================
-    // Station card
-    // ========================================================================
-    auto *stationCard =
+    // =========================================================================
+    // 2. Destination Summary
+    //
+    // 原来的“导航至 + 站点卡”保留，
+    // 但压缩成地图前的目的地摘要，而不是占很大面积。
+    // =========================================================================
+    auto *destinationCard =
         new QFrame(
             content);
 
-    stationCard->setObjectName(
+    destinationCard->setObjectName(
         QStringLiteral(
-            "navigationCard"));
+            "navigationDestinationCard"));
+
+    destinationCard->setAttribute(
+        Qt::WA_StyledBackground,
+        true);
+
 
     UiTheme::applyCardShadow(
-        stationCard,
-        18,
+        destinationCard,
+        20,
         4);
 
 
-    auto *stationLayout =
-        new QVBoxLayout(
-            stationCard);
+    auto *destinationLayout =
+        new QHBoxLayout(
+            destinationCard);
 
-    stationLayout->setContentsMargins(
-        18,
+    destinationLayout->setObjectName(
+        QStringLiteral(
+            "navigationDestinationLayout"));
+
+    destinationLayout->setContentsMargins(
         15,
-        18,
-        15);
+        13,
+        15,
+        13);
 
-    stationLayout->setSpacing(
-        5);
+    destinationLayout->setSpacing(
+        11);
+
+
+    auto *destinationIcon =
+        new QLabel(
+            destinationCard);
+
+    destinationIcon->setObjectName(
+        QStringLiteral(
+            "navigationDestinationIcon"));
+
+    destinationIcon->setAlignment(
+        Qt::AlignCenter);
+
+
+    auto *destinationText =
+        new QVBoxLayout;
+
+    destinationText->setSpacing(
+        3);
 
 
     auto *stationCaption =
         new QLabel(
             QStringLiteral(
                 "导航至"),
-            stationCard);
+            destinationCard);
 
     stationCaption->setObjectName(
         QStringLiteral(
@@ -763,8 +874,9 @@ NavigationPage::NavigationPage(
 
     m_stationLabel =
         new QLabel(
-            QStringLiteral("--"),
-            stationCard);
+            QStringLiteral(
+                "--"),
+            destinationCard);
 
     m_stationLabel->setObjectName(
         QStringLiteral(
@@ -774,68 +886,18 @@ NavigationPage::NavigationPage(
         true);
 
 
-    stationLayout->addWidget(
+    destinationText->addWidget(
         stationCaption);
 
-    stationLayout->addWidget(
+    destinationText->addWidget(
         m_stationLabel);
-
-
-    mainLayout->addWidget(
-        stationCard);
-
-
-    // ========================================================================
-    // Route card
-    // ========================================================================
-    auto *routeCard =
-        new QFrame(
-            content);
-
-    routeCard->setObjectName(
-        QStringLiteral(
-            "navigationCard"));
-
-    UiTheme::applyCardShadow(
-        routeCard,
-        18,
-        4);
-
-
-    auto *routeLayout =
-        new QVBoxLayout(
-            routeCard);
-
-    routeLayout->setContentsMargins(
-        18,
-        16,
-        18,
-        16);
-
-    routeLayout->setSpacing(
-        11);
-
-
-    auto *routeHeader =
-        new QHBoxLayout;
-
-
-    auto *routeTitle =
-        new QLabel(
-            QStringLiteral(
-                "路线信息"),
-            routeCard);
-
-    routeTitle->setObjectName(
-        QStringLiteral(
-            "navigationSectionTitle"));
 
 
     m_routeModeLabel =
         new QLabel(
             QStringLiteral(
                 "驾车路线"),
-            routeCard);
+            destinationCard);
 
     m_routeModeLabel->setObjectName(
         QStringLiteral(
@@ -845,29 +907,330 @@ NavigationPage::NavigationPage(
         Qt::AlignCenter);
 
 
-    routeHeader->addWidget(
+    destinationLayout->addWidget(
+        destinationIcon);
+
+    destinationLayout->addLayout(
+        destinationText,
+        1);
+
+    destinationLayout->addWidget(
+        m_routeModeLabel,
+        0,
+        Qt::AlignTop);
+
+
+    mainLayout->addWidget(
+        destinationCard);
+
+
+    // =========================================================================
+    // 3. LARGE MAP
+    //
+    // 这次地图成为真正的页面主体。
+    // =========================================================================
+    auto *mapCard =
+        new QFrame(
+            content);
+
+    mapCard->setObjectName(
+        QStringLiteral(
+            "navigationMapCard"));
+
+    mapCard->setAttribute(
+        Qt::WA_StyledBackground,
+        true);
+
+
+    UiTheme::applyHeroShadow(
+        mapCard,
+        30,
+        7);
+
+
+    auto *mapLayout =
+        new QVBoxLayout(
+            mapCard);
+
+    mapLayout->setObjectName(
+        QStringLiteral(
+            "navigationMapLayout"));
+
+    mapLayout->setContentsMargins(
+        10,
+        10,
+        10,
+        10);
+
+    mapLayout->setSpacing(
+        8);
+
+
+    // -------------------------------------------------------------------------
+    // Map Header
+    // -------------------------------------------------------------------------
+    auto *mapHeader =
+        new QHBoxLayout;
+
+    mapHeader->setObjectName(
+        QStringLiteral(
+            "navigationMapHeader"));
+
+    mapHeader->setSpacing(
+        8);
+
+
+    auto *mapTitleBlock =
+        new QVBoxLayout;
+
+    mapTitleBlock->setSpacing(
+        1);
+
+
+    auto *mapTitle =
+        new QLabel(
+            QStringLiteral(
+                "地图路线"),
+            mapCard);
+
+    mapTitle->setObjectName(
+        QStringLiteral(
+            "navigationMapTitle"));
+
+
+    auto *mapCaption =
+        new QLabel(
+            QStringLiteral(
+                "静态路线预览"),
+            mapCard);
+
+    mapCaption->setObjectName(
+        QStringLiteral(
+            "navigationMapCaption"));
+
+
+    mapTitleBlock->addWidget(
+        mapTitle);
+
+    mapTitleBlock->addWidget(
+        mapCaption);
+
+
+    m_loadStatusLabel =
+        new QLabel(
+            QStringLiteral(
+                "请选择充电站"),
+            mapCard);
+
+    m_loadStatusLabel->setObjectName(
+        QStringLiteral(
+            "navigationLoadStatus"));
+
+    m_loadStatusLabel->setAlignment(
+        Qt::AlignRight |
+        Qt::AlignVCenter);
+
+
+    mapHeader->addLayout(
+        mapTitleBlock);
+
+    mapHeader->addStretch();
+
+    mapHeader->addWidget(
+        m_loadStatusLabel);
+
+
+    mapLayout->addLayout(
+        mapHeader);
+
+
+    // -------------------------------------------------------------------------
+    // Map Image
+    // -------------------------------------------------------------------------
+    m_mapLabel =
+        new QLabel(
+            mapCard);
+
+    m_mapLabel->setObjectName(
+        QStringLiteral(
+            "navigationMapImage"));
+
+    m_mapLabel->setAlignment(
+        Qt::AlignCenter);
+
+    m_mapLabel->setWordWrap(
+        true);
+
+    m_mapLabel->setMinimumHeight(
+        430);
+
+    m_mapLabel->setSizePolicy(
+        QSizePolicy::Expanding,
+        QSizePolicy::Expanding);
+
+
+    mapLayout->addWidget(
+        m_mapLabel,
+        1);
+
+
+    // -------------------------------------------------------------------------
+    // Progress
+    // -------------------------------------------------------------------------
+    m_loadProgress =
+        new QProgressBar(
+            mapCard);
+
+    m_loadProgress->setObjectName(
+        QStringLiteral(
+            "navigationLoadProgress"));
+
+    m_loadProgress->setTextVisible(
+        false);
+
+    m_loadProgress->hide();
+
+
+    mapLayout->addWidget(
+        m_loadProgress);
+
+
+    // -------------------------------------------------------------------------
+    // Route Summary
+    //
+    // 原来的路线说明保留，但变成地图下方的“信息胶囊”。
+    // -------------------------------------------------------------------------
+    m_routeSummaryLabel =
+        new QLabel(
+            QStringLiteral(
+                "路线距离与预计耗时将在规划完成后显示"),
+            mapCard);
+
+    m_routeSummaryLabel->setObjectName(
+        QStringLiteral(
+            "navigationRouteSummary"));
+
+    m_routeSummaryLabel->setWordWrap(
+        true);
+
+
+    mapLayout->addWidget(
+        m_routeSummaryLabel);
+
+
+    mainLayout->addWidget(
+        mapCard,
+        1);
+
+
+    // =========================================================================
+    // 4. Route Bottom Sheet
+    //
+    // 原来的：
+    // 路线信息 / 当前地址 / 目的地 / 距离 / 出行方式
+    //
+    // 全部保留，但统一塞进地图下面的一张 Bottom Sheet。
+    // =========================================================================
+    auto *sheet =
+        new QFrame(
+            content);
+
+    sheet->setObjectName(
+        QStringLiteral(
+            "navigationRouteSheet"));
+
+    sheet->setAttribute(
+        Qt::WA_StyledBackground,
+        true);
+
+
+    UiTheme::applyCardShadow(
+        sheet,
+        22,
+        4);
+
+
+    auto *sheetLayout =
+        new QVBoxLayout(
+            sheet);
+
+    sheetLayout->setObjectName(
+        QStringLiteral(
+            "navigationSheetLayout"));
+
+    sheetLayout->setContentsMargins(
+        16,
+        15,
+        16,
+        16);
+
+    sheetLayout->setSpacing(
+        11);
+
+
+    // -------------------------------------------------------------------------
+    // Sheet header
+    // -------------------------------------------------------------------------
+    auto *sheetHeader =
+        new QHBoxLayout;
+
+    sheetHeader->setSpacing(
+        8);
+
+
+    auto *routeTitle =
+        new QLabel(
+            QStringLiteral(
+                "路线信息"),
+            sheet);
+
+    routeTitle->setObjectName(
+        QStringLiteral(
+            "navigationSectionTitle"));
+
+
+    auto *routeDescription =
+        new QLabel(
+            QStringLiteral(
+                "起终点与出行方式"),
+            sheet);
+
+    routeDescription->setObjectName(
+        QStringLiteral(
+            "navigationSheetDescription"));
+
+    routeDescription->setAlignment(
+        Qt::AlignRight |
+        Qt::AlignVCenter);
+
+
+    sheetHeader->addWidget(
         routeTitle);
 
-    routeHeader->addStretch();
+    sheetHeader->addStretch();
 
-    routeHeader->addWidget(
-        m_routeModeLabel);
-
-
-    routeLayout->addLayout(
-        routeHeader);
+    sheetHeader->addWidget(
+        routeDescription);
 
 
-    // ========================================================================
+    sheetLayout->addLayout(
+        sheetHeader);
+
+
+    // =========================================================================
     // Start
-    // ========================================================================
+    // =========================================================================
     auto *startRow =
         new QFrame(
-            routeCard);
+            sheet);
 
     startRow->setObjectName(
         QStringLiteral(
             "navigationPointRow"));
+
+    startRow->setAttribute(
+        Qt::WA_StyledBackground,
+        true);
 
 
     auto *startLayout =
@@ -875,18 +1238,17 @@ NavigationPage::NavigationPage(
             startRow);
 
     startLayout->setContentsMargins(
-        13,
+        12,
         10,
-        13,
+        12,
         10);
 
     startLayout->setSpacing(
-        11);
+        10);
 
 
     auto *startIcon =
         new QLabel(
-            QStringLiteral("起"),
             startRow);
 
     startIcon->setObjectName(
@@ -897,10 +1259,10 @@ NavigationPage::NavigationPage(
         Qt::AlignCenter);
 
 
-    auto *startTextLayout =
+    auto *startText =
         new QVBoxLayout;
 
-    startTextLayout->setSpacing(
+    startText->setSpacing(
         2);
 
 
@@ -917,7 +1279,8 @@ NavigationPage::NavigationPage(
 
     m_startLabel =
         new QLabel(
-            QStringLiteral("--"),
+            QStringLiteral(
+                "--"),
             startRow);
 
     m_startLabel->setObjectName(
@@ -928,10 +1291,10 @@ NavigationPage::NavigationPage(
         true);
 
 
-    startTextLayout->addWidget(
+    startText->addWidget(
         startCaption);
 
-    startTextLayout->addWidget(
+    startText->addWidget(
         m_startLabel);
 
 
@@ -939,41 +1302,46 @@ NavigationPage::NavigationPage(
         startIcon);
 
     startLayout->addLayout(
-        startTextLayout,
+        startText,
         1);
 
 
-    routeLayout->addWidget(
+    sheetLayout->addWidget(
         startRow);
 
 
-    auto *arrow =
-        new QLabel(
-            QStringLiteral("↓"),
-            routeCard);
+    // -------------------------------------------------------------------------
+    // Route connector
+    // -------------------------------------------------------------------------
+    auto *connector =
+        new QFrame(
+            sheet);
 
-    arrow->setObjectName(
+    connector->setObjectName(
         QStringLiteral(
-            "navigationArrow"));
-
-    arrow->setAlignment(
-        Qt::AlignCenter);
+            "navigationConnector"));
 
 
-    routeLayout->addWidget(
-        arrow);
+    sheetLayout->addWidget(
+        connector,
+        0,
+        Qt::AlignLeft);
 
 
-    // ========================================================================
+    // =========================================================================
     // Target
-    // ========================================================================
+    // =========================================================================
     auto *targetRow =
         new QFrame(
-            routeCard);
+            sheet);
 
     targetRow->setObjectName(
         QStringLiteral(
             "navigationPointRow"));
+
+    targetRow->setAttribute(
+        Qt::WA_StyledBackground,
+        true);
 
 
     auto *targetLayout =
@@ -981,18 +1349,17 @@ NavigationPage::NavigationPage(
             targetRow);
 
     targetLayout->setContentsMargins(
-        13,
+        12,
         10,
-        13,
+        12,
         10);
 
     targetLayout->setSpacing(
-        11);
+        10);
 
 
     auto *targetIcon =
         new QLabel(
-            QStringLiteral("终"),
             targetRow);
 
     targetIcon->setObjectName(
@@ -1003,10 +1370,10 @@ NavigationPage::NavigationPage(
         Qt::AlignCenter);
 
 
-    auto *targetTextLayout =
+    auto *targetText =
         new QVBoxLayout;
 
-    targetTextLayout->setSpacing(
+    targetText->setSpacing(
         2);
 
 
@@ -1023,7 +1390,8 @@ NavigationPage::NavigationPage(
 
     m_targetLabel =
         new QLabel(
-            QStringLiteral("--"),
+            QStringLiteral(
+                "--"),
             targetRow);
 
     m_targetLabel->setObjectName(
@@ -1034,10 +1402,10 @@ NavigationPage::NavigationPage(
         true);
 
 
-    targetTextLayout->addWidget(
+    targetText->addWidget(
         targetCaption);
 
-    targetTextLayout->addWidget(
+    targetText->addWidget(
         m_targetLabel);
 
 
@@ -1045,24 +1413,28 @@ NavigationPage::NavigationPage(
         targetIcon);
 
     targetLayout->addLayout(
-        targetTextLayout,
+        targetText,
         1);
 
 
-    routeLayout->addWidget(
+    sheetLayout->addWidget(
         targetRow);
 
 
-    // ========================================================================
-    // Straight-line distance
-    // ========================================================================
+    // =========================================================================
+    // Distance
+    // =========================================================================
     auto *distanceRow =
         new QFrame(
-            routeCard);
+            sheet);
 
     distanceRow->setObjectName(
         QStringLiteral(
             "navigationDistanceRow"));
+
+    distanceRow->setAttribute(
+        Qt::WA_StyledBackground,
+        true);
 
 
     auto *distanceLayout =
@@ -1070,10 +1442,25 @@ NavigationPage::NavigationPage(
             distanceRow);
 
     distanceLayout->setContentsMargins(
-        13,
-        10,
-        13,
-        10);
+        12,
+        9,
+        12,
+        9);
+
+    distanceLayout->setSpacing(
+        8);
+
+
+    auto *distanceIcon =
+        new QLabel(
+            distanceRow);
+
+    distanceIcon->setObjectName(
+        QStringLiteral(
+            "navigationDistanceIcon"));
+
+    distanceIcon->setAlignment(
+        Qt::AlignCenter);
 
 
     auto *distanceCaption =
@@ -1103,6 +1490,9 @@ NavigationPage::NavigationPage(
 
 
     distanceLayout->addWidget(
+        distanceIcon);
+
+    distanceLayout->addWidget(
         distanceCaption);
 
     distanceLayout->addStretch();
@@ -1111,35 +1501,35 @@ NavigationPage::NavigationPage(
         m_distanceLabel);
 
 
-    routeLayout->addWidget(
+    sheetLayout->addWidget(
         distanceRow);
 
 
-    mainLayout->addWidget(
-        routeCard);
-
-
-    // ========================================================================
-    // NO.11 mode switch
-    // ========================================================================
-    auto *modeCard =
+    // =========================================================================
+    // 出行方式
+    // =========================================================================
+    auto *modeDivider =
         new QFrame(
-            content);
+            sheet);
 
-    modeCard->setObjectName(
+    modeDivider->setObjectName(
         QStringLiteral(
-            "navigationCard"));
+            "navigationSheetDivider"));
+
+    modeDivider->setFrameShape(
+        QFrame::HLine);
+
+
+    sheetLayout->addWidget(
+        modeDivider);
 
 
     auto *modeLayout =
-        new QHBoxLayout(
-            modeCard);
+        new QHBoxLayout;
 
-    modeLayout->setContentsMargins(
-        14,
-        11,
-        14,
-        11);
+    modeLayout->setObjectName(
+        QStringLiteral(
+            "navigationModeLayout"));
 
     modeLayout->setSpacing(
         8);
@@ -1149,7 +1539,7 @@ NavigationPage::NavigationPage(
         new QLabel(
             QStringLiteral(
                 "出行方式"),
-            modeCard);
+            sheet);
 
     modeCaption->setObjectName(
         QStringLiteral(
@@ -1160,36 +1550,44 @@ NavigationPage::NavigationPage(
         new QPushButton(
             QStringLiteral(
                 "驾车"),
-            modeCard);
-
-    m_walkButton =
-        new QPushButton(
-            QStringLiteral(
-                "步行"),
-            modeCard);
-
+            sheet);
 
     m_driveButton->setObjectName(
         QStringLiteral(
             "navigationModeButton"));
 
-    m_walkButton->setObjectName(
-        QStringLiteral(
-            "navigationModeButton"));
-
-
     m_driveButton->setCheckable(
         true);
-
-    m_walkButton->setCheckable(
-        true);
-
 
     m_driveButton->setCursor(
         Qt::PointingHandCursor);
 
+    m_driveButton->setIcon(
+        QIcon(
+            QStringLiteral(
+                ":/icons/car.svg")));
+
+
+    m_walkButton =
+        new QPushButton(
+            QStringLiteral(
+                "步行"),
+            sheet);
+
+    m_walkButton->setObjectName(
+        QStringLiteral(
+            "navigationModeButton"));
+
+    m_walkButton->setCheckable(
+        true);
+
     m_walkButton->setCursor(
         Qt::PointingHandCursor);
+
+    m_walkButton->setIcon(
+        QIcon(
+            QStringLiteral(
+                ":/icons/walk.svg")));
 
 
     auto *buttonGroup =
@@ -1246,159 +1644,13 @@ NavigationPage::NavigationPage(
         m_walkButton);
 
 
-    mainLayout->addWidget(
-        modeCard);
-
-
-    // ========================================================================
-    // Map card
-    // ========================================================================
-    auto *mapCard =
-        new QFrame(
-            content);
-
-    mapCard->setObjectName(
-        QStringLiteral(
-            "navigationCard"));
-
-    UiTheme::applyCardShadow(
-        mapCard,
-        18,
-        4);
-
-
-    auto *mapLayout =
-        new QVBoxLayout(
-            mapCard);
-
-    mapLayout->setContentsMargins(
-        14,
-        14,
-        14,
-        14);
-
-    mapLayout->setSpacing(
-        9);
-
-
-    auto *mapHeader =
-        new QHBoxLayout;
-
-
-    auto *mapTitle =
-        new QLabel(
-            QStringLiteral(
-                "地图路线"),
-            mapCard);
-
-    mapTitle->setObjectName(
-        QStringLiteral(
-            "navigationSectionTitle"));
-
-
-    m_loadStatusLabel =
-        new QLabel(
-            QStringLiteral(
-                "请选择充电站"),
-            mapCard);
-
-    m_loadStatusLabel->setObjectName(
-        QStringLiteral(
-            "navigationLoadStatus"));
-
-    m_loadStatusLabel->setAlignment(
-        Qt::AlignRight |
-        Qt::AlignVCenter);
-
-
-    mapHeader->addWidget(
-        mapTitle);
-
-    mapHeader->addStretch();
-
-    mapHeader->addWidget(
-        m_loadStatusLabel);
-
-
-    mapLayout->addLayout(
-        mapHeader);
-
-
-    // ========================================================================
-    // Real route summary
-    // ========================================================================
-    m_routeSummaryLabel =
-        new QLabel(
-            QStringLiteral(
-                "路线距离与预计耗时将在规划完成后显示"),
-            mapCard);
-
-    m_routeSummaryLabel->setObjectName(
-        QStringLiteral(
-            "navigationRouteSummary"));
-
-    m_routeSummaryLabel->setWordWrap(
-        true);
-
-
-    mapLayout->addWidget(
-        m_routeSummaryLabel);
-
-
-    // ========================================================================
-    // Network progress
-    // ========================================================================
-    m_loadProgress =
-        new QProgressBar(
-            mapCard);
-
-    m_loadProgress->setObjectName(
-        QStringLiteral(
-            "navigationLoadProgress"));
-
-    m_loadProgress->setTextVisible(
-        false);
-
-    m_loadProgress->hide();
-
-
-    mapLayout->addWidget(
-        m_loadProgress);
-
-
-    // ========================================================================
-    // No WebEngine.
-    //
-    // Static Map is downloaded as image and displayed in QLabel.
-    // ========================================================================
-    m_mapLabel =
-        new QLabel(
-            mapCard);
-
-    m_mapLabel->setObjectName(
-        QStringLiteral(
-            "navigationMapImage"));
-
-    m_mapLabel->setAlignment(
-        Qt::AlignCenter);
-
-    m_mapLabel->setWordWrap(
-        true);
-
-    m_mapLabel->setMinimumHeight(
-        360);
-
-    m_mapLabel->setSizePolicy(
-        QSizePolicy::Expanding,
-        QSizePolicy::Expanding);
-
-
-    mapLayout->addWidget(
-        m_mapLabel);
+    sheetLayout->addLayout(
+        modeLayout);
 
 
     mainLayout->addWidget(
-        mapCard);
+        sheet);
+
 
     mainLayout->addStretch();
 
@@ -1430,6 +1682,7 @@ void NavigationPage::setNavigationData(
     m_currentRequest =
         request;
 
+
     m_hasRouteRequest =
         true;
 
@@ -1444,20 +1697,21 @@ void NavigationPage::setNavigationData(
     }
 
 
-    // ========================================================================
+    // =========================================================================
     // Station
-    // ========================================================================
+    // =========================================================================
     m_stationLabel->setText(
         request.toName
                 .trimmed()
                 .isEmpty()
-            ? QStringLiteral("--")
+            ? QStringLiteral(
+                  "--")
             : request.toName);
 
 
-    // ========================================================================
+    // =========================================================================
     // Start
-    // ========================================================================
+    // =========================================================================
     m_startLabel->setText(
         QStringLiteral(
             "%1, %2")
@@ -1473,9 +1727,9 @@ void NavigationPage::setNavigationData(
                 6));
 
 
-    // ========================================================================
+    // =========================================================================
     // Target
-    // ========================================================================
+    // =========================================================================
     m_targetLabel->setText(
         QStringLiteral(
             "%1, %2")
@@ -1491,9 +1745,9 @@ void NavigationPage::setNavigationData(
                 6));
 
 
-    // ========================================================================
-    // Straight-line distance
-    // ========================================================================
+    // =========================================================================
+    // Straight distance
+    // =========================================================================
     if (request.distance >=
         0.0) {
 
@@ -1540,12 +1794,13 @@ void NavigationPage::setNavigationData(
 
 
 // ============================================================================
-// NO.11 switch route mode
+// NO.11 Route mode
 // ============================================================================
 void NavigationPage::setRouteMode(
     const QString &mode)
 {
     if (!m_hasRouteRequest) {
+
         return;
     }
 
@@ -1597,29 +1852,31 @@ void NavigationPage::setRouteMode(
 
 
 // ============================================================================
-// Read Web Service Key
+// Web Service Key
 // ============================================================================
 QString NavigationPage::webServiceKey() const
 {
-    return qEnvironmentVariable(
-               "AMAP_WEB_SERVICE_KEY")
-        .trimmed();
+    return
+        qEnvironmentVariable(
+            "AMAP_WEB_SERVICE_KEY")
+            .trimmed();
 }
 
 
 // ============================================================================
-// NO.9 real route planning
+// Route Planning
 // ============================================================================
 void NavigationPage::loadRoute()
 {
     if (!m_hasRouteRequest) {
+
         return;
     }
 
 
-    // ========================================================================
-    // Coordinate validation
-    // ========================================================================
+    // =========================================================================
+    // 坐标校验
+    // =========================================================================
     if (!validCoordinate(
             m_currentRequest.fromLat,
             m_currentRequest.fromLng) ||
@@ -1646,27 +1903,20 @@ void NavigationPage::loadRoute()
             QStringLiteral(
                 "起点或终点坐标无效"));
 
+
         return;
     }
 
 
-    // ========================================================================
-    // 当前出行方式
-    // ========================================================================
     const bool walking =
         m_currentRequest.mode ==
         QStringLiteral(
             "walking");
 
 
-    // ========================================================================
-    // NO.11：步行距离保护
-    //
-    // 高德步行规划最大支持约 100 km。
-    //
-    // 如果两点的直线距离已经超过 100 km，
-    // 实际道路步行距离只会更长，因此直接阻止请求。
-    // ========================================================================
+    // =========================================================================
+    // NO.11 Walking distance guard
+    // =========================================================================
     if (walking) {
 
         const double straightKm =
@@ -1680,12 +1930,6 @@ void NavigationPage::loadRoute()
         if (straightKm >
             kMaxWalkingDistanceKm) {
 
-            // ================================================================
-            // 让正在进行的旧请求失效。
-            //
-            // 否则用户刚从驾车切到步行时，
-            // 旧驾车地图可能稍后返回并覆盖这里的提示。
-            // ================================================================
             ++m_requestId;
 
 
@@ -1742,9 +1986,9 @@ void NavigationPage::loadRoute()
     }
 
 
-    // ========================================================================
-    // API Key
-    // ========================================================================
+    // =========================================================================
+    // Key
+    // =========================================================================
     const QString key =
         webServiceKey();
 
@@ -1770,18 +2014,18 @@ void NavigationPage::loadRoute()
             QStringLiteral(
                 "请配置 AMAP_WEB_SERVICE_KEY"));
 
+
         return;
     }
 
 
-    // ========================================================================
+    // =========================================================================
     // New request
-    // ========================================================================
+    // =========================================================================
     const quint64 requestId =
         ++m_requestId;
 
 
-    // Abort old route request
     if (m_routeReply) {
 
         m_routeReply->abort();
@@ -1791,7 +2035,6 @@ void NavigationPage::loadRoute()
     }
 
 
-    // Abort old map request
     if (m_mapReply) {
 
         m_mapReply->abort();
@@ -1812,9 +2055,9 @@ void NavigationPage::loadRoute()
             "正在连接高德地图服务…"));
 
 
-    // ========================================================================
-    // AMap Route Planning 2.0
-    // ========================================================================
+    // =========================================================================
+    // AMap V5
+    // =========================================================================
     QUrl url(
         walking
             ? QStringLiteral(
@@ -1848,11 +2091,6 @@ void NavigationPage::loadRoute()
             m_currentRequest.toLat));
 
 
-    // cost:
-    //   route duration
-    //
-    // polyline:
-    //   road coordinate sequence
     query.addQueryItem(
         QStringLiteral(
             "show_fields"),
@@ -1867,7 +2105,6 @@ void NavigationPage::loadRoute()
             "json"));
 
 
-    // 驾车默认使用高德推荐
     if (!walking) {
 
         query.addQueryItem(
@@ -1882,9 +2119,9 @@ void NavigationPage::loadRoute()
         query);
 
 
-    // ========================================================================
-    // UI loading
-    // ========================================================================
+    // =========================================================================
+    // Loading UI
+    // =========================================================================
     m_loadStatusLabel->setText(
         walking
             ? QStringLiteral(
@@ -1905,9 +2142,6 @@ void NavigationPage::loadRoute()
     m_loadProgress->show();
 
 
-    // ========================================================================
-    // Request
-    // ========================================================================
     QNetworkRequest request(
         url);
 
@@ -1921,15 +2155,16 @@ void NavigationPage::loadRoute()
         m_routeReply;
 
 
-    // ========================================================================
+    // =========================================================================
     // Timeout
-    // ========================================================================
+    // =========================================================================
     QTimer::singleShot(
         8000,
         reply,
         [reply]() {
 
             if (!reply->isRunning()) {
+
                 return;
             }
 
@@ -1943,9 +2178,9 @@ void NavigationPage::loadRoute()
         });
 
 
-    // ========================================================================
-    // Finish
-    // ========================================================================
+    // =========================================================================
+    // Finished
+    // =========================================================================
     connect(
         reply,
         &QNetworkReply::finished,
@@ -1962,9 +2197,6 @@ void NavigationPage::loadRoute()
             }
 
 
-            // ================================================================
-            // Old request
-            // ================================================================
             if (requestId !=
                 m_requestId) {
 
@@ -1980,9 +2212,6 @@ void NavigationPage::loadRoute()
                     .toBool();
 
 
-            // ================================================================
-            // Network error
-            // ================================================================
             if (reply->error() !=
                 QNetworkReply::NoError) {
 
@@ -2031,9 +2260,6 @@ void NavigationPage::loadRoute()
             reply->deleteLater();
 
 
-            // ================================================================
-            // Parse JSON
-            // ================================================================
             QJsonParseError parseError;
 
 
@@ -2082,7 +2308,8 @@ void NavigationPage::loadRoute()
                         QStringLiteral(
                             "status"))
                     .toString() !=
-                QStringLiteral("1")) {
+                QStringLiteral(
+                    "1")) {
 
                 QString info =
                     root.value(
@@ -2091,10 +2318,6 @@ void NavigationPage::loadRoute()
                         .toString();
 
 
-                // ------------------------------------------------------------
-                // infocode 正常情况下是字符串，
-                // 同时兼容返回数字的情况。
-                // ------------------------------------------------------------
                 const QJsonValue infoCodeValue =
                     root.value(
                         QStringLiteral(
@@ -2117,14 +2340,6 @@ void NavigationPage::loadRoute()
                 }
 
 
-                // ------------------------------------------------------------
-                // 高德：
-                //
-                // 20803
-                // OVER_DIRECTION_RANGE
-                //
-                // 起终点距离过长。
-                // ------------------------------------------------------------
                 const bool overDirectionRange =
                     info ==
                         QStringLiteral(
@@ -2177,9 +2392,6 @@ void NavigationPage::loadRoute()
                 }
 
 
-                // ------------------------------------------------------------
-                // 其它高德业务错误
-                // ------------------------------------------------------------
                 if (info.isEmpty()) {
 
                     info =
@@ -2253,11 +2465,9 @@ void NavigationPage::loadRoute()
             }
 
 
-            // ================================================================
-            // Use first route
-            // ================================================================
             const QJsonObject path =
-                paths.at(0)
+                paths.at(
+                         0)
                     .toObject();
 
 
@@ -2268,9 +2478,6 @@ void NavigationPage::loadRoute()
                             "distance")));
 
 
-            // ================================================================
-            // Duration
-            // ================================================================
             qint64 durationSeconds =
                 0;
 
@@ -2309,9 +2516,6 @@ void NavigationPage::loadRoute()
             }
 
 
-            // ================================================================
-            // Polyline
-            // ================================================================
             QStringList points =
                 extractRoutePoints(
                     path);
@@ -2343,9 +2547,6 @@ void NavigationPage::loadRoute()
             }
 
 
-            // ================================================================
-            // Make sure exact start/end are present
-            // ================================================================
             const QString start =
                 coordinateText(
                     m_currentRequest.fromLng,
@@ -2397,9 +2598,6 @@ void NavigationPage::loadRoute()
             }
 
 
-            // ================================================================
-            // Download static map
-            // ================================================================
             requestStaticMap(
                 points,
                 distanceMeters,
@@ -2410,7 +2608,7 @@ void NavigationPage::loadRoute()
 
 
 // ============================================================================
-// Download AMap Static Map
+// Static Map
 // ============================================================================
 void NavigationPage::requestStaticMap(
     const QStringList &points,
@@ -2430,6 +2628,7 @@ void NavigationPage::requestStaticMap(
 
 
     if (key.isEmpty()) {
+
         return;
     }
 
@@ -2446,12 +2645,6 @@ void NavigationPage::requestStaticMap(
             m_currentRequest.toLat);
 
 
-    // ========================================================================
-    // Static Map URL
-    //
-    // Do not provide location/zoom.
-    // AMap automatically calculates viewport from markers + paths.
-    // ========================================================================
     QUrl url(
         QStringLiteral(
             "https://restapi.amap.com/v3/staticmap"));
@@ -2498,7 +2691,8 @@ void NavigationPage::requestStaticMap(
             "8,0x315B4D,1,,:%1")
             .arg(
                 points.join(
-                    QLatin1Char(';'))));
+                    QLatin1Char(
+                        ';'))));
 
 
     query.addQueryItem(
@@ -2512,9 +2706,9 @@ void NavigationPage::requestStaticMap(
         query);
 
 
-    // ========================================================================
-    // Route summary
-    // ========================================================================
+    // =========================================================================
+    // Summary
+    // =========================================================================
     const QString modeText =
         m_currentRequest.mode ==
                 QStringLiteral(
@@ -2560,9 +2754,6 @@ void NavigationPage::requestStaticMap(
         summary);
 
 
-    // ========================================================================
-    // Loading map image
-    // ========================================================================
     m_loadStatusLabel->setText(
         QStringLiteral(
             "路线规划完成，正在加载地图…"));
@@ -2595,15 +2786,13 @@ void NavigationPage::requestStaticMap(
         m_mapReply;
 
 
-    // ========================================================================
-    // Timeout
-    // ========================================================================
     QTimer::singleShot(
         8000,
         reply,
         [reply]() {
 
             if (!reply->isRunning()) {
+
                 return;
             }
 
@@ -2617,9 +2806,6 @@ void NavigationPage::requestStaticMap(
         });
 
 
-    // ========================================================================
-    // Finished
-    // ========================================================================
     connect(
         reply,
         &QNetworkReply::finished,
@@ -2651,9 +2837,6 @@ void NavigationPage::requestStaticMap(
                     .toBool();
 
 
-            // ================================================================
-            // Network failure
-            // ================================================================
             if (reply->error() !=
                 QNetworkReply::NoError) {
 
@@ -2691,9 +2874,6 @@ void NavigationPage::requestStaticMap(
             reply->deleteLater();
 
 
-            // ================================================================
-            // Load image
-            // ================================================================
             QPixmap pixmap;
 
 
@@ -2752,9 +2932,6 @@ void NavigationPage::requestStaticMap(
             }
 
 
-            // ================================================================
-            // Success
-            // ================================================================
             m_originalMapPixmap =
                 pixmap;
 
@@ -2784,6 +2961,7 @@ void NavigationPage::setMapPlaceholder(
     const QString &message)
 {
     if (!m_mapLabel) {
+
         return;
     }
 
@@ -2802,13 +2980,13 @@ void NavigationPage::setMapPlaceholder(
             "<div style=\""
             "font-size:18px;"
             "font-weight:700;"
-            "color:#315B4D;"
+            "color:#151C24;"
             "margin-bottom:8px;\">"
             "%1"
             "</div>"
             "<div style=\""
             "font-size:13px;"
-            "color:#7A837E;\">"
+            "color:#7E8893;\">"
             "%2"
             "</div>"
             "</div>")
@@ -2819,7 +2997,7 @@ void NavigationPage::setMapPlaceholder(
 
 
 // ============================================================================
-// Scale map image without distortion
+// Scale Map
 // ============================================================================
 void NavigationPage::rescaleMapPixmap()
 {
@@ -2830,12 +3008,14 @@ void NavigationPage::rescaleMapPixmap()
     }
 
 
-    QSize targetSize =
+    const QSize targetSize =
         m_mapLabel->size();
 
 
-    if (targetSize.width() <= 0 ||
-        targetSize.height() <= 0) {
+    if (targetSize.width() <=
+            0 ||
+        targetSize.height() <=
+            0) {
 
         return;
     }
@@ -2873,7 +3053,7 @@ void NavigationPage::resizeEvent(
 
 
 // ============================================================================
-// Responsive UI
+// Responsive Style
 // ============================================================================
 void NavigationPage::applyResponsiveStyle()
 {
@@ -2892,42 +3072,60 @@ void NavigationPage::applyResponsiveStyle()
     const int stationFont =
         scaledUi(
             scaleBase,
-            19);
+            18);
 
 
     const int normalFont =
         scaledUi(
             scaleBase,
-            14);
+            13);
 
 
     const int smallFont =
         scaledUi(
             scaleBase,
-            12);
+            11);
 
 
     const int cardRadius =
         scaledUi(
             scaleBase,
-            18);
+            20);
+
+
+    const int mapRadius =
+        scaledUi(
+            scaleBase,
+            24);
 
 
     const int smallRadius =
         scaledUi(
             scaleBase,
-            10);
+            11);
 
 
-    // ========================================================================
-    // Style
-    // ========================================================================
-    setStyleSheet(
+    const int iconBox =
+        scaledUi(
+            scaleBase,
+            34);
+
+
+    const int iconSize =
+        scaledUi(
+            scaleBase,
+            17);
+
+
+    // =========================================================================
+    // Page
+    // =========================================================================
+    QString pageStyle =
         QStringLiteral(
 
             "QWidget#navigationPage{"
             "background:transparent;"
-            "color:#202824;"
+            "color:%1;"
             "}"
 
             "QWidget#navigationContent{"
@@ -2939,198 +3137,197 @@ void NavigationPage::applyResponsiveStyle()
             "border:none;"
             "}"
 
+            "QScrollArea#navigationScrollArea > QWidget > QWidget{"
+            "background:transparent;"
+            "}"
 
-            // Back
             "QPushButton#navigationBackButton{"
-            "background:#E9F0EC;"
-            "color:#315B4D;"
-            "border:1px solid #D6E1DA;"
-            "border-radius:%1px;"
-            "padding:7px 13px;"
-            "font-size:%2px;"
+            "background:%2;"
+            "color:%1;"
+            "border:1px solid %3;"
+            "border-radius:%4px;"
+            "padding:7px 11px;"
+            "font-size:%5px;"
             "font-weight:700;"
             "}"
 
             "QPushButton#navigationBackButton:hover{"
-            "background:#DFE9E3;"
+            "background:#EAEFEC;"
             "}"
 
-
-            // Title
             "QLabel#navigationTitle{"
             "background:transparent;"
-            "color:#202824;"
-            "font-size:%3px;"
-            "font-weight:800;"
+            "color:%1;"
+            "font-size:%6px;"
+            "font-weight:850;"
             "}"
 
+            "QLabel#navigationSubtitle{"
+            "background:transparent;"
+            "color:%7;"
+            "font-size:%8px;"
+            "}");
 
-            // Cards
-            "QFrame#navigationCard{"
-            "background:#FFFFFF;"
-            "border:1px solid #E7E3DA;"
+    pageStyle =
+        pageStyle
+            .arg(
+                UiTheme::textPrimary())
+            .arg(
+                UiTheme::surfaceSoft())
+            .arg(
+                UiTheme::border())
+            .arg(
+                smallRadius)
+            .arg(
+                normalFont)
+            .arg(
+                titleFont)
+            .arg(
+                UiTheme::textSecondary())
+            .arg(
+                smallFont);
+
+
+    // =========================================================================
+    // Destination
+    // =========================================================================
+    QString destinationStyle =
+        QStringLiteral(
+
+            "QFrame#navigationDestinationCard{"
+            "background:%1;"
+            "border:none;"
+            "border-radius:%2px;"
+            "}"
+
+            "QLabel#navigationDestinationIcon{"
+            "background:%3;"
+            "border:none;"
             "border-radius:%4px;"
             "}"
 
-
-            // Caption
             "QLabel#navigationCaption{"
             "background:transparent;"
-            "color:#7A837E;"
-            "font-size:%5px;"
+            "color:%5;"
+            "font-size:%6px;"
             "}"
 
-
-            // Station
             "QLabel#navigationStationName{"
             "background:transparent;"
-            "color:#202824;"
+            "color:#FFFFFF;"
+            "font-size:%7px;"
+            "font-weight:850;"
+            "}"
+
+            "QLabel#navigationBadge{"
+            "background:%8;"
+            "color:%1;"
+            "border:none;"
+            "border-radius:%9px;"
+            "padding:5px 9px;"
             "font-size:%6px;"
             "font-weight:800;"
+            "}");
+
+    destinationStyle =
+        destinationStyle
+            .arg(
+                UiTheme::dark())
+            .arg(
+                cardRadius)
+            .arg(
+                UiTheme::darkSoft())
+            .arg(
+                iconBox / 2)
+            .arg(
+                QStringLiteral(
+                    "#9CA6B1"))
+            .arg(
+                smallFont)
+            .arg(
+                stationFont)
+            .arg(
+                UiTheme::lime())
+            .arg(
+                smallRadius);
+
+
+    // =========================================================================
+    // Map
+    // =========================================================================
+    QString mapStyle =
+        QStringLiteral(
+
+            "QFrame#navigationMapCard{"
+            "background:#FFFFFF;"
+            "border:1px solid %1;"
+            "border-radius:%2px;"
             "}"
 
-
-            // Section title
-            "QLabel#navigationSectionTitle{"
+            "QLabel#navigationMapTitle{"
             "background:transparent;"
-            "color:#202824;"
-            "font-size:%2px;"
+            "color:%3;"
+            "font-size:%4px;"
             "font-weight:800;"
             "}"
 
-
-            // Badge
-            "QLabel#navigationBadge{"
-            "background:#E9F0EC;"
-            "color:#315B4D;"
-            "border:none;"
-            "border-radius:%1px;"
-            "padding:4px 9px;"
-            "font-size:%5px;"
-            "font-weight:700;"
-            "}"
-
-
-            // Point rows
-            "QFrame#navigationPointRow{"
-            "background:#FAF8F3;"
-            "border:1px solid #E7E3DA;"
-            "border-radius:%1px;"
-            "}"
-
-
-            "QLabel#navigationCoordinate{"
+            "QLabel#navigationMapCaption{"
             "background:transparent;"
-            "color:#202824;"
-            "font-size:%2px;"
-            "font-weight:600;"
+            "color:%5;"
+            "font-size:%6px;"
             "}"
 
-
-            // Start
-            "QLabel#navigationStartIcon{"
-            "background:#EAF3ED;"
-            "color:#4F8668;"
-            "border:none;"
-            "border-radius:%1px;"
-            "font-size:%5px;"
-            "font-weight:800;"
-            "min-width:30px;"
-            "min-height:30px;"
-            "}"
-
-
-            // End
-            "QLabel#navigationTargetIcon{"
-            "background:#FFF3DF;"
-            "color:#A86D1E;"
-            "border:none;"
-            "border-radius:%1px;"
-            "font-size:%5px;"
-            "font-weight:800;"
-            "min-width:30px;"
-            "min-height:30px;"
-            "}"
-
-
-            // Arrow
-            "QLabel#navigationArrow{"
-            "background:transparent;"
-            "color:#315B4D;"
-            "font-size:%3px;"
-            "font-weight:700;"
-            "}"
-
-
-            // Distance
-            "QFrame#navigationDistanceRow{"
-            "background:#E9F0EC;"
-            "border:1px solid #DCE5DF;"
-            "border-radius:%1px;"
-            "}"
-
-            "QLabel#navigationDistance{"
-            "background:transparent;"
-            "color:#315B4D;"
-            "font-size:%2px;"
-            "font-weight:800;"
-            "}"
-
-
-            // Mode title
-            "QLabel#navigationModeTitle{"
-            "background:transparent;"
-            "color:#202824;"
-            "font-size:%2px;"
-            "font-weight:700;"
-            "}"
-
-
-            // Mode buttons
-            "QPushButton#navigationModeButton{"
-            "background:#FAF8F3;"
-            "color:#7A837E;"
-            "border:1px solid #E1DDD4;"
-            "border-radius:%1px;"
-            "padding:8px 16px;"
-            "font-size:%2px;"
-            "font-weight:700;"
-            "}"
-
-            "QPushButton#navigationModeButton:hover{"
-            "background:#F0EEE8;"
-            "}"
-
-            "QPushButton#navigationModeButton:checked{"
-            "background:#315B4D;"
-            "color:#FFFFFF;"
-            "border-color:#315B4D;"
-            "}"
-
-
-            // Status
             "QLabel#navigationLoadStatus{"
             "background:transparent;"
-            "color:#7A837E;"
-            "font-size:%5px;"
+            "color:%5;"
+            "font-size:%6px;"
             "}"
 
+            "QLabel#navigationMapImage{"
+            "background:#F2F5F3;"
+            "color:%5;"
+            "border:none;"
+            "border-radius:%7px;"
+            "padding:2px;"
+            "}"
 
-            // Summary
             "QLabel#navigationRouteSummary{"
-            "background:#FAF8F3;"
-            "color:#315B4D;"
-            "border:1px solid #E7E3DA;"
-            "border-radius:%1px;"
-            "padding:8px 10px;"
-            "font-size:%5px;"
-            "font-weight:600;"
-            "}"
+            "background:%8;"
+            "color:%3;"
+            "border:none;"
+            "border-radius:%9px;"
+            "padding:9px 11px;"
+            "font-size:%4px;"
+            "font-weight:750;"
+            "}");
+
+    mapStyle =
+        mapStyle
+            .arg(
+                UiTheme::border())
+            .arg(
+                mapRadius)
+            .arg(
+                UiTheme::textPrimary())
+            .arg(
+                normalFont)
+            .arg(
+                UiTheme::textSecondary())
+            .arg(
+                smallFont)
+            .arg(
+                cardRadius)
+            .arg(
+                UiTheme::limeSoft())
+            .arg(
+                smallRadius);
 
 
-            // Progress
+    QString progressStyle =
+        QStringLiteral(
+
             "QProgressBar#navigationLoadProgress{"
-            "background:#E7E5DF;"
+            "background:#E2E7E4;"
             "border:none;"
             "border-radius:4px;"
             "min-height:8px;"
@@ -3138,44 +3335,439 @@ void NavigationPage::applyResponsiveStyle()
             "}"
 
             "QProgressBar#navigationLoadProgress::chunk{"
-            "background:#315B4D;"
+            "background:%1;"
             "border-radius:4px;"
+            "}");
+
+    progressStyle =
+        progressStyle.arg(
+            UiTheme::limeStrong());
+
+
+    // =========================================================================
+    // Sheet
+    // =========================================================================
+    QString sheetStyle =
+        QStringLiteral(
+
+            "QFrame#navigationRouteSheet{"
+            "background:#FFFFFF;"
+            "border:1px solid %1;"
+            "border-radius:%2px;"
             "}"
 
+            "QLabel#navigationSectionTitle{"
+            "background:transparent;"
+            "color:%3;"
+            "font-size:%4px;"
+            "font-weight:800;"
+            "}"
 
-            // Map
-            "QLabel#navigationMapImage{"
-            "background:#FAF8F3;"
-            "color:#7A837E;"
-            "border:1px solid #E7E3DA;"
-            "border-radius:%1px;"
-            "padding:4px;"
-            "}")
+            "QLabel#navigationSheetDescription{"
+            "background:transparent;"
+            "color:%5;"
+            "font-size:%6px;"
+            "}"
 
-        .arg(
-            smallRadius)      // %1
+            "QFrame#navigationPointRow{"
+            "background:%7;"
+            "border:none;"
+            "border-radius:%8px;"
+            "}"
 
-        .arg(
-            normalFont)       // %2
+            "QLabel#navigationCoordinate{"
+            "background:transparent;"
+            "color:%3;"
+            "font-size:%4px;"
+            "font-weight:650;"
+            "}");
 
-        .arg(
-            titleFont)        // %3
+    sheetStyle =
+        sheetStyle
+            .arg(
+                UiTheme::border())
+            .arg(
+                cardRadius)
+            .arg(
+                UiTheme::textPrimary())
+            .arg(
+                normalFont)
+            .arg(
+                UiTheme::textSecondary())
+            .arg(
+                smallFont)
+            .arg(
+                UiTheme::surfaceSoft())
+            .arg(
+                smallRadius);
 
-        .arg(
-            cardRadius)       // %4
 
-        .arg(
-            smallFont)        // %5
+    QString routeInfoStyle =
+        QStringLiteral(
 
-        .arg(
-            stationFont));    // %6
+            "QLabel#navigationStartIcon{"
+            "background:%1;"
+            "border:none;"
+            "border-radius:%2px;"
+            "}"
+
+            "QLabel#navigationTargetIcon{"
+            "background:%3;"
+            "border:none;"
+            "border-radius:%2px;"
+            "}"
+
+            "QFrame#navigationConnector{"
+            "background:%4;"
+            "border:none;"
+            "min-width:2px;"
+            "max-width:2px;"
+            "min-height:12px;"
+            "max-height:12px;"
+            "margin-left:%5px;"
+            "}"
+
+            "QFrame#navigationDistanceRow{"
+            "background:%1;"
+            "border:none;"
+            "border-radius:%6px;"
+            "}"
+
+            "QLabel#navigationDistanceIcon{"
+            "background:transparent;"
+            "border:none;"
+            "}"
+
+            "QLabel#navigationDistance{"
+            "background:transparent;"
+            "color:%7;"
+            "font-size:%8px;"
+            "font-weight:800;"
+            "}");
+
+    routeInfoStyle =
+        routeInfoStyle
+            .arg(
+                UiTheme::limeSoft())
+            .arg(
+                iconBox / 2)
+            .arg(
+                UiTheme::dark())
+            .arg(
+                UiTheme::borderStrong())
+            .arg(
+                iconBox / 2)
+            .arg(
+                smallRadius)
+            .arg(
+                UiTheme::textPrimary())
+            .arg(
+                normalFont);
 
 
+    // =========================================================================
+    // Mode
+    // =========================================================================
+    QString modeStyle =
+        QStringLiteral(
+
+            "QFrame#navigationSheetDivider{"
+            "background:%1;"
+            "border:none;"
+            "max-height:1px;"
+            "}"
+
+            "QLabel#navigationModeTitle{"
+            "background:transparent;"
+            "color:%2;"
+            "font-size:%3px;"
+            "font-weight:750;"
+            "}"
+
+            "QPushButton#navigationModeButton{"
+            "background:%4;"
+            "color:%5;"
+            "border:1px solid %1;"
+            "border-radius:%6px;"
+            "padding:8px 12px;"
+            "font-size:%3px;"
+            "font-weight:750;"
+            "}"
+
+            "QPushButton#navigationModeButton:hover{"
+            "background:#EDF1EF;"
+            "}"
+
+            "QPushButton#navigationModeButton:checked{"
+            "background:%7;"
+            "color:%2;"
+            "border-color:%7;"
+            "}");
+
+    modeStyle =
+        modeStyle
+            .arg(
+                UiTheme::border())
+            .arg(
+                UiTheme::textPrimary())
+            .arg(
+                normalFont)
+            .arg(
+                UiTheme::surfaceSoft())
+            .arg(
+                UiTheme::textSecondary())
+            .arg(
+                smallRadius)
+            .arg(
+                UiTheme::lime());
+
+
+    setStyleSheet(
+        pageStyle +
+        destinationStyle +
+        mapStyle +
+        progressStyle +
+        sheetStyle +
+        routeInfoStyle +
+        modeStyle);
+
+
+    // =========================================================================
+    // Layouts
+    // =========================================================================
+    if (auto *mainLayout =
+            findChild<QVBoxLayout *>(
+                QStringLiteral(
+                    "navigationMainLayout"))) {
+
+        mainLayout->setContentsMargins(
+            scaledUi(
+                scaleBase,
+                18),
+            scaledUi(
+                scaleBase,
+                18),
+            scaledUi(
+                scaleBase,
+                18),
+            scaledUi(
+                scaleBase,
+                18));
+
+
+        mainLayout->setSpacing(
+            scaledUi(
+                scaleBase,
+                12));
+    }
+
+
+    if (auto *destinationLayout =
+            findChild<QHBoxLayout *>(
+                QStringLiteral(
+                    "navigationDestinationLayout"))) {
+
+        destinationLayout->setContentsMargins(
+            scaledUi(
+                scaleBase,
+                15),
+            scaledUi(
+                scaleBase,
+                13),
+            scaledUi(
+                scaleBase,
+                15),
+            scaledUi(
+                scaleBase,
+                13));
+
+
+        destinationLayout->setSpacing(
+            scaledUi(
+                scaleBase,
+                11));
+    }
+
+
+    if (auto *mapLayout =
+            findChild<QVBoxLayout *>(
+                QStringLiteral(
+                    "navigationMapLayout"))) {
+
+        mapLayout->setContentsMargins(
+            scaledUi(
+                scaleBase,
+                10),
+            scaledUi(
+                scaleBase,
+                10),
+            scaledUi(
+                scaleBase,
+                10),
+            scaledUi(
+                scaleBase,
+                10));
+
+
+        mapLayout->setSpacing(
+            scaledUi(
+                scaleBase,
+                8));
+    }
+
+
+    if (auto *sheetLayout =
+            findChild<QVBoxLayout *>(
+                QStringLiteral(
+                    "navigationSheetLayout"))) {
+
+        sheetLayout->setContentsMargins(
+            scaledUi(
+                scaleBase,
+                16),
+            scaledUi(
+                scaleBase,
+                15),
+            scaledUi(
+                scaleBase,
+                16),
+            scaledUi(
+                scaleBase,
+                16));
+
+
+        sheetLayout->setSpacing(
+            scaledUi(
+                scaleBase,
+                11));
+    }
+
+
+    // =========================================================================
+    // Icons
+    // =========================================================================
+    if (auto *backButton =
+            findChild<QPushButton *>(
+                QStringLiteral(
+                    "navigationBackButton"))) {
+
+        backButton->setIconSize(
+            QSize(
+                iconSize,
+                iconSize));
+    }
+
+
+    if (auto *destinationIcon =
+            findChild<QLabel *>(
+                QStringLiteral(
+                    "navigationDestinationIcon"))) {
+
+        destinationIcon->setFixedSize(
+            iconBox,
+            iconBox);
+
+
+        destinationIcon->setPixmap(
+            QIcon(
+                QStringLiteral(
+                    ":/icons/navigation-white.svg"))
+                .pixmap(
+                    QSize(
+                        iconSize,
+                        iconSize)));
+    }
+
+
+    if (auto *startIcon =
+            findChild<QLabel *>(
+                QStringLiteral(
+                    "navigationStartIcon"))) {
+
+        startIcon->setFixedSize(
+            iconBox,
+            iconBox);
+
+
+        startIcon->setPixmap(
+            QIcon(
+                QStringLiteral(
+                    ":/icons/location.svg"))
+                .pixmap(
+                    QSize(
+                        iconSize,
+                        iconSize)));
+    }
+
+
+    if (auto *targetIcon =
+            findChild<QLabel *>(
+                QStringLiteral(
+                    "navigationTargetIcon"))) {
+
+        targetIcon->setFixedSize(
+            iconBox,
+            iconBox);
+
+
+        targetIcon->setPixmap(
+            QIcon(
+                QStringLiteral(
+                    ":/icons/navigation-white.svg"))
+                .pixmap(
+                    QSize(
+                        iconSize,
+                        iconSize)));
+    }
+
+
+    if (auto *distanceIcon =
+            findChild<QLabel *>(
+                QStringLiteral(
+                    "navigationDistanceIcon"))) {
+
+        distanceIcon->setFixedSize(
+            iconSize,
+            iconSize);
+
+
+        distanceIcon->setPixmap(
+            QIcon(
+                QStringLiteral(
+                    ":/icons/location.svg"))
+                .pixmap(
+                    QSize(
+                        iconSize,
+                        iconSize)));
+    }
+
+
+    if (m_driveButton) {
+
+        m_driveButton->setIconSize(
+            QSize(
+                iconSize,
+                iconSize));
+    }
+
+
+    if (m_walkButton) {
+
+        m_walkButton->setIconSize(
+            QSize(
+                iconSize,
+                iconSize));
+    }
+
+
+    // =========================================================================
+    // 地图真正作为主体
+    // =========================================================================
     if (m_mapLabel) {
 
         m_mapLabel->setMinimumHeight(
             scaledUi(
                 scaleBase,
-                360));
+                430));
     }
 }

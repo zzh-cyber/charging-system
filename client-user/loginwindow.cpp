@@ -10,13 +10,17 @@
 #include <QDebug>
 #include <QFrame>
 #include <QHBoxLayout>
+#include <QIcon>
 #include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
+#include <QPixmap>
 #include <QPushButton>
 #include <QRegularExpression>
 #include <QRegularExpressionValidator>
 #include <QResizeEvent>
+#include <QScrollArea>
+#include <QSizePolicy>
 #include <QVBoxLayout>
 
 
@@ -39,89 +43,349 @@ LoginWindow::LoginWindow(
     , m_net(new NetClient(this))
 {
     setObjectName(
-        QStringLiteral("loginWindow"));
+        QStringLiteral(
+            "loginWindow"));
 
     setWindowTitle(
         QStringLiteral(
             "充电用户端 - 登录"));
 
-    applyPhoneWindow(this);
+    applyPhoneWindow(
+        this);
 
 
-    // ========================================================================
-    // 登录主卡片
-    // ========================================================================
-    auto *card =
-        new QFrame(this);
+    // =========================================================================
+    // 根布局
+    // =========================================================================
+    auto *rootLayout =
+        new QVBoxLayout(this);
 
-    card->setObjectName(
-        QStringLiteral("loginCard"));
+    rootLayout->setContentsMargins(
+        0,
+        0,
+        0,
+        0);
 
-    UiTheme::applyCardShadow(
-        card,
-        20,
-        5);
-
-    auto *cardLayout =
-        new QVBoxLayout(card);
-
-    cardLayout->setContentsMargins(
-        30,
-        30,
-        30,
-        28);
-
-    cardLayout->setSpacing(
-        12);
+    rootLayout->setSpacing(
+        0);
 
 
-    // ========================================================================
+    // =========================================================================
+    // 小屏幕兜底：
+    // 正常高度不会滚动，窗口高度不足时允许纵向滚动
+    // =========================================================================
+    auto *scrollArea =
+        new QScrollArea(this);
+
+    scrollArea->setObjectName(
+        QStringLiteral(
+            "loginScrollArea"));
+
+    scrollArea->setWidgetResizable(
+        true);
+
+    scrollArea->setFrameShape(
+        QFrame::NoFrame);
+
+    scrollArea->setHorizontalScrollBarPolicy(
+        Qt::ScrollBarAlwaysOff);
+
+
+    auto *content =
+        new QWidget;
+
+    content->setObjectName(
+        QStringLiteral(
+            "loginContent"));
+
+
+    auto *contentLayout =
+        new QVBoxLayout(
+            content);
+
+    contentLayout->setObjectName(
+        QStringLiteral(
+            "loginContentLayout"));
+
+    contentLayout->setContentsMargins(
+        18,
+        18,
+        18,
+        18);
+
+    contentLayout->setSpacing(
+        14);
+
+
+    // =========================================================================
+    // Hero 主视觉区域
+    // =========================================================================
+    auto *heroCard =
+        new QFrame(
+            content);
+
+    heroCard->setObjectName(
+        QStringLiteral(
+            "loginHeroCard"));
+
+    heroCard->setAttribute(
+        Qt::WA_StyledBackground,
+        true);
+
+    UiTheme::applyHeroShadow(
+        heroCard,
+        34,
+        9);
+
+
+    auto *heroLayout =
+        new QVBoxLayout(
+            heroCard);
+
+    heroLayout->setObjectName(
+        QStringLiteral(
+            "loginHeroLayout"));
+
+    heroLayout->setContentsMargins(
+        24,
+        23,
+        24,
+        18);
+
+    heroLayout->setSpacing(
+        6);
+
+
+    // -------------------------------------------------------------------------
+    // 顶部小标签
+    // -------------------------------------------------------------------------
+    auto *eyebrow =
+        new QLabel(
+            QStringLiteral(
+                "GREEN ENERGY"),
+            heroCard);
+
+    eyebrow->setObjectName(
+        QStringLiteral(
+            "loginEyebrow"));
+
+
+    heroLayout->addWidget(
+        eyebrow,
+        0,
+        Qt::AlignLeft);
+
+
+    // -------------------------------------------------------------------------
     // 品牌标题
-    // ========================================================================
+    // -------------------------------------------------------------------------
     auto *brand =
         new QLabel(
             QStringLiteral(
                 "新能源充电"),
-            card);
+            heroCard);
 
     brand->setObjectName(
-        QStringLiteral("loginBrand"));
+        QStringLiteral(
+            "loginBrand"));
 
-    brand->setAlignment(
-        Qt::AlignLeft |
-        Qt::AlignVCenter);
 
-    cardLayout->addWidget(
+    heroLayout->addWidget(
         brand);
 
 
-    // ========================================================================
-    // 品牌副标题
-    // ========================================================================
+    // -------------------------------------------------------------------------
+    // 主文案
+    // -------------------------------------------------------------------------
+    auto *heroTitle =
+        new QLabel(
+            QStringLiteral(
+                "让充电出行，\n更简单"),
+            heroCard);
+
+    heroTitle->setObjectName(
+        QStringLiteral(
+            "loginHeroTitle"));
+
+    heroTitle->setWordWrap(
+        true);
+
+
+    heroLayout->addWidget(
+        heroTitle);
+
+
+    // -------------------------------------------------------------------------
+    // 副文案
+    // -------------------------------------------------------------------------
     auto *subTitle =
         new QLabel(
             QStringLiteral(
-                "便捷找桩 · 快速预约 · 安心充电"),
-            card);
+                "CHARGE · DRIVE · LIVE"),
+            heroCard);
 
     subTitle->setObjectName(
         QStringLiteral(
             "loginSubTitle"));
 
-    subTitle->setAlignment(
-        Qt::AlignLeft |
-        Qt::AlignVCenter);
 
-    cardLayout->addWidget(
+    heroLayout->addWidget(
         subTitle);
 
-    cardLayout->addSpacing(
-        14);
+
+    heroLayout->addSpacing(
+        5);
 
 
-    // ========================================================================
+    // =========================================================================
+    // 汽车 + 充电桩主视觉
+    // =========================================================================
+    auto *visualRow =
+        new QHBoxLayout;
+
+    visualRow->setObjectName(
+        QStringLiteral(
+            "loginVisualLayout"));
+
+    visualRow->setContentsMargins(
+        0,
+        0,
+        0,
+        0);
+
+    visualRow->setSpacing(
+        2);
+
+
+    auto *carImage =
+        new QLabel(
+            heroCard);
+
+    carImage->setObjectName(
+        QStringLiteral(
+            "loginCarImage"));
+
+    carImage->setAlignment(
+        Qt::AlignLeft |
+        Qt::AlignBottom);
+
+    carImage->setSizePolicy(
+        QSizePolicy::Expanding,
+        QSizePolicy::Preferred);
+
+
+    auto *chargerImage =
+        new QLabel(
+            heroCard);
+
+    chargerImage->setObjectName(
+        QStringLiteral(
+            "loginChargerImage"));
+
+    chargerImage->setAlignment(
+        Qt::AlignRight |
+        Qt::AlignBottom);
+
+    chargerImage->setSizePolicy(
+        QSizePolicy::Preferred,
+        QSizePolicy::Preferred);
+
+
+    visualRow->addWidget(
+        carImage,
+        1);
+
+    visualRow->addWidget(
+        chargerImage);
+
+
+    heroLayout->addLayout(
+        visualRow);
+
+
+    // -------------------------------------------------------------------------
+    // 底部荧光绿视觉线
+    // -------------------------------------------------------------------------
+    auto *accentLine =
+        new QFrame(
+            heroCard);
+
+    accentLine->setObjectName(
+        QStringLiteral(
+            "loginHeroAccent"));
+
+    accentLine->setFixedHeight(
+        5);
+
+
+    heroLayout->addWidget(
+        accentLine);
+
+
+    contentLayout->addWidget(
+        heroCard);
+
+
+    // =========================================================================
+    // 登录主卡片
+    // =========================================================================
+    auto *card =
+        new QFrame(
+            content);
+
+    card->setObjectName(
+        QStringLiteral(
+            "loginCard"));
+
+    card->setAttribute(
+        Qt::WA_StyledBackground,
+        true);
+
+    UiTheme::applyCardShadow(
+        card,
+        28,
+        7);
+
+
+    auto *cardLayout =
+        new QVBoxLayout(
+            card);
+
+    cardLayout->setObjectName(
+        QStringLiteral(
+            "loginCardLayout"));
+
+    cardLayout->setContentsMargins(
+        24,
+        22,
+        24,
+        24);
+
+    cardLayout->setSpacing(
+        10);
+
+
+    // =========================================================================
+    // 欢迎标题
+    // =========================================================================
+    auto *welcomeLabel =
+        new QLabel(
+            QStringLiteral(
+                "欢迎回来"),
+            card);
+
+    welcomeLabel->setObjectName(
+        QStringLiteral(
+            "loginWelcome"));
+
+
+    cardLayout->addWidget(
+        welcomeLabel);
+
+
+    // =========================================================================
     // 登录区域标题
-    // ========================================================================
+    // =========================================================================
     auto *sectionTitle =
         new QLabel(
             QStringLiteral(
@@ -132,13 +396,14 @@ LoginWindow::LoginWindow(
         QStringLiteral(
             "loginSectionTitle"));
 
+
     cardLayout->addWidget(
         sectionTitle);
 
 
-    // ========================================================================
+    // =========================================================================
     // 登录说明
-    // ========================================================================
+    // =========================================================================
     auto *tip =
         new QLabel(
             QStringLiteral(
@@ -153,18 +418,39 @@ LoginWindow::LoginWindow(
     tip->setWordWrap(
         true);
 
+
     cardLayout->addWidget(
         tip);
 
+
     cardLayout->addSpacing(
-        8);
+        5);
 
 
-    // ========================================================================
+    // =========================================================================
+    // 手机号标题
+    // =========================================================================
+    auto *phoneCaption =
+        new QLabel(
+            QStringLiteral(
+                "手机号码"),
+            card);
+
+    phoneCaption->setObjectName(
+        QStringLiteral(
+            "loginPhoneCaption"));
+
+
+    cardLayout->addWidget(
+        phoneCaption);
+
+
+    // =========================================================================
     // 手机号输入框
-    // ========================================================================
+    // =========================================================================
     m_phoneEdit =
-        new QLineEdit(card);
+        new QLineEdit(
+            card);
 
     m_phoneEdit->setObjectName(
         QStringLiteral(
@@ -181,9 +467,9 @@ LoginWindow::LoginWindow(
         Qt::AlignLeft |
         Qt::AlignVCenter);
 
-    // 只允许数字输入
     m_phoneEdit->setInputMethodHints(
         Qt::ImhDigitsOnly);
+
 
     // 输入阶段允许 1~11 位，
     // 提交时再进行严格校验
@@ -197,19 +483,30 @@ LoginWindow::LoginWindow(
     m_phoneEdit->setValidator(
         phoneValidator);
 
+
+    // 手机 SVG 图标
+    m_phoneEdit->addAction(
+        QIcon(
+            QStringLiteral(
+                ":/icons/phone.svg")),
+        QLineEdit::LeadingPosition);
+
+
     cardLayout->addWidget(
         m_phoneEdit);
 
+
     cardLayout->addSpacing(
-        4);
+        5);
 
 
-    // ========================================================================
+    // =========================================================================
     // 登录按钮
-    // ========================================================================
+    // =========================================================================
     m_loginBtn =
         new QPushButton(
-            QStringLiteral("登录"),
+            QStringLiteral(
+                "登录"),
             card);
 
     m_loginBtn->setObjectName(
@@ -219,16 +516,18 @@ LoginWindow::LoginWindow(
     m_loginBtn->setCursor(
         Qt::PointingHandCursor);
 
+
     cardLayout->addWidget(
         m_loginBtn);
 
 
-    // ========================================================================
+    // =========================================================================
     // 注册按钮
-    // ========================================================================
+    // =========================================================================
     m_registerBtn =
         new QPushButton(
-            QStringLiteral("注册"),
+            QStringLiteral(
+                "注册"),
             card);
 
     m_registerBtn->setObjectName(
@@ -238,21 +537,18 @@ LoginWindow::LoginWindow(
     m_registerBtn->setCursor(
         Qt::PointingHandCursor);
 
+
     cardLayout->addWidget(
         m_registerBtn);
 
-    cardLayout->addSpacing(
-        4);
 
-
-    // ========================================================================
+    // =========================================================================
     // 动态提示
-    // ========================================================================
+    // =========================================================================
     m_hint =
         new QLabel(
             QStringLiteral(
-                "已有账号直接登录，"
-                "新用户可使用当前手机号注册"),
+                "已有账号直接登录，新用户可使用当前手机号注册"),
             card);
 
     m_hint->setObjectName(
@@ -266,168 +562,29 @@ LoginWindow::LoginWindow(
     m_hint->setWordWrap(
         true);
 
+
     cardLayout->addWidget(
         m_hint);
 
 
-    // ========================================================================
-    // 功能说明卡片
-    // ========================================================================
-    auto *infoCard =
-        new QFrame(this);
-
-    infoCard->setObjectName(
-        QStringLiteral(
-            "loginInfoCard"));
-
-    UiTheme::applyCardShadow(
-        infoCard,
-        14,
-        3);
-
-    auto *infoLayout =
-        new QVBoxLayout(
-            infoCard);
-
-    infoLayout->setContentsMargins(
-        22,
-        18,
-        22,
-        18);
-
-    infoLayout->setSpacing(
-        12);
-
-
-    // ========================================================================
-    // 功能说明标题
-    // ========================================================================
-    auto *infoTitle =
-        new QLabel(
-            QStringLiteral(
-                "登录后可使用"),
-            infoCard);
-
-    infoTitle->setObjectName(
-        QStringLiteral(
-            "loginInfoTitle"));
-
-    infoLayout->addWidget(
-        infoTitle);
-
-
-    // ========================================================================
-    // 功能信息行生成函数
-    // ========================================================================
-    const auto addInfoRow =
-        [infoLayout, infoCard](
-            const QString &name,
-            const QString &description) {
-
-            auto *row =
-                new QHBoxLayout;
-
-            row->setSpacing(
-                12);
-
-
-            auto *nameLabel =
-                new QLabel(
-                    name,
-                    infoCard);
-
-            nameLabel->setObjectName(
-                QStringLiteral(
-                    "loginInfoKey"));
-
-            nameLabel->setMinimumWidth(
-                90);
-
-
-            auto *descriptionLabel =
-                new QLabel(
-                    description,
-                    infoCard);
-
-            descriptionLabel->setObjectName(
-                QStringLiteral(
-                    "loginInfoValue"));
-
-            descriptionLabel->setAlignment(
-                Qt::AlignRight |
-                Qt::AlignVCenter);
-
-            descriptionLabel->setWordWrap(
-                true);
-
-
-            row->addWidget(
-                nameLabel);
-
-            row->addStretch();
-
-            row->addWidget(
-                descriptionLabel,
-                1);
-
-
-            infoLayout->addLayout(
-                row);
-        };
-
-
-    addInfoRow(
-        QStringLiteral(
-            "附近充电站"),
-        QStringLiteral(
-            "定位后按距离查看可用站点"));
-
-
-    addInfoRow(
-        QStringLiteral(
-            "充电预约"),
-        QStringLiteral(
-            "查看桩状态并预约空闲电桩"));
-
-
-    addInfoRow(
-        QStringLiteral(
-            "订单与钱包"),
-        QStringLiteral(
-            "管理充电流程、支付与账户余额"));
-
-
-    // ========================================================================
-    // 页面总布局
-    // ========================================================================
-    auto *layout =
-        new QVBoxLayout(this);
-
-    layout->setContentsMargins(
-        22,
-        24,
-        22,
-        24);
-
-    layout->setSpacing(
-        14);
-
-    layout->addStretch(
-        1);
-
-    layout->addWidget(
+    contentLayout->addWidget(
         card);
 
-    layout->addWidget(
-        infoCard);
 
-    layout->addStretch(
+    contentLayout->addStretch(
         1);
 
 
-    // ========================================================================
+    scrollArea->setWidget(
+        content);
+
+    rootLayout->addWidget(
+        scrollArea);
+
+
+    // =========================================================================
     // 登录按钮事件
-    // ========================================================================
+    // =========================================================================
     connect(
         m_loginBtn,
         &QPushButton::clicked,
@@ -435,14 +592,22 @@ LoginWindow::LoginWindow(
         &LoginWindow::onLoginClicked);
 
 
-    // ========================================================================
+    // =========================================================================
     // 注册按钮事件
-    // ========================================================================
+    // =========================================================================
     connect(
         m_registerBtn,
         &QPushButton::clicked,
         this,
         &LoginWindow::onRegisterClicked);
+
+
+    // 回车登录
+    connect(
+        m_phoneEdit,
+        &QLineEdit::returnPressed,
+        m_loginBtn,
+        &QPushButton::click);
 
 
     applyResponsiveStyle();
@@ -467,15 +632,30 @@ void LoginWindow::resizeEvent(
 // ============================================================================
 void LoginWindow::applyResponsiveStyle()
 {
+    const int eyebrowFont =
+        scaledUi(
+            this,
+            10);
+
     const int brandFont =
         scaledUi(
             this,
-            27);
+            15);
+
+    const int heroFont =
+        scaledUi(
+            this,
+            29);
+
+    const int welcomeFont =
+        scaledUi(
+            this,
+            24);
 
     const int sectionFont =
         scaledUi(
             this,
-            17);
+            16);
 
     const int normalFont =
         scaledUi(
@@ -497,112 +677,195 @@ void LoginWindow::applyResponsiveStyle()
             this,
             15);
 
+    const int heroRadius =
+        scaledUi(
+            this,
+            26);
+
     const int cardRadius =
         scaledUi(
             this,
-            20);
+            24);
 
     const int controlRadius =
         scaledUi(
             this,
-            12);
+            15);
 
 
-    // ========================================================================
-    // 页面和文字基础样式
-    // ========================================================================
+    // =========================================================================
+    // 页面整体
+    // =========================================================================
     setStyleSheet(
         QStringLiteral(
 
+            // ================================================================
             // 页面
+            // ================================================================
             "QWidget#loginWindow{"
             "background:%1;"
             "color:%2;"
             "}"
 
-            // 品牌
+            "QWidget#loginContent{"
+            "background:%1;"
+            "}"
+
+            "QScrollArea#loginScrollArea{"
+            "background:%1;"
+            "border:none;"
+            "}"
+
+            // ================================================================
+            // Hero
+            // ================================================================
+            "QFrame#loginHeroCard{"
+            "background:%3;"
+            "border:none;"
+            "border-radius:%4px;"
+            "}"
+
+            "QLabel#loginEyebrow{"
+            "background:%5;"
+            "color:#18301F;"
+            "border:none;"
+            "border-radius:%6px;"
+            "font-size:%7px;"
+            "font-weight:800;"
+            "padding:4px 9px;"
+            "}"
+
             "QLabel#loginBrand{"
             "background:transparent;"
-            "color:%2;"
-            "font-size:%3px;"
+            "color:#C9D0D6;"
+            "font-size:%8px;"
+            "font-weight:650;"
+            "}"
+
+            "QLabel#loginHeroTitle{"
+            "background:transparent;"
+            "color:#FFFFFF;"
+            "font-size:%9px;"
             "font-weight:800;"
             "}"
 
-            // 品牌副标题
             "QLabel#loginSubTitle{"
             "background:transparent;"
-            "color:%4;"
-            "font-size:%5px;"
-            "font-weight:500;"
-            "}"
-
-            // 登录区域标题
-            "QLabel#loginSectionTitle{"
-            "background:transparent;"
-            "color:%2;"
-            "font-size:%6px;"
-            "font-weight:700;"
-            "}"
-
-            // 登录说明 / 动态提示
-            "QLabel#loginTip,"
-            "QLabel#loginHint{"
-            "background:transparent;"
-            "color:%4;"
-            "font-size:%7px;"
-            "}"
-
-            // 功能说明标题
-            "QLabel#loginInfoTitle{"
-            "background:transparent;"
-            "color:%2;"
-            "font-size:%5px;"
-            "font-weight:700;"
-            "}"
-
-            // 功能名称
-            "QLabel#loginInfoKey{"
-            "background:transparent;"
-            "color:%2;"
-            "font-size:%7px;"
+            "color:#8E99A5;"
+            "font-size:%10px;"
             "font-weight:600;"
             "}"
 
-            // 功能描述
-            "QLabel#loginInfoValue{"
+            "QLabel#loginCarImage,"
+            "QLabel#loginChargerImage{"
             "background:transparent;"
-            "color:%4;"
-            "font-size:%8px;"
+            "border:none;"
+            "}"
+
+            "QFrame#loginHeroAccent{"
+            "background:%5;"
+            "border:none;"
+            "border-radius:2px;"
+            "}"
+
+            // ================================================================
+            // 登录卡
+            // ================================================================
+            "QFrame#loginCard{"
+            "background:#FFFFFF;"
+            "border:1px solid %11;"
+            "border-radius:%12px;"
+            "}"
+
+            "QLabel#loginWelcome{"
+            "background:transparent;"
+            "color:%2;"
+            "font-size:%13px;"
+            "font-weight:800;"
+            "}"
+
+            "QLabel#loginSectionTitle{"
+            "background:transparent;"
+            "color:%2;"
+            "font-size:%14px;"
+            "font-weight:700;"
+            "}"
+
+            "QLabel#loginTip{"
+            "background:transparent;"
+            "color:%15;"
+            "font-size:%16px;"
+            "}"
+
+            "QLabel#loginPhoneCaption{"
+            "background:transparent;"
+            "color:%2;"
+            "font-size:%16px;"
+            "font-weight:650;"
+            "}"
+
+            "QLabel#loginHint{"
+            "background:transparent;"
+            "color:%15;"
+            "font-size:%17px;"
+            "padding-top:3px;"
             "}")
 
         .arg(
-            UiTheme::pageBackground())   // %1
+            UiTheme::pageBackground())     // %1
 
         .arg(
-            UiTheme::textPrimary())      // %2
+            UiTheme::textPrimary())        // %2
 
         .arg(
-            brandFont)                   // %3
+            UiTheme::dark())               // %3
 
         .arg(
-            UiTheme::textSecondary())    // %4
+            heroRadius)                    // %4
 
         .arg(
-            normalFont)                  // %5
+            UiTheme::lime())               // %5
 
         .arg(
-            sectionFont)                 // %6
+            scaledUi(this, 9))             // %6
 
         .arg(
-            smallFont)                   // %7
+            eyebrowFont)                   // %7
 
         .arg(
-            tinyFont));                  // %8
+            brandFont)                     // %8
+
+        .arg(
+            heroFont)                      // %9
+
+        .arg(
+            tinyFont)                      // %10
+
+        .arg(
+            UiTheme::border())             // %11
+
+        .arg(
+            cardRadius)                    // %12
+
+        .arg(
+            welcomeFont)                   // %13
+
+        .arg(
+            sectionFont)                   // %14
+
+        .arg(
+            UiTheme::textSecondary())      // %15
+
+        .arg(
+            smallFont)                     // %16
+
+        .arg(
+            tinyFont));                    // %17
 
 
-    // ========================================================================
+    // =========================================================================
     // 手机号输入框
-    // ========================================================================
+    // =========================================================================
     if (m_phoneEdit) {
 
         m_phoneEdit->setStyleSheet(
@@ -610,16 +873,17 @@ void LoginWindow::applyResponsiveStyle()
                 controlFont,
                 controlRadius));
 
+
         m_phoneEdit->setMinimumHeight(
             scaledUi(
                 this,
-                46));
+                50));
     }
 
 
-    // ========================================================================
+    // =========================================================================
     // 登录按钮
-    // ========================================================================
+    // =========================================================================
     if (m_loginBtn) {
 
         m_loginBtn->setStyleSheet(
@@ -627,16 +891,17 @@ void LoginWindow::applyResponsiveStyle()
                 controlFont,
                 controlRadius));
 
+
         m_loginBtn->setMinimumHeight(
             scaledUi(
                 this,
-                46));
+                50));
     }
 
 
-    // ========================================================================
+    // =========================================================================
     // 注册按钮
-    // ========================================================================
+    // =========================================================================
     if (m_registerBtn) {
 
         m_registerBtn->setStyleSheet(
@@ -644,109 +909,155 @@ void LoginWindow::applyResponsiveStyle()
                 controlFont,
                 controlRadius));
 
+
         m_registerBtn->setMinimumHeight(
             scaledUi(
                 this,
-                46));
+                50));
     }
 
 
-    // ========================================================================
-    // 登录主卡片
-    // ========================================================================
-    if (auto *card =
-            findChild<QFrame *>(
+    // =========================================================================
+    // Hero 布局
+    // =========================================================================
+    if (auto *heroLayout =
+            findChild<QVBoxLayout *>(
                 QStringLiteral(
-                    "loginCard"))) {
+                    "loginHeroLayout"))) {
 
-        card->setStyleSheet(
-            QStringLiteral(
-                "QFrame#loginCard{"
-                "background:%1;"
-                "border:1px solid %2;"
-                "border-radius:%3px;"
-                "}")
-                .arg(
-                    UiTheme::surface())
-                .arg(
-                    UiTheme::border())
-                .arg(
-                    cardRadius));
-
-
-        if (auto *cardLayout =
-                qobject_cast<QVBoxLayout *>(
-                    card->layout())) {
-
-            cardLayout->setContentsMargins(
-                scaledUi(this, 30),
-                scaledUi(this, 30),
-                scaledUi(this, 30),
-                scaledUi(this, 28));
-
-            cardLayout->setSpacing(
-                scaledUi(
-                    this,
-                    12));
-        }
-    }
-
-
-    // ========================================================================
-    // 功能说明卡片
-    // ========================================================================
-    if (auto *infoCard =
-            findChild<QFrame *>(
-                QStringLiteral(
-                    "loginInfoCard"))) {
-
-        infoCard->setStyleSheet(
-            QStringLiteral(
-                "QFrame#loginInfoCard{"
-                "background:%1;"
-                "border:1px solid %2;"
-                "border-radius:%3px;"
-                "}")
-                .arg(
-                    UiTheme::surfaceSoft())
-                .arg(
-                    UiTheme::border())
-                .arg(
-                    cardRadius));
-
-
-        if (auto *infoLayout =
-                qobject_cast<QVBoxLayout *>(
-                    infoCard->layout())) {
-
-            infoLayout->setContentsMargins(
-                scaledUi(this, 22),
-                scaledUi(this, 18),
-                scaledUi(this, 22),
-                scaledUi(this, 18));
-
-            infoLayout->setSpacing(
-                scaledUi(
-                    this,
-                    12));
-        }
-    }
-
-
-    // ========================================================================
-    // 页面外围间距
-    // ========================================================================
-    if (auto *outerLayout =
-            qobject_cast<QVBoxLayout *>(
-                layout())) {
-
-        outerLayout->setContentsMargins(
-            scaledUi(this, 22),
+        heroLayout->setContentsMargins(
             scaledUi(this, 24),
             scaledUi(this, 22),
+            scaledUi(this, 24),
+            scaledUi(this, 18));
+
+        heroLayout->setSpacing(
+            scaledUi(
+                this,
+                6));
+    }
+
+
+    // =========================================================================
+    // 汽车主视觉
+    // =========================================================================
+    if (auto *carLabel =
+            findChild<QLabel *>(
+                QStringLiteral(
+                    "loginCarImage"))) {
+
+        const int carWidth =
+            scaledUi(
+                this,
+                255);
+
+        const int carHeight =
+            scaledUi(
+                this,
+                118);
+
+
+        carLabel->setMinimumHeight(
+            carHeight);
+
+        carLabel->setMaximumHeight(
+            carHeight);
+
+
+        const QPixmap source(
+            QStringLiteral(
+                ":/images/car-main.png"));
+
+
+        if (!source.isNull()) {
+
+            carLabel->setPixmap(
+                source.scaled(
+                    carWidth,
+                    carHeight,
+                    Qt::KeepAspectRatio,
+                    Qt::SmoothTransformation));
+        }
+    }
+
+
+    // =========================================================================
+    // 充电桩主视觉
+    // =========================================================================
+    if (auto *chargerLabel =
+            findChild<QLabel *>(
+                QStringLiteral(
+                    "loginChargerImage"))) {
+
+        const int chargerWidth =
+            scaledUi(
+                this,
+                68);
+
+        const int chargerHeight =
+            scaledUi(
+                this,
+                118);
+
+
+        chargerLabel->setFixedSize(
+            chargerWidth,
+            chargerHeight);
+
+
+        const QPixmap source(
+            QStringLiteral(
+                ":/images/charger-main.png"));
+
+
+        if (!source.isNull()) {
+
+            chargerLabel->setPixmap(
+                source.scaled(
+                    chargerWidth,
+                    chargerHeight,
+                    Qt::KeepAspectRatio,
+                    Qt::SmoothTransformation));
+        }
+    }
+
+
+    // =========================================================================
+    // 登录卡内部间距
+    // =========================================================================
+    if (auto *cardLayout =
+            findChild<QVBoxLayout *>(
+                QStringLiteral(
+                    "loginCardLayout"))) {
+
+        cardLayout->setContentsMargins(
+            scaledUi(this, 24),
+            scaledUi(this, 22),
+            scaledUi(this, 24),
             scaledUi(this, 24));
 
-        outerLayout->setSpacing(
+        cardLayout->setSpacing(
+            scaledUi(
+                this,
+                10));
+    }
+
+
+    // =========================================================================
+    // 页面外围间距
+    // =========================================================================
+    if (auto *contentLayout =
+            findChild<QVBoxLayout *>(
+                QStringLiteral(
+                    "loginContentLayout"))) {
+
+        contentLayout->setContentsMargins(
+            scaledUi(this, 18),
+            scaledUi(this, 18),
+            scaledUi(this, 18),
+            scaledUi(this, 18));
+
+        contentLayout->setSpacing(
             scaledUi(
                 this,
                 14));
@@ -790,7 +1101,7 @@ void LoginWindow::onLoginClicked()
 
     m_hint->setStyleSheet(
         QStringLiteral(
-            "color:#7A837E;"));
+            "color:#7E8893;"));
 
 
     m_loginBtn->setEnabled(
@@ -867,7 +1178,7 @@ void LoginWindow::onLoginClicked()
 
             m_hint->setStyleSheet(
                 QStringLiteral(
-                    "color:#D79A4B;"));
+                    "color:#E6AE46;"));
 
             return;
         }
@@ -915,7 +1226,7 @@ void LoginWindow::onRegisterClicked()
 
         m_hint->setStyleSheet(
             QStringLiteral(
-                "color:#7A837E;"));
+                "color:#7E8893;"));
 
         return;
     }
@@ -934,7 +1245,7 @@ void LoginWindow::onRegisterClicked()
 
     m_hint->setStyleSheet(
         QStringLiteral(
-            "color:#7A837E;"));
+            "color:#7E8893;"));
 
 
     const QJsonObject resp =
@@ -999,7 +1310,7 @@ QJsonObject LoginWindow::sendLoginRequest(
 
         m_hint->setStyleSheet(
             QStringLiteral(
-                "color:#C96C66;"));
+                "color:#E26868;"));
 
 
         AppMessageBox::warning(
