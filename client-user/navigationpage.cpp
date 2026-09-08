@@ -1,68 +1,47 @@
 #include "navigationpage.h"
 
+#include "amapwidget.h"
+#include "routeplanner.h"
+
 #include "uitheme.h"
 #include "windowhelper.h"
 
 #include <QButtonGroup>
+#include <QDateTime>
 #include <QFrame>
 #include <QHBoxLayout>
-#include <QJsonArray>
-#include <QJsonDocument>
-#include <QJsonObject>
-#include <QJsonParseError>
-#include <QJsonValue>
 #include <QLabel>
-#include <QNetworkAccessManager>
-#include <QNetworkReply>
-#include <QNetworkRequest>
 #include <QProgressBar>
 #include <QPushButton>
-#include <QRegularExpression>
 #include <QResizeEvent>
 #include <QScrollArea>
 #include <QSizePolicy>
+#include <QStackedLayout>
 #include <QTimer>
-#include <QUrl>
-#include <QUrlQuery>
 #include <QVBoxLayout>
 
 #include <algorithm>
 #include <cmath>
 
 
-namespace {
+namespace
+{
 
-// ============================================================================
-// 坐标检查
-// ============================================================================
 bool validCoordinate(
     double lat,
     double lng)
 {
-    return
-        std::isfinite(lat) &&
-        std::isfinite(lng) &&
-        lat >= -90.0 &&
-        lat <= 90.0 &&
-        lng >= -180.0 &&
-        lng <= 180.0;
+    return std::isfinite(lat)
+        && std::isfinite(lng)
+        && lat >= -90.0
+        && lat <= 90.0
+        && lng >= -180.0
+        && lng <= 180.0;
 }
 
-
-// ============================================================================
-// NO.11：步行路线最大距离保护
-//
-// 高德步行路径规划适用于 100 km 以内路线。
-// 超过该范围时不再发送 walking 请求，
-// 避免直接向用户显示 OVER_DIRECTION_RANGE。
-// ============================================================================
 constexpr double kMaxWalkingDistanceKm =
     100.0;
 
-
-// ============================================================================
-// 根据经纬度计算两点直线距离（Haversine）
-// ============================================================================
 double straightLineDistanceKm(
     double fromLat,
     double fromLng,
@@ -72,422 +51,43 @@ double straightLineDistanceKm(
     constexpr double kEarthRadiusKm =
         6371.0088;
 
-
     const auto toRadians =
         [](double degrees) {
-
-            return
-                degrees *
+            return degrees *
                 3.14159265358979323846 /
                 180.0;
         };
 
-
     const double lat1 =
-        toRadians(
-            fromLat);
-
+        toRadians(fromLat);
     const double lat2 =
-        toRadians(
-            toLat);
-
+        toRadians(toLat);
     const double deltaLat =
-        toRadians(
-            toLat -
-            fromLat);
-
+        toRadians(toLat - fromLat);
     const double deltaLng =
-        toRadians(
-            toLng -
-            fromLng);
-
+        toRadians(toLng - fromLng);
 
     const double sinLat =
-        std::sin(
-            deltaLat /
-            2.0);
-
+        std::sin(deltaLat / 2.0);
     const double sinLng =
-        std::sin(
-            deltaLng /
-            2.0);
-
+        std::sin(deltaLng / 2.0);
 
     const double a =
-        sinLat *
-            sinLat +
+        sinLat * sinLat +
         std::cos(lat1) *
             std::cos(lat2) *
-            sinLng *
-            sinLng;
-
+            sinLng * sinLng;
 
     const double clampedA =
-        std::clamp(
-            a,
-            0.0,
-            1.0);
+        std::clamp(a, 0.0, 1.0);
 
-
-    const double c =
+    return kEarthRadiusKm *
         2.0 *
         std::atan2(
-            std::sqrt(
-                clampedA),
-            std::sqrt(
-                1.0 -
-                clampedA));
-
-
-    return
-        kEarthRadiusKm *
-        c;
+            std::sqrt(clampedA),
+            std::sqrt(1.0 - clampedA));
 }
 
-
-// ============================================================================
-// 高德坐标格式：经度,纬度
-// ============================================================================
-QString coordinateText(
-    double lng,
-    double lat)
-{
-    return QStringLiteral("%1,%2")
-        .arg(
-            lng,
-            0,
-            'f',
-            6)
-        .arg(
-            lat,
-            0,
-            'f',
-            6);
-}
-
-
-// ============================================================================
-// JSON 数字兼容
-//
-// 高德部分字段是字符串：
-// "distance":"1234"
-//
-// 某些情况下也可能直接返回数字。
-// ============================================================================
-double jsonDouble(
-    const QJsonValue &value,
-    double fallback = 0.0)
-{
-    if (value.isDouble()) {
-        return value.toDouble();
-    }
-
-
-    if (value.isString()) {
-
-        bool ok = false;
-
-        const double result =
-            value.toString().toDouble(
-                &ok);
-
-        if (ok) {
-            return result;
-        }
-    }
-
-
-    return fallback;
-}
-
-
-qint64 jsonInt64(
-    const QJsonValue &value,
-    qint64 fallback = 0)
-{
-    if (value.isDouble()) {
-
-        return static_cast<qint64>(
-            value.toDouble());
-    }
-
-
-    if (value.isString()) {
-
-        bool ok = false;
-
-        const qint64 result =
-            value.toString().toLongLong(
-                &ok);
-
-        if (ok) {
-            return result;
-        }
-    }
-
-
-    return fallback;
-}
-
-
-// ============================================================================
-// 将可能是 Array / Object 的字段统一转成 Array
-// ============================================================================
-QJsonArray jsonArrayValue(
-    const QJsonValue &value)
-{
-    if (value.isArray()) {
-        return value.toArray();
-    }
-
-
-    QJsonArray result;
-
-    if (value.isObject()) {
-        result.append(
-            value.toObject());
-    }
-
-
-    return result;
-}
-
-
-// ============================================================================
-// 从单个 polyline 字符串提取坐标
-//
-// 不死依赖 ";"，直接使用正则提取：
-// 113.123456,22.123456
-// ============================================================================
-QStringList extractCoordinates(
-    const QString &polyline)
-{
-    QStringList result;
-
-
-    const QRegularExpression regex(
-        QStringLiteral(
-            "(-?\\d+(?:\\.\\d+)?),"
-            "(-?\\d+(?:\\.\\d+)?)"));
-
-
-    auto iterator =
-        regex.globalMatch(
-            polyline);
-
-
-    QString lastPoint;
-
-
-    while (iterator.hasNext()) {
-
-        const QRegularExpressionMatch match =
-            iterator.next();
-
-
-        bool lngOk = false;
-        bool latOk = false;
-
-
-        const double lng =
-            match.captured(1)
-                .toDouble(
-                    &lngOk);
-
-
-        const double lat =
-            match.captured(2)
-                .toDouble(
-                    &latOk);
-
-
-        if (!lngOk ||
-            !latOk ||
-            !validCoordinate(
-                lat,
-                lng)) {
-
-            continue;
-        }
-
-
-        const QString point =
-            coordinateText(
-                lng,
-                lat);
-
-
-        if (point == lastPoint) {
-            continue;
-        }
-
-
-        result.append(
-            point);
-
-        lastPoint =
-            point;
-    }
-
-
-    return result;
-}
-
-
-// ============================================================================
-// 从高德 paths.steps 中提取完整路线
-// ============================================================================
-QStringList extractRoutePoints(
-    const QJsonObject &path)
-{
-    QStringList result;
-
-
-    const QString pathPolyline =
-        path.value(
-                QStringLiteral(
-                    "polyline"))
-            .toString();
-
-
-    if (!pathPolyline.isEmpty()) {
-
-        result =
-            extractCoordinates(
-                pathPolyline);
-    }
-
-
-    const QJsonArray steps =
-        jsonArrayValue(
-            path.value(
-                QStringLiteral(
-                    "steps")));
-
-
-    QString lastPoint =
-        result.isEmpty()
-            ? QString()
-            : result.last();
-
-
-    for (const QJsonValue &stepValue :
-         steps) {
-
-        const QJsonObject step =
-            stepValue.toObject();
-
-
-        const QString polyline =
-            step.value(
-                    QStringLiteral(
-                        "polyline"))
-                .toString();
-
-
-        if (polyline.isEmpty()) {
-            continue;
-        }
-
-
-        const QStringList points =
-            extractCoordinates(
-                polyline);
-
-
-        for (const QString &point :
-             points) {
-
-            if (point ==
-                lastPoint) {
-
-                continue;
-            }
-
-
-            result.append(
-                point);
-
-            lastPoint =
-                point;
-        }
-    }
-
-
-    return result;
-}
-
-
-// ============================================================================
-// Static Map URL 不能无限长
-//
-// 路线点太多时均匀采样。
-// 起点和终点会在调用处再次确保保留。
-// ============================================================================
-QStringList simplifyPoints(
-    const QStringList &points,
-    int maxPoints = 48)
-{
-    if (points.size() <=
-        maxPoints) {
-
-        return points;
-    }
-
-
-    QStringList result;
-
-    result.reserve(
-        maxPoints);
-
-
-    const int lastIndex =
-        points.size() - 1;
-
-
-    for (int i = 0;
-         i < maxPoints;
-         ++i) {
-
-        const double ratio =
-            static_cast<double>(i) /
-            static_cast<double>(
-                maxPoints - 1);
-
-
-        const int index =
-            static_cast<int>(
-                std::round(
-                    ratio *
-                    lastIndex));
-
-
-        if (result.isEmpty() ||
-            result.last() !=
-                points.at(index)) {
-
-            result.append(
-                points.at(index));
-        }
-    }
-
-
-    if (result.isEmpty() ||
-        result.last() !=
-            points.last()) {
-
-        result.append(
-            points.last());
-    }
-
-
-    return result;
-}
-
-
-// ============================================================================
-// 时长格式化
-// ============================================================================
 QString formatDuration(
     qint64 seconds)
 {
@@ -495,94 +95,89 @@ QString formatDuration(
         return QStringLiteral("--");
     }
 
-
     const qint64 hours =
         seconds / 3600;
-
-
     qint64 minutes =
-        (seconds % 3600) /
-        60;
+        (seconds % 3600) / 60;
 
-
-    if (hours == 0 &&
-        minutes == 0) {
-
+    if (hours == 0 && minutes == 0) {
         minutes = 1;
     }
 
-
     if (hours > 0) {
-
         return QStringLiteral(
                    "%1小时%2分钟")
             .arg(hours)
             .arg(minutes);
     }
 
-
     return QStringLiteral(
                "%1分钟")
         .arg(minutes);
 }
 
-
-// ============================================================================
-// 尝试从 step 的 cost 中累计耗时
-// ============================================================================
-qint64 stepDuration(
-    const QJsonObject &path)
+QString formatRouteDistance(
+    double meters)
 {
-    const QJsonArray steps =
-        jsonArrayValue(
-            path.value(
-                QStringLiteral(
-                    "steps")));
-
-
-    qint64 total = 0;
-
-
-    for (const QJsonValue &stepValue :
-         steps) {
-
-        const QJsonObject step =
-            stepValue.toObject();
-
-
-        const QJsonObject cost =
-            step.value(
-                    QStringLiteral(
-                        "cost"))
-                .toObject();
-
-
-        qint64 duration =
-            jsonInt64(
-                cost.value(
-                    QStringLiteral(
-                        "duration")));
-
-
-        if (duration <= 0) {
-
-            duration =
-                jsonInt64(
-                    step.value(
-                        QStringLiteral(
-                            "duration")));
-        }
-
-
-        if (duration > 0) {
-
-            total +=
-                duration;
-        }
+    if (meters <= 0.0) {
+        return QStringLiteral("--");
     }
 
+    if (meters < 1000.0) {
+        return QStringLiteral("%1 米")
+            .arg(meters, 0, 'f', 0);
+    }
 
-    return total;
+    return QStringLiteral("%1 km")
+        .arg(meters / 1000.0, 0, 'f', 1);
+}
+
+QString actionIcon(
+    const QString &action)
+{
+    if (action.contains(
+            QStringLiteral("掉头")) ||
+        action.contains(
+            QStringLiteral("调头"))) {
+
+        return QStringLiteral("↶");
+    }
+
+    if (action.contains(
+            QStringLiteral("左前"))) {
+
+        return QStringLiteral("↰");
+    }
+
+    if (action.contains(
+            QStringLiteral("右前"))) {
+
+        return QStringLiteral("↱");
+    }
+
+    if (action.contains(
+            QStringLiteral("左转")) ||
+        action == QStringLiteral("左")) {
+
+        return QStringLiteral("←");
+    }
+
+    if (action.contains(
+            QStringLiteral("右转")) ||
+        action == QStringLiteral("右")) {
+
+        return QStringLiteral("→");
+    }
+
+    if (action.contains(
+            QStringLiteral("直行")) ||
+        action.contains(
+            QStringLiteral("向前"))) {
+
+        return QStringLiteral("↑");
+    }
+
+    return QString();
 }
 
 } // namespace
@@ -594,13 +189,275 @@ qint64 stepDuration(
 NavigationPage::NavigationPage(
     QWidget *parent)
     : QWidget(parent)
-    , m_networkManager(
-          new QNetworkAccessManager(
-              this))
+    , m_routePlanner(
+          new RoutePlanner(this))
 {
     setObjectName(
         QStringLiteral(
             "navigationPage"));
+
+    m_simulationTimer = new QTimer(this);
+    m_simulationTimer->setInterval(3000);
+
+    connect(
+        m_simulationTimer,
+        &QTimer::timeout,
+        this,
+        [this]() {
+            if (m_currentStepIndex + 1 >=
+                m_routeSteps.size()) {
+                m_simulationTimer->stop();
+                m_simulationLabel->setText(
+                    QStringLiteral("模拟导航已完成"));
+                m_continueButton->setText(
+                    QStringLiteral("重新模拟"));
+                return;
+            }
+
+            ++m_currentStepIndex;
+            showSimulationStep();
+        });
+
+
+    connect(
+        m_routePlanner,
+        &RoutePlanner::routeReady,
+        this,
+        [this](
+            quint64,
+            const RouteResult &result) {
+
+            const QString modeText =
+                m_currentRequest.mode ==
+                        QStringLiteral("walking")
+                    ? QStringLiteral("步行")
+                    : QStringLiteral("驾车");
+
+            QString summary =
+                modeText;
+
+            if (result.distanceMeters > 0.0) {
+                summary +=
+                    QStringLiteral(" · %1 km")
+                        .arg(
+                            result.distanceMeters / 1000.0,
+                            0,
+                            'f',
+                            1);
+            }
+
+            if (result.durationSeconds > 0) {
+                summary +=
+                    QStringLiteral(" · 预计 %1")
+                        .arg(
+                            formatDuration(
+                                result.durationSeconds));
+            }
+
+            m_routeSummaryLabel->setText(
+                summary);
+            m_routeDistanceValue->setText(
+                formatRouteDistance(
+                    result.distanceMeters));
+            m_routeDurationValue->setText(
+                formatDuration(
+                    result.durationSeconds));
+            m_routeEtaValue->setText(
+                result.durationSeconds > 0
+                    ? QDateTime::currentDateTime()
+                          .addSecs(result.durationSeconds)
+                          .toString(QStringLiteral("HH:mm"))
+                    : QStringLiteral("--"));
+            m_continueButton->setEnabled(true);
+            m_routeSteps = result.steps;
+            m_currentStepIndex =
+                m_routeSteps.isEmpty() ? -1 : 0;
+            m_simulationLabel->setText(
+                QStringLiteral("模拟导航未开始"));
+            m_continueButton->setText(
+                QStringLiteral("继续导航"));
+            m_loadProgress->hide();
+            m_loadStatusLabel->setText(
+                QStringLiteral("路线规划完成"));
+
+            if (result.steps.isEmpty()) {
+                m_stepActionLabel->setText(
+                    QStringLiteral("—"));
+                m_stepInstructionLabel->setText(
+                    QStringLiteral(
+                        "暂无可用的路线步骤"));
+                m_stepDetailLabel->setText(
+                    QStringLiteral(
+                        "高德未返回分步导航信息"));
+            } else {
+                const RouteStep &step =
+                    result.steps.first();
+                const QString icon =
+                    actionIcon(step.action);
+
+                m_stepActionLabel->setText(
+                    icon.isEmpty()
+                        ? QStringLiteral("—")
+                        : icon);
+                m_stepInstructionLabel->setText(
+                    step.instruction.isEmpty()
+                        ? QStringLiteral(
+                              "该步骤未提供文字指引")
+                        : step.instruction);
+
+                QStringList details;
+
+                if (!step.road.isEmpty()) {
+                    details.append(step.road);
+                }
+
+                if (step.distanceMeters > 0.0) {
+                    details.append(
+                        QStringLiteral("%1 米")
+                            .arg(
+                                step.distanceMeters,
+                                0,
+                                'f',
+                                0));
+                }
+
+                m_stepDetailLabel->setText(
+                    details.isEmpty()
+                        ? QStringLiteral(
+                              "未提供道路与距离信息")
+                        : details.join(
+                              QStringLiteral(" · ")));
+
+            }
+
+            m_mapWidget->setRoute(
+                result.points);
+        });
+
+
+    connect(
+        m_routePlanner,
+        &RoutePlanner::routeError,
+        this,
+        [this](
+            quint64,
+            const QString &message) {
+
+            m_loadProgress->hide();
+            m_routeDistanceValue->setText(
+                QStringLiteral("--"));
+            m_routeDurationValue->setText(
+                QStringLiteral("--"));
+            m_routeEtaValue->setText(
+                QStringLiteral("--"));
+            m_continueButton->setEnabled(false);
+            m_routeSteps.clear();
+            m_currentStepIndex = -1;
+            m_simulationLabel->setText(
+                QStringLiteral("模拟导航不可用"));
+            m_stepActionLabel->setText(
+                QStringLiteral("—"));
+            m_stepInstructionLabel->setText(
+                QStringLiteral(
+                    "暂无可用的路线步骤"));
+            m_stepDetailLabel->setText(
+                QStringLiteral(
+                    "路线规划成功后显示第一条指引"));
+            setMapPlaceholder(
+                QString(),
+                QString());
+
+            if (message ==
+                QStringLiteral(
+                    "起点或终点坐标无效")) {
+
+                m_loadStatusLabel->setText(
+                    QStringLiteral("坐标无效"));
+                m_routeSummaryLabel->setText(
+                    QStringLiteral(
+                        "请重新定位后再进行导航"));
+                return;
+            }
+
+            if (message ==
+                QStringLiteral(
+                    "未配置高德 Web 服务 API Key")) {
+
+                m_loadStatusLabel->setText(
+                    QStringLiteral("缺少地图 Key"));
+                m_routeSummaryLabel->setText(message);
+                return;
+            }
+
+            if (message ==
+                QStringLiteral("路线请求超时")) {
+
+                m_loadStatusLabel->setText(
+                    QStringLiteral("路线规划超时"));
+                m_routeSummaryLabel->setText(message);
+                return;
+            }
+
+            if (message ==
+                QStringLiteral(
+                    "高德返回的数据不是有效 JSON")) {
+
+                m_loadStatusLabel->setText(
+                    QStringLiteral("路线数据解析失败"));
+                m_routeSummaryLabel->setText(message);
+                return;
+            }
+
+            if (message ==
+                    QStringLiteral("OVER_DIRECTION_RANGE") &&
+                m_currentRequest.mode ==
+                    QStringLiteral("walking")) {
+
+                const double straightKm =
+                    straightLineDistanceKm(
+                        m_currentRequest.fromLat,
+                        m_currentRequest.fromLng,
+                        m_currentRequest.toLat,
+                        m_currentRequest.toLng);
+
+                m_loadStatusLabel->setText(
+                    QStringLiteral("距离过远"));
+                m_routeSummaryLabel->setText(
+                    QStringLiteral(
+                        "当前直线距离约 %1 km，"
+                        "无法规划步行路线，请选择驾车")
+                        .arg(
+                            straightKm,
+                            0,
+                            'f',
+                            1));
+                return;
+            }
+
+            if (message ==
+                QStringLiteral(
+                    "高德没有返回可用路线方案")) {
+
+                m_loadStatusLabel->setText(
+                    QStringLiteral("未找到路线"));
+                m_routeSummaryLabel->setText(message);
+                return;
+            }
+
+            if (message ==
+                QStringLiteral(
+                    "高德未返回 polyline 路线点")) {
+
+                m_loadStatusLabel->setText(
+                    QStringLiteral("路线轨迹不可用"));
+                m_routeSummaryLabel->setText(message);
+                return;
+            }
+
+            m_loadStatusLabel->setText(
+                QStringLiteral("路线规划失败"));
+            m_routeSummaryLabel->setText(message);
+        });
 
 
     // ========================================================================
@@ -656,13 +513,13 @@ NavigationPage::NavigationPage(
             "navigationMainLayout"));
 
     mainLayout->setContentsMargins(
-        18,
-        18,
-        18,
-        18);
+        0,
+        0,
+        0,
+        0);
 
     mainLayout->setSpacing(
-        14);
+        0);
 
 
     // ========================================================================
@@ -692,12 +549,13 @@ NavigationPage::NavigationPage(
     auto *pageTitle =
         new QLabel(
             QStringLiteral(
-                "一键导航"),
+                "导航到充电站"),
             content);
 
     pageTitle->setObjectName(
         QStringLiteral(
             "navigationTitle"));
+    pageTitle->hide();
 
 
     headerLayout->addWidget(
@@ -712,11 +570,15 @@ NavigationPage::NavigationPage(
         backButton,
         &QPushButton::clicked,
         this,
-        &NavigationPage::back);
+        [this]() {
+            stopAndResetSimulation();
+            emit back();
+        });
 
 
     mainLayout->addLayout(
         headerLayout);
+    headerLayout->setContentsMargins(14, 10, 14, 4);
 
 
     // ========================================================================
@@ -780,9 +642,9 @@ NavigationPage::NavigationPage(
     stationLayout->addWidget(
         m_stationLabel);
 
-
-    mainLayout->addWidget(
-        stationCard);
+    // 参考导航 App：目的地信息由地图上的悬浮路线卡承载，
+    // 不再在地图前堆叠独立白卡。
+    stationCard->hide();
 
 
     // ========================================================================
@@ -1114,6 +976,8 @@ NavigationPage::NavigationPage(
     routeLayout->addWidget(
         distanceRow);
 
+    routeCard->hide();
+
 
     mainLayout->addWidget(
         routeCard);
@@ -1251,6 +1115,89 @@ NavigationPage::NavigationPage(
 
 
     // ========================================================================
+    // First real route step
+    // ========================================================================
+    auto *stepCard =
+        new QFrame(content);
+
+    stepCard->setObjectName(
+        QStringLiteral(
+            "navigationStepCard"));
+
+
+    auto *stepLayout =
+        new QHBoxLayout(stepCard);
+
+    stepLayout->setContentsMargins(
+        14,
+        12,
+        14,
+        12);
+
+    stepLayout->setSpacing(12);
+
+
+    m_stepActionLabel =
+        new QLabel(
+            QStringLiteral("—"),
+            stepCard);
+
+    m_stepActionLabel->setObjectName(
+        QStringLiteral(
+            "navigationStepAction"));
+
+    m_stepActionLabel->setAlignment(
+        Qt::AlignCenter);
+
+
+    auto *stepTextLayout =
+        new QVBoxLayout;
+
+    stepTextLayout->setSpacing(3);
+
+
+    m_stepInstructionLabel =
+        new QLabel(
+            QStringLiteral(
+                "暂无可用的路线步骤"),
+            stepCard);
+
+    m_stepInstructionLabel->setObjectName(
+        QStringLiteral(
+            "navigationStepInstruction"));
+
+    m_stepInstructionLabel->setWordWrap(true);
+
+
+    m_stepDetailLabel =
+        new QLabel(
+            QStringLiteral(
+                "路线规划成功后显示第一条指引"),
+            stepCard);
+
+    m_stepDetailLabel->setObjectName(
+        QStringLiteral(
+            "navigationStepDetail"));
+
+    m_stepDetailLabel->setWordWrap(true);
+
+
+    stepTextLayout->addWidget(
+        m_stepInstructionLabel);
+
+    stepTextLayout->addWidget(
+        m_stepDetailLabel);
+
+
+    stepLayout->addWidget(
+        m_stepActionLabel);
+
+    stepLayout->addLayout(
+        stepTextLayout,
+        1);
+
+
+    // ========================================================================
     // Map card
     // ========================================================================
     auto *mapCard =
@@ -1261,21 +1208,15 @@ NavigationPage::NavigationPage(
         QStringLiteral(
             "navigationCard"));
 
-    UiTheme::applyCardShadow(
-        mapCard,
-        18,
-        4);
-
-
     auto *mapLayout =
         new QVBoxLayout(
             mapCard);
 
     mapLayout->setContentsMargins(
-        14,
-        14,
-        14,
-        14);
+        0,
+        0,
+        0,
+        0);
 
     mapLayout->setSpacing(
         9);
@@ -1366,39 +1307,217 @@ NavigationPage::NavigationPage(
         m_loadProgress);
 
 
-    // ========================================================================
-    // No WebEngine.
-    //
-    // Static Map is downloaded as image and displayed in QLabel.
-    // ========================================================================
-    m_mapLabel =
-        new QLabel(
-            mapCard);
+    auto *mapHost =
+        new QWidget(mapCard);
 
-    m_mapLabel->setObjectName(
+    mapHost->setObjectName(
         QStringLiteral(
-            "navigationMapImage"));
+            "navigationMapHost"));
 
-    m_mapLabel->setAlignment(
-        Qt::AlignCenter);
+    mapHost->setMinimumHeight(620);
+    mapHost->setSizePolicy(
+        QSizePolicy::Expanding,
+        QSizePolicy::Expanding);
 
-    m_mapLabel->setWordWrap(
-        true);
+    auto *mapStack =
+        new QStackedLayout(mapHost);
 
-    m_mapLabel->setMinimumHeight(
-        360);
+    mapStack->setContentsMargins(0, 0, 0, 0);
+    mapStack->setStackingMode(
+        QStackedLayout::StackAll);
 
-    m_mapLabel->setSizePolicy(
+
+    m_mapWidget =
+        new AmapWidget(mapHost);
+
+    m_mapWidget->setObjectName(
+        QStringLiteral(
+            "navigationMap"));
+
+    m_mapWidget->setSizePolicy(
         QSizePolicy::Expanding,
         QSizePolicy::Expanding);
 
 
+    auto *mapOverlay =
+        new QWidget(mapHost);
+
+    mapOverlay->setObjectName(
+        QStringLiteral(
+            "navigationMapOverlay"));
+    mapOverlay->setAttribute(
+        Qt::WA_TransparentForMouseEvents,
+        true);
+
+    auto *overlayLayout =
+        new QVBoxLayout(mapOverlay);
+
+    overlayLayout->setContentsMargins(
+        16,
+        16,
+        16,
+        16);
+    overlayLayout->setSpacing(0);
+    overlayLayout->addWidget(
+        stepCard,
+        0,
+        Qt::AlignTop);
+    overlayLayout->addStretch();
+
+    mapStack->addWidget(m_mapWidget);
+    mapStack->addWidget(mapOverlay);
+    mapStack->setCurrentWidget(mapOverlay);
+
+
     mapLayout->addWidget(
-        m_mapLabel);
+        mapHost,
+        1);
+
+
+    // ========================================================================
+    // Real route metrics
+    // ========================================================================
+    auto *metricsPanel =
+        new QFrame(mapCard);
+
+    metricsPanel->setObjectName(
+        QStringLiteral(
+            "navigationMetricsPanel"));
+
+    auto *metricsLayout =
+        new QHBoxLayout(metricsPanel);
+
+    metricsLayout->setContentsMargins(8, 8, 8, 8);
+    metricsLayout->setSpacing(0);
+
+    const auto addMetric =
+        [metricsPanel, metricsLayout](
+            const QString &caption,
+            QLabel **valueLabel) {
+            auto *cell = new QWidget(metricsPanel);
+            cell->setObjectName(
+                QStringLiteral("navigationMetricCell"));
+
+            auto *cellLayout = new QVBoxLayout(cell);
+            cellLayout->setContentsMargins(6, 2, 6, 2);
+            cellLayout->setSpacing(2);
+
+            auto *captionLabel =
+                new QLabel(caption, cell);
+            captionLabel->setObjectName(
+                QStringLiteral("navigationMetricCaption"));
+            captionLabel->setAlignment(Qt::AlignCenter);
+
+            *valueLabel =
+                new QLabel(QStringLiteral("--"), cell);
+            (*valueLabel)->setObjectName(
+                QStringLiteral("navigationMetricValue"));
+            (*valueLabel)->setAlignment(Qt::AlignCenter);
+
+            cellLayout->addWidget(captionLabel);
+            cellLayout->addWidget(*valueLabel);
+            metricsLayout->addWidget(cell, 1);
+        };
+
+    addMetric(
+        QStringLiteral("距离"),
+        &m_routeDistanceValue);
+    addMetric(
+        QStringLiteral("耗时"),
+        &m_routeDurationValue);
+    addMetric(
+        QStringLiteral("预计到达"),
+        &m_routeEtaValue);
+
+    mapLayout->addWidget(metricsPanel);
 
 
     mainLayout->addWidget(
-        mapCard);
+        mapCard,
+        1);
+
+
+    // 首屏优先展示地图，目的地信息放在地图下方。
+    mainLayout->addWidget(
+        stationCard);
+
+
+    // ========================================================================
+    // Bottom actions
+    // ========================================================================
+    m_simulationLabel =
+        new QLabel(
+            QStringLiteral("模拟导航未开始"),
+            content);
+    m_simulationLabel->setObjectName(
+        QStringLiteral("navigationSimulationLabel"));
+
+    mainLayout->addWidget(
+        m_simulationLabel,
+        0,
+        Qt::AlignRight);
+
+    auto *bottomActions =
+        new QHBoxLayout;
+
+    bottomActions->setSpacing(10);
+
+    auto *finishButton =
+        new QPushButton(
+            QStringLiteral("结束导航"),
+            content);
+
+    finishButton->setObjectName(
+        QStringLiteral(
+            "navigationFinishButton"));
+    finishButton->setCursor(Qt::PointingHandCursor);
+
+    m_continueButton =
+        new QPushButton(
+            QStringLiteral("继续导航"),
+            content);
+
+    m_continueButton->setObjectName(
+        QStringLiteral(
+            "navigationContinueButton"));
+    m_continueButton->setCursor(Qt::PointingHandCursor);
+    m_continueButton->setEnabled(false);
+
+    bottomActions->addWidget(finishButton, 1);
+    bottomActions->addWidget(m_continueButton, 1);
+
+    connect(
+        finishButton,
+        &QPushButton::clicked,
+        this,
+        [this]() {
+            stopAndResetSimulation();
+            emit back();
+        });
+
+    connect(
+        m_continueButton,
+        &QPushButton::clicked,
+        this,
+        [this]() {
+            if (m_routeSteps.isEmpty()) {
+                return;
+            }
+
+            if (m_currentStepIndex < 0 ||
+                m_currentStepIndex >= m_routeSteps.size() - 1) {
+                m_currentStepIndex = 0;
+                showSimulationStep();
+            }
+
+            m_simulationLabel->setText(
+                QStringLiteral("模拟导航进行中"));
+            m_continueButton->setText(
+                QStringLiteral("模拟导航中"));
+            m_simulationTimer->start();
+        });
+
+    mainLayout->addLayout(bottomActions);
 
     mainLayout->addStretch();
 
@@ -1427,6 +1546,8 @@ NavigationPage::NavigationPage(
 void NavigationPage::setNavigationData(
     const RouteRequest &request)
 {
+    stopAndResetSimulation();
+
     m_currentRequest =
         request;
 
@@ -1599,14 +1720,6 @@ void NavigationPage::setRouteMode(
 // ============================================================================
 // Read Web Service Key
 // ============================================================================
-QString NavigationPage::webServiceKey() const
-{
-    return qEnvironmentVariable(
-               "AMAP_WEB_SERVICE_KEY")
-        .trimmed();
-}
-
-
 // ============================================================================
 // NO.9 real route planning
 // ============================================================================
@@ -1616,59 +1729,29 @@ void NavigationPage::loadRoute()
         return;
     }
 
+    stopAndResetSimulation();
 
-    // ========================================================================
-    // Coordinate validation
-    // ========================================================================
-    if (!validCoordinate(
-            m_currentRequest.fromLat,
-            m_currentRequest.fromLng) ||
-        !validCoordinate(
-            m_currentRequest.toLat,
-            m_currentRequest.toLng)) {
-
-        m_loadProgress->hide();
-
-
-        m_loadStatusLabel->setText(
-            QStringLiteral(
-                "坐标无效"));
-
-
-        m_routeSummaryLabel->setText(
-            QStringLiteral(
-                "请重新定位后再进行导航"));
-
-
-        setMapPlaceholder(
-            QStringLiteral(
-                "无法规划路线"),
-            QStringLiteral(
-                "起点或终点坐标无效"));
-
-        return;
-    }
-
-
-    // ========================================================================
-    // 当前出行方式
-    // ========================================================================
     const bool walking =
         m_currentRequest.mode ==
+        QStringLiteral("walking");
+
+    m_stepActionLabel->setText(
+        QStringLiteral("—"));
+    m_stepInstructionLabel->setText(
         QStringLiteral(
-            "walking");
+            "正在获取路线步骤"));
+    m_stepDetailLabel->setText(
+        QStringLiteral(
+            "请稍候"));
+    m_routeDistanceValue->setText(
+        QStringLiteral("--"));
+    m_routeDurationValue->setText(
+        QStringLiteral("--"));
+    m_routeEtaValue->setText(
+        QStringLiteral("--"));
+    m_continueButton->setEnabled(false);
 
-
-    // ========================================================================
-    // NO.11：步行距离保护
-    //
-    // 高德步行规划最大支持约 100 km。
-    //
-    // 如果两点的直线距离已经超过 100 km，
-    // 实际道路步行距离只会更长，因此直接阻止请求。
-    // ========================================================================
     if (walking) {
-
         const double straightKm =
             straightLineDistanceKm(
                 m_currentRequest.fromLat,
@@ -1676,49 +1759,13 @@ void NavigationPage::loadRoute()
                 m_currentRequest.toLat,
                 m_currentRequest.toLng);
 
-
         if (straightKm >
             kMaxWalkingDistanceKm) {
 
-            // ================================================================
-            // 让正在进行的旧请求失效。
-            //
-            // 否则用户刚从驾车切到步行时，
-            // 旧驾车地图可能稍后返回并覆盖这里的提示。
-            // ================================================================
-            ++m_requestId;
-
-
-            if (m_routeReply) {
-
-                m_routeReply->abort();
-
-                m_routeReply =
-                    nullptr;
-            }
-
-
-            if (m_mapReply) {
-
-                m_mapReply->abort();
-
-                m_mapReply =
-                    nullptr;
-            }
-
-
-            m_originalMapPixmap =
-                QPixmap();
-
-
+            m_routePlanner->cancelPending();
             m_loadProgress->hide();
-
-
             m_loadStatusLabel->setText(
-                QStringLiteral(
-                    "距离过远"));
-
-
+                QStringLiteral("距离过远"));
             m_routeSummaryLabel->setText(
                 QStringLiteral(
                     "当前直线距离约 %1 km，"
@@ -1728,1051 +1775,30 @@ void NavigationPage::loadRoute()
                         0,
                         'f',
                         1));
-
-
             setMapPlaceholder(
-                QStringLiteral(
-                    "暂不支持步行规划"),
-                QStringLiteral(
-                    "起终点距离过远，请切换为「驾车」"));
-
-
+                QString(),
+                QString());
             return;
         }
     }
 
-
-    // ========================================================================
-    // API Key
-    // ========================================================================
-    const QString key =
-        webServiceKey();
-
-
-    if (key.isEmpty()) {
-
-        m_loadProgress->hide();
-
-
-        m_loadStatusLabel->setText(
-            QStringLiteral(
-                "缺少地图 Key"));
-
-
-        m_routeSummaryLabel->setText(
-            QStringLiteral(
-                "未配置高德 Web 服务 API Key"));
-
-
-        setMapPlaceholder(
-            QStringLiteral(
-                "地图暂不可用"),
-            QStringLiteral(
-                "请配置 AMAP_WEB_SERVICE_KEY"));
-
-        return;
-    }
-
-
-    // ========================================================================
-    // New request
-    // ========================================================================
-    const quint64 requestId =
-        ++m_requestId;
-
-
-    // Abort old route request
-    if (m_routeReply) {
-
-        m_routeReply->abort();
-
-        m_routeReply =
-            nullptr;
-    }
-
-
-    // Abort old map request
-    if (m_mapReply) {
-
-        m_mapReply->abort();
-
-        m_mapReply =
-            nullptr;
-    }
-
-
-    m_originalMapPixmap =
-        QPixmap();
-
-
     setMapPlaceholder(
-        QStringLiteral(
-            "正在规划路线"),
-        QStringLiteral(
-            "正在连接高德地图服务…"));
+        QString(),
+        QString());
 
-
-    // ========================================================================
-    // AMap Route Planning 2.0
-    // ========================================================================
-    QUrl url(
-        walking
-            ? QStringLiteral(
-                  "https://restapi.amap.com/v5/direction/walking")
-            : QStringLiteral(
-                  "https://restapi.amap.com/v5/direction/driving"));
-
-
-    QUrlQuery query;
-
-
-    query.addQueryItem(
-        QStringLiteral(
-            "key"),
-        key);
-
-
-    query.addQueryItem(
-        QStringLiteral(
-            "origin"),
-        coordinateText(
-            m_currentRequest.fromLng,
-            m_currentRequest.fromLat));
-
-
-    query.addQueryItem(
-        QStringLiteral(
-            "destination"),
-        coordinateText(
-            m_currentRequest.toLng,
-            m_currentRequest.toLat));
-
-
-    // cost:
-    //   route duration
-    //
-    // polyline:
-    //   road coordinate sequence
-    query.addQueryItem(
-        QStringLiteral(
-            "show_fields"),
-        QStringLiteral(
-            "cost,polyline"));
-
-
-    query.addQueryItem(
-        QStringLiteral(
-            "output"),
-        QStringLiteral(
-            "json"));
-
-
-    // 驾车默认使用高德推荐
-    if (!walking) {
-
-        query.addQueryItem(
-            QStringLiteral(
-                "strategy"),
-            QStringLiteral(
-                "32"));
-    }
-
-
-    url.setQuery(
-        query);
-
-
-    // ========================================================================
-    // UI loading
-    // ========================================================================
     m_loadStatusLabel->setText(
-        walking
-            ? QStringLiteral(
-                  "正在规划步行路线…")
-            : QStringLiteral(
-                  "正在规划驾车路线…"));
-
+        QStringLiteral("路线规划中"));
 
     m_routeSummaryLabel->setText(
-        QStringLiteral(
-            "正在获取真实路线数据"));
+        walking
+            ? QStringLiteral("正在规划步行路线…")
+            : QStringLiteral("正在规划驾车路线…"));
 
-
-    m_loadProgress->setRange(
-        0,
-        0);
-
+    m_loadProgress->setRange(0, 0);
     m_loadProgress->show();
 
-
-    // ========================================================================
-    // Request
-    // ========================================================================
-    QNetworkRequest request(
-        url);
-
-
-    m_routeReply =
-        m_networkManager->get(
-            request);
-
-
-    QNetworkReply *reply =
-        m_routeReply;
-
-
-    // ========================================================================
-    // Timeout
-    // ========================================================================
-    QTimer::singleShot(
-        8000,
-        reply,
-        [reply]() {
-
-            if (!reply->isRunning()) {
-                return;
-            }
-
-
-            reply->setProperty(
-                "routeTimedOut",
-                true);
-
-
-            reply->abort();
-        });
-
-
-    // ========================================================================
-    // Finish
-    // ========================================================================
-    connect(
-        reply,
-        &QNetworkReply::finished,
-        this,
-        [this,
-         reply,
-         requestId]() {
-
-            if (m_routeReply ==
-                reply) {
-
-                m_routeReply =
-                    nullptr;
-            }
-
-
-            // ================================================================
-            // Old request
-            // ================================================================
-            if (requestId !=
-                m_requestId) {
-
-                reply->deleteLater();
-
-                return;
-            }
-
-
-            const bool timedOut =
-                reply->property(
-                         "routeTimedOut")
-                    .toBool();
-
-
-            // ================================================================
-            // Network error
-            // ================================================================
-            if (reply->error() !=
-                QNetworkReply::NoError) {
-
-                m_loadProgress->hide();
-
-
-                const QString errorMessage =
-                    timedOut
-                        ? QStringLiteral(
-                              "路线请求超时")
-                        : reply->errorString();
-
-
-                m_loadStatusLabel->setText(
-                    timedOut
-                        ? QStringLiteral(
-                              "路线规划超时")
-                        : QStringLiteral(
-                              "路线规划失败"));
-
-
-                m_routeSummaryLabel->setText(
-                    errorMessage);
-
-
-                setMapPlaceholder(
-                    QStringLiteral(
-                        "路线规划失败"),
-                    timedOut
-                        ? QStringLiteral(
-                              "请求超时，请稍后重试")
-                        : QStringLiteral(
-                              "请检查网络后重试"));
-
-
-                reply->deleteLater();
-
-                return;
-            }
-
-
-            const QByteArray data =
-                reply->readAll();
-
-
-            reply->deleteLater();
-
-
-            // ================================================================
-            // Parse JSON
-            // ================================================================
-            QJsonParseError parseError;
-
-
-            const QJsonDocument document =
-                QJsonDocument::fromJson(
-                    data,
-                    &parseError);
-
-
-            if (parseError.error !=
-                    QJsonParseError::NoError ||
-                !document.isObject()) {
-
-                m_loadProgress->hide();
-
-
-                m_loadStatusLabel->setText(
-                    QStringLiteral(
-                        "路线数据解析失败"));
-
-
-                m_routeSummaryLabel->setText(
-                    QStringLiteral(
-                        "高德返回的数据不是有效 JSON"));
-
-
-                setMapPlaceholder(
-                    QStringLiteral(
-                        "路线数据异常"),
-                    QStringLiteral(
-                        "请稍后重新尝试"));
-
-
-                return;
-            }
-
-
-            const QJsonObject root =
-                document.object();
-
-
-            // ================================================================
-            // AMap business error
-            // ================================================================
-            if (root.value(
-                        QStringLiteral(
-                            "status"))
-                    .toString() !=
-                QStringLiteral("1")) {
-
-                QString info =
-                    root.value(
-                            QStringLiteral(
-                                "info"))
-                        .toString();
-
-
-                // ------------------------------------------------------------
-                // infocode 正常情况下是字符串，
-                // 同时兼容返回数字的情况。
-                // ------------------------------------------------------------
-                const QJsonValue infoCodeValue =
-                    root.value(
-                        QStringLiteral(
-                            "infocode"));
-
-
-                QString infoCode =
-                    infoCodeValue
-                        .toString();
-
-
-                if (infoCode.isEmpty() &&
-                    infoCodeValue.isDouble()) {
-
-                    infoCode =
-                        QString::number(
-                            static_cast<qint64>(
-                                infoCodeValue
-                                    .toDouble()));
-                }
-
-
-                // ------------------------------------------------------------
-                // 高德：
-                //
-                // 20803
-                // OVER_DIRECTION_RANGE
-                //
-                // 起终点距离过长。
-                // ------------------------------------------------------------
-                const bool overDirectionRange =
-                    info ==
-                        QStringLiteral(
-                            "OVER_DIRECTION_RANGE") ||
-                    infoCode ==
-                        QStringLiteral(
-                            "20803");
-
-
-                if (overDirectionRange &&
-                    m_currentRequest.mode ==
-                        QStringLiteral(
-                            "walking")) {
-
-                    const double straightKm =
-                        straightLineDistanceKm(
-                            m_currentRequest.fromLat,
-                            m_currentRequest.fromLng,
-                            m_currentRequest.toLat,
-                            m_currentRequest.toLng);
-
-
-                    m_loadProgress->hide();
-
-
-                    m_loadStatusLabel->setText(
-                        QStringLiteral(
-                            "距离过远"));
-
-
-                    m_routeSummaryLabel->setText(
-                        QStringLiteral(
-                            "当前直线距离约 %1 km，"
-                            "无法规划步行路线，请选择驾车")
-                            .arg(
-                                straightKm,
-                                0,
-                                'f',
-                                1));
-
-
-                    setMapPlaceholder(
-                        QStringLiteral(
-                            "暂不支持步行规划"),
-                        QStringLiteral(
-                            "起终点距离过远，请切换为「驾车」"));
-
-
-                    return;
-                }
-
-
-                // ------------------------------------------------------------
-                // 其它高德业务错误
-                // ------------------------------------------------------------
-                if (info.isEmpty()) {
-
-                    info =
-                        QStringLiteral(
-                            "高德地图服务返回错误");
-                }
-
-
-                m_loadProgress->hide();
-
-
-                m_loadStatusLabel->setText(
-                    QStringLiteral(
-                        "路线规划失败"));
-
-
-                m_routeSummaryLabel->setText(
-                    info);
-
-
-                setMapPlaceholder(
-                    QStringLiteral(
-                        "未获取到路线"),
-                    info);
-
-
-                return;
-            }
-
-
-            // ================================================================
-            // Route
-            // ================================================================
-            const QJsonObject route =
-                root.value(
-                        QStringLiteral(
-                            "route"))
-                    .toObject();
-
-
-            const QJsonArray paths =
-                jsonArrayValue(
-                    route.value(
-                        QStringLiteral(
-                            "paths")));
-
-
-            if (paths.isEmpty()) {
-
-                m_loadProgress->hide();
-
-
-                m_loadStatusLabel->setText(
-                    QStringLiteral(
-                        "未找到路线"));
-
-
-                m_routeSummaryLabel->setText(
-                    QStringLiteral(
-                        "高德没有返回可用路线方案"));
-
-
-                setMapPlaceholder(
-                    QStringLiteral(
-                        "没有可用路线"),
-                    QStringLiteral(
-                        "请尝试其它出行方式"));
-
-
-                return;
-            }
-
-
-            // ================================================================
-            // Use first route
-            // ================================================================
-            const QJsonObject path =
-                paths.at(0)
-                    .toObject();
-
-
-            const double distanceMeters =
-                jsonDouble(
-                    path.value(
-                        QStringLiteral(
-                            "distance")));
-
-
-            // ================================================================
-            // Duration
-            // ================================================================
-            qint64 durationSeconds =
-                0;
-
-
-            const QJsonObject cost =
-                path.value(
-                        QStringLiteral(
-                            "cost"))
-                    .toObject();
-
-
-            durationSeconds =
-                jsonInt64(
-                    cost.value(
-                        QStringLiteral(
-                            "duration")));
-
-
-            if (durationSeconds <=
-                0) {
-
-                durationSeconds =
-                    jsonInt64(
-                        path.value(
-                            QStringLiteral(
-                                "duration")));
-            }
-
-
-            if (durationSeconds <=
-                0) {
-
-                durationSeconds =
-                    stepDuration(
-                        path);
-            }
-
-
-            // ================================================================
-            // Polyline
-            // ================================================================
-            QStringList points =
-                extractRoutePoints(
-                    path);
-
-
-            if (points.isEmpty()) {
-
-                m_loadProgress->hide();
-
-
-                m_loadStatusLabel->setText(
-                    QStringLiteral(
-                        "路线轨迹不可用"));
-
-
-                m_routeSummaryLabel->setText(
-                    QStringLiteral(
-                        "高德未返回 polyline 路线点"));
-
-
-                setMapPlaceholder(
-                    QStringLiteral(
-                        "无法绘制路线"),
-                    QStringLiteral(
-                        "路线数据缺少轨迹"));
-
-
-                return;
-            }
-
-
-            // ================================================================
-            // Make sure exact start/end are present
-            // ================================================================
-            const QString start =
-                coordinateText(
-                    m_currentRequest.fromLng,
-                    m_currentRequest.fromLat);
-
-
-            const QString target =
-                coordinateText(
-                    m_currentRequest.toLng,
-                    m_currentRequest.toLat);
-
-
-            if (points.first() !=
-                start) {
-
-                points.prepend(
-                    start);
-            }
-
-
-            if (points.last() !=
-                target) {
-
-                points.append(
-                    target);
-            }
-
-
-            points =
-                simplifyPoints(
-                    points,
-                    48);
-
-
-            if (points.isEmpty() ||
-                points.first() !=
-                    start) {
-
-                points.prepend(
-                    start);
-            }
-
-
-            if (points.last() !=
-                target) {
-
-                points.append(
-                    target);
-            }
-
-
-            // ================================================================
-            // Download static map
-            // ================================================================
-            requestStaticMap(
-                points,
-                distanceMeters,
-                durationSeconds,
-                requestId);
-        });
-}
-
-
-// ============================================================================
-// Download AMap Static Map
-// ============================================================================
-void NavigationPage::requestStaticMap(
-    const QStringList &points,
-    double routeDistanceMeters,
-    qint64 routeDurationSeconds,
-    quint64 requestId)
-{
-    if (requestId !=
-        m_requestId) {
-
-        return;
-    }
-
-
-    const QString key =
-        webServiceKey();
-
-
-    if (key.isEmpty()) {
-        return;
-    }
-
-
-    const QString start =
-        coordinateText(
-            m_currentRequest.fromLng,
-            m_currentRequest.fromLat);
-
-
-    const QString target =
-        coordinateText(
-            m_currentRequest.toLng,
-            m_currentRequest.toLat);
-
-
-    // ========================================================================
-    // Static Map URL
-    //
-    // Do not provide location/zoom.
-    // AMap automatically calculates viewport from markers + paths.
-    // ========================================================================
-    QUrl url(
-        QStringLiteral(
-            "https://restapi.amap.com/v3/staticmap"));
-
-
-    QUrlQuery query;
-
-
-    query.addQueryItem(
-        QStringLiteral(
-            "key"),
-        key);
-
-
-    query.addQueryItem(
-        QStringLiteral(
-            "size"),
-        QStringLiteral(
-            "900*520"));
-
-
-    query.addQueryItem(
-        QStringLiteral(
-            "scale"),
-        QStringLiteral(
-            "1"));
-
-
-    query.addQueryItem(
-        QStringLiteral(
-            "markers"),
-        QStringLiteral(
-            "mid,0x315B4D,A:%1|"
-            "mid,0xD79A4B,B:%2")
-            .arg(
-                start,
-                target));
-
-
-    query.addQueryItem(
-        QStringLiteral(
-            "paths"),
-        QStringLiteral(
-            "8,0x315B4D,1,,:%1")
-            .arg(
-                points.join(
-                    QLatin1Char(';'))));
-
-
-    query.addQueryItem(
-        QStringLiteral(
-            "traffic"),
-        QStringLiteral(
-            "0"));
-
-
-    url.setQuery(
-        query);
-
-
-    // ========================================================================
-    // Route summary
-    // ========================================================================
-    const QString modeText =
-        m_currentRequest.mode ==
-                QStringLiteral(
-                    "walking")
-            ? QStringLiteral(
-                  "步行")
-            : QStringLiteral(
-                  "驾车");
-
-
-    QString summary =
-        modeText;
-
-
-    if (routeDistanceMeters >
-        0.0) {
-
-        summary +=
-            QStringLiteral(
-                " · %1 km")
-                .arg(
-                    routeDistanceMeters /
-                        1000.0,
-                    0,
-                    'f',
-                    1);
-    }
-
-
-    if (routeDurationSeconds >
-        0) {
-
-        summary +=
-            QStringLiteral(
-                " · 预计 %1")
-                .arg(
-                    formatDuration(
-                        routeDurationSeconds));
-    }
-
-
-    m_routeSummaryLabel->setText(
-        summary);
-
-
-    // ========================================================================
-    // Loading map image
-    // ========================================================================
-    m_loadStatusLabel->setText(
-        QStringLiteral(
-            "路线规划完成，正在加载地图…"));
-
-
-    m_loadProgress->setRange(
-        0,
-        0);
-
-    m_loadProgress->show();
-
-
-    setMapPlaceholder(
-        QStringLiteral(
-            "正在加载地图"),
-        QStringLiteral(
-            "路线已经规划完成"));
-
-
-    QNetworkRequest request(
-        url);
-
-
-    m_mapReply =
-        m_networkManager->get(
-            request);
-
-
-    QNetworkReply *reply =
-        m_mapReply;
-
-
-    // ========================================================================
-    // Timeout
-    // ========================================================================
-    QTimer::singleShot(
-        8000,
-        reply,
-        [reply]() {
-
-            if (!reply->isRunning()) {
-                return;
-            }
-
-
-            reply->setProperty(
-                "mapTimedOut",
-                true);
-
-
-            reply->abort();
-        });
-
-
-    // ========================================================================
-    // Finished
-    // ========================================================================
-    connect(
-        reply,
-        &QNetworkReply::finished,
-        this,
-        [this,
-         reply,
-         requestId]() {
-
-            if (m_mapReply ==
-                reply) {
-
-                m_mapReply =
-                    nullptr;
-            }
-
-
-            if (requestId !=
-                m_requestId) {
-
-                reply->deleteLater();
-
-                return;
-            }
-
-
-            const bool timedOut =
-                reply->property(
-                         "mapTimedOut")
-                    .toBool();
-
-
-            // ================================================================
-            // Network failure
-            // ================================================================
-            if (reply->error() !=
-                QNetworkReply::NoError) {
-
-                m_loadProgress->hide();
-
-
-                m_loadStatusLabel->setText(
-                    timedOut
-                        ? QStringLiteral(
-                              "地图加载超时")
-                        : QStringLiteral(
-                              "地图加载失败"));
-
-
-                setMapPlaceholder(
-                    QStringLiteral(
-                        "地图加载失败"),
-                    timedOut
-                        ? QStringLiteral(
-                              "请求超时，请稍后再试")
-                        : QStringLiteral(
-                              "请检查网络连接"));
-
-
-                reply->deleteLater();
-
-                return;
-            }
-
-
-            const QByteArray data =
-                reply->readAll();
-
-
-            reply->deleteLater();
-
-
-            // ================================================================
-            // Load image
-            // ================================================================
-            QPixmap pixmap;
-
-
-            if (!pixmap.loadFromData(
-                    data)) {
-
-                m_loadProgress->hide();
-
-
-                QString info =
-                    QStringLiteral(
-                        "高德未返回有效地图图片");
-
-
-                QJsonParseError error;
-
-
-                const QJsonDocument document =
-                    QJsonDocument::fromJson(
-                        data,
-                        &error);
-
-
-                if (error.error ==
-                        QJsonParseError::NoError &&
-                    document.isObject()) {
-
-                    const QString apiInfo =
-                        document.object()
-                            .value(
-                                QStringLiteral(
-                                    "info"))
-                            .toString();
-
-
-                    if (!apiInfo.isEmpty()) {
-
-                        info =
-                            apiInfo;
-                    }
-                }
-
-
-                m_loadStatusLabel->setText(
-                    QStringLiteral(
-                        "地图加载失败"));
-
-
-                setMapPlaceholder(
-                    QStringLiteral(
-                        "地图不可用"),
-                    info);
-
-
-                return;
-            }
-
-
-            // ================================================================
-            // Success
-            // ================================================================
-            m_originalMapPixmap =
-                pixmap;
-
-
-            m_loadProgress->hide();
-
-
-            m_loadStatusLabel->setText(
-                QStringLiteral(
-                    "路线规划完成"));
-
-
-            m_mapLabel->setText(
-                QString());
-
-
-            rescaleMapPixmap();
-        });
+    m_routePlanner->planRoute(
+        m_currentRequest);
 }
 
 
@@ -2783,69 +1809,72 @@ void NavigationPage::setMapPlaceholder(
     const QString &title,
     const QString &message)
 {
-    if (!m_mapLabel) {
-        return;
+    Q_UNUSED(title);
+    Q_UNUSED(message);
+
+    if (m_mapWidget) {
+        m_mapWidget->setRoute(
+            QStringList());
     }
-
-
-    m_originalMapPixmap =
-        QPixmap();
-
-
-    m_mapLabel->setPixmap(
-        QPixmap());
-
-
-    m_mapLabel->setText(
-        QStringLiteral(
-            "<div style=\"text-align:center;\">"
-            "<div style=\""
-            "font-size:18px;"
-            "font-weight:700;"
-            "color:#315B4D;"
-            "margin-bottom:8px;\">"
-            "%1"
-            "</div>"
-            "<div style=\""
-            "font-size:13px;"
-            "color:#7A837E;\">"
-            "%2"
-            "</div>"
-            "</div>")
-            .arg(
-                title.toHtmlEscaped(),
-                message.toHtmlEscaped()));
 }
 
 
 // ============================================================================
-// Scale map image without distortion
+// Simulated navigation step progression
 // ============================================================================
-void NavigationPage::rescaleMapPixmap()
+void NavigationPage::showSimulationStep()
 {
-    if (!m_mapLabel ||
-        m_originalMapPixmap.isNull()) {
-
+    if (m_currentStepIndex < 0 ||
+        m_currentStepIndex >= m_routeSteps.size()) {
         return;
     }
 
+    const RouteStep &step =
+        m_routeSteps.at(m_currentStepIndex);
+    const QString icon = actionIcon(step.action);
 
-    QSize targetSize =
-        m_mapLabel->size();
+    m_stepActionLabel->setText(
+        icon.isEmpty() ? QStringLiteral("—") : icon);
+    m_stepInstructionLabel->setText(
+        step.instruction.isEmpty()
+            ? QStringLiteral("该步骤未提供文字指引")
+            : step.instruction);
 
-
-    if (targetSize.width() <= 0 ||
-        targetSize.height() <= 0) {
-
-        return;
+    QStringList details;
+    if (!step.road.isEmpty()) {
+        details.append(step.road);
+    }
+    if (step.distanceMeters > 0.0) {
+        details.append(
+            QStringLiteral("%1 米")
+                .arg(step.distanceMeters, 0, 'f', 0));
     }
 
+    m_stepDetailLabel->setText(
+        details.isEmpty()
+            ? QStringLiteral("未提供道路与距离信息")
+            : details.join(QStringLiteral(" · ")));
+}
 
-    m_mapLabel->setPixmap(
-        m_originalMapPixmap.scaled(
-            targetSize,
-            Qt::KeepAspectRatio,
-            Qt::SmoothTransformation));
+void NavigationPage::stopAndResetSimulation()
+{
+    if (m_simulationTimer) {
+        m_simulationTimer->stop();
+    }
+
+    m_routeSteps.clear();
+    m_currentStepIndex = -1;
+
+    if (m_simulationLabel) {
+        m_simulationLabel->setText(
+            QStringLiteral("模拟导航未开始"));
+    }
+
+    if (m_continueButton) {
+        m_continueButton->setText(
+            QStringLiteral("继续导航"));
+        m_continueButton->setEnabled(false);
+    }
 }
 
 
@@ -2860,15 +1889,6 @@ void NavigationPage::resizeEvent(
 
 
     applyResponsiveStyle();
-
-
-    QTimer::singleShot(
-        0,
-        this,
-        [this]() {
-
-            rescaleMapPixmap();
-        });
 }
 
 
@@ -3108,6 +2128,42 @@ void NavigationPage::applyResponsiveStyle()
             "}"
 
 
+            // First route step
+            "QFrame#navigationStepCard{"
+            "background:rgba(255,255,255,238);"
+            "border:1px solid #B9D0EE;"
+            "border-radius:%4px;"
+            "}"
+
+            "QWidget#navigationMapOverlay{"
+            "background:transparent;"
+            "}"
+
+            "QLabel#navigationStepAction{"
+            "background:#2F80ED;"
+            "color:#FFFFFF;"
+            "border:none;"
+            "border-radius:%1px;"
+            "font-size:%3px;"
+            "font-weight:800;"
+            "min-width:42px;"
+            "min-height:42px;"
+            "}"
+
+            "QLabel#navigationStepInstruction{"
+            "background:transparent;"
+            "color:#202824;"
+            "font-size:%2px;"
+            "font-weight:700;"
+            "}"
+
+            "QLabel#navigationStepDetail{"
+            "background:transparent;"
+            "color:#66757F;"
+            "font-size:%5px;"
+            "}"
+
+
             // Status
             "QLabel#navigationLoadStatus{"
             "background:transparent;"
@@ -3128,6 +2184,78 @@ void NavigationPage::applyResponsiveStyle()
             "}"
 
 
+            // Route metrics
+            "QFrame#navigationMetricsPanel{"
+            "background:#F5F8F6;"
+            "border:1px solid #DCE5DF;"
+            "border-radius:%1px;"
+            "}"
+
+            "QWidget#navigationMetricCell{"
+            "background:transparent;"
+            "border:none;"
+            "}"
+
+            "QLabel#navigationMetricCaption{"
+            "background:transparent;"
+            "color:#7A837E;"
+            "font-size:%5px;"
+            "}"
+
+            "QLabel#navigationMetricValue{"
+            "background:transparent;"
+            "color:#202824;"
+            "font-size:%2px;"
+            "font-weight:800;"
+            "}"
+
+
+            "QLabel#navigationSimulationLabel{"
+            "background:#EAF2FF;"
+            "color:#2F6FBB;"
+            "border:1px solid #C9DCF8;"
+            "border-radius:%1px;"
+            "padding:3px 8px;"
+            "font-size:%5px;"
+            "font-weight:700;"
+            "}"
+
+            // Bottom actions
+            "QPushButton#navigationFinishButton,"
+            "QPushButton#navigationContinueButton{"
+            "border-radius:%1px;"
+            "padding:11px 18px;"
+            "font-size:%2px;"
+            "font-weight:800;"
+            "}"
+
+            "QPushButton#navigationFinishButton{"
+            "background:#FFFFFF;"
+            "color:#315B4D;"
+            "border:1px solid #BFCFC6;"
+            "}"
+
+            "QPushButton#navigationFinishButton:hover{"
+            "background:#F0F5F2;"
+            "}"
+
+            "QPushButton#navigationContinueButton{"
+            "background:#315B4D;"
+            "color:#FFFFFF;"
+            "border:1px solid #315B4D;"
+            "}"
+
+            "QPushButton#navigationContinueButton:hover{"
+            "background:#274B40;"
+            "}"
+
+            "QPushButton#navigationContinueButton:disabled{"
+            "background:#AEBBB4;"
+            "color:#EEF1EF;"
+            "border-color:#AEBBB4;"
+            "}"
+
+
             // Progress
             "QProgressBar#navigationLoadProgress{"
             "background:#E7E5DF;"
@@ -3144,12 +2272,10 @@ void NavigationPage::applyResponsiveStyle()
 
 
             // Map
-            "QLabel#navigationMapImage{"
+            "AmapWidget#navigationMap{"
             "background:#FAF8F3;"
-            "color:#7A837E;"
-            "border:1px solid #E7E3DA;"
-            "border-radius:%1px;"
-            "padding:4px;"
+            "border:none;"
+            "border-radius:0;"
             "}")
 
         .arg(
@@ -3171,11 +2297,11 @@ void NavigationPage::applyResponsiveStyle()
             stationFont));    // %6
 
 
-    if (m_mapLabel) {
+    if (m_mapWidget) {
 
-        m_mapLabel->setMinimumHeight(
+        m_mapWidget->setMinimumHeight(
             scaledUi(
                 scaleBase,
-                360));
+                480));
     }
 }

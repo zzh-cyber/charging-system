@@ -17,6 +17,7 @@ class QStackedWidget;
 class QComboBox;
 class NetClient;
 class StationCardWidget;
+class AmapWidget;
 class QResizeEvent;
 class QShowEvent;
 
@@ -71,6 +72,8 @@ private:
     QStackedWidget *m_stack = nullptr;
 
     QVBoxLayout *m_listLayout = nullptr;
+
+    AmapWidget *m_mapWidget = nullptr;
 
     QLabel *m_tip = nullptr;
 

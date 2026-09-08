@@ -9,12 +9,14 @@
 #include <QString>
 #include <QWidget>
 
+
 class QButtonGroup;
 class QStackedWidget;
 class QComboBox;
 class QLineEdit;
 class QPushButton;
 class QLabel;
+class QResizeEvent;
 
 class NetClient;
 class StationListPage;
@@ -23,7 +25,6 @@ class ChargePage;
 class ProfilePage;
 class LocationManager;
 class NavigationPage;
-class QResizeEvent;
 
 
 class MainWindow : public QWidget
@@ -40,17 +41,23 @@ public:
         QWidget *parent = nullptr);
 
 
-    // 登录成功后写入会话 token；主窗口自建 NetClient，后续请求会自动附带
-    void setSessionToken(const QString &token);
+    // 登录成功后写入会话 token；
+    // 主窗口自建 NetClient，后续请求会自动附带
+    void setSessionToken(
+        const QString &token);
 
 protected:
-    void resizeEvent(QResizeEvent *event) override;
+    void resizeEvent(
+        QResizeEvent *event) override;
 
 private slots:
-    void onSessionInvalid(const QString &msg);
+    void onSessionInvalid(
+        const QString &msg);
 
 private:
     void applyResponsiveStyle();
+
+
     NetClient        *m_net;
 
     QStackedWidget   *m_contentStack;
@@ -63,6 +70,7 @@ private:
     ChargePage       *m_chargePage;
     ProfilePage      *m_profilePage;
 
+
     // ------------------------------------------------------------------------
     // 地址定位
     // ------------------------------------------------------------------------
@@ -73,10 +81,12 @@ private:
     QPushButton      *m_locationBtn;
     QLabel           *m_locationTip;
 
+
     QString           m_nickname;
     QString           m_phone;
     double            m_balance;
-    qint64 m_userId = 0;
-    bool m_kickedToLogin = false;
 
+    qint64            m_userId = 0;
+
+    bool              m_kickedToLogin = false;
 };

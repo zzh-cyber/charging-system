@@ -1,18 +1,20 @@
 #pragma once
 
-#include <QPixmap>
 #include <QString>
+#include <QVector>
 #include <QWidget>
 
 #include "routerequest.h"
+#include "routeresult.h"
 
 
 class QLabel;
 class QPushButton;
 class QProgressBar;
 class QResizeEvent;
-class QNetworkAccessManager;
-class QNetworkReply;
+class QTimer;
+class AmapWidget;
+class RoutePlanner;
 
 
 class NavigationPage : public QWidget
@@ -47,8 +49,6 @@ private:
         const QString &title,
         const QString &message);
 
-    void rescaleMapPixmap();
-
 
     // ------------------------------------------------------------------------
     // NO.11
@@ -64,15 +64,8 @@ private:
     // ------------------------------------------------------------------------
     void loadRoute();
 
-    void requestStaticMap(
-        const QStringList &points,
-        double routeDistanceMeters,
-        qint64 routeDurationSeconds,
-        quint64 requestId);
-
-
-    QString webServiceKey() const;
-
+    void showSimulationStep();
+    void stopAndResetSimulation();
 
 private:
     // ------------------------------------------------------------------------
@@ -102,26 +95,28 @@ private:
     // ------------------------------------------------------------------------
     QLabel *m_loadStatusLabel = nullptr;
     QLabel *m_routeSummaryLabel = nullptr;
+    QLabel *m_routeDistanceValue = nullptr;
+    QLabel *m_routeDurationValue = nullptr;
+    QLabel *m_routeEtaValue = nullptr;
+
+    QLabel *m_stepActionLabel = nullptr;
+    QLabel *m_stepInstructionLabel = nullptr;
+    QLabel *m_stepDetailLabel = nullptr;
+    QLabel *m_simulationLabel = nullptr;
 
     QProgressBar *m_loadProgress = nullptr;
 
-    // 不再使用 QWebEngineView
-    QLabel *m_mapLabel = nullptr;
+    QPushButton *m_continueButton = nullptr;
+    QTimer *m_simulationTimer = nullptr;
 
-    // 保存原始地图，窗口缩放时重新按比例显示
-    QPixmap m_originalMapPixmap;
+    QVector<RouteStep> m_routeSteps;
+    qsizetype m_currentStepIndex = -1;
+
+    AmapWidget *m_mapWidget = nullptr;
 
 
     // ------------------------------------------------------------------------
-    // 网络
+    // 路线规划
     // ------------------------------------------------------------------------
-    QNetworkAccessManager *m_networkManager = nullptr;
-
-    QNetworkReply *m_routeReply = nullptr;
-    QNetworkReply *m_mapReply = nullptr;
-
-
-    // 快速切换驾车 / 步行时，
-    // 防止旧请求结果覆盖最新请求。
-    quint64 m_requestId = 0;
+    RoutePlanner *m_routePlanner = nullptr;
 };

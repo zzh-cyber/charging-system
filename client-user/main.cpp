@@ -1,11 +1,82 @@
 #include "loginwindow.h"
+#include "runtimebootstrap.h"
 
 #include <QApplication>
 #include <QByteArray>
 #include <QColor>
+#include <QDir>
+#include <QFileInfo>
 #include <QFont>
 #include <QFontDatabase>
 #include <QPalette>
+#include <QSettings>
+
+
+namespace
+{
+
+void loadRuntimeConfiguration(
+    const char *executablePath)
+{
+    const QFileInfo executableInfo(
+        QString::fromLocal8Bit(
+            executablePath));
+
+    const QDir executableDir(
+        executableInfo.absolutePath());
+
+    const QString configPath =
+        QDir::cleanPath(
+            executableDir.filePath(
+                QStringLiteral(
+                    "../../config/runtime.ini")));
+
+    const QFileInfo configInfo(
+        configPath);
+
+    if (!configInfo.isFile()) {
+        return;
+    }
+
+    QSettings settings(
+        configPath,
+        QSettings::IniFormat);
+
+    const auto applySetting =
+        [&settings](
+            const QString &settingName,
+            const char *environmentName) {
+
+            const QByteArray value =
+                settings.value(settingName)
+                    .toString()
+                    .trimmed()
+                    .toUtf8();
+
+            if (!value.isEmpty()) {
+                qputenv(
+                    environmentName,
+                    value);
+            }
+        };
+
+    applySetting(
+        QStringLiteral(
+            "runtime/libgl_always_software"),
+        "LIBGL_ALWAYS_SOFTWARE");
+
+    applySetting(
+        QStringLiteral(
+            "runtime/qt_qpa_platform"),
+        "QT_QPA_PLATFORM");
+
+    applySetting(
+        QStringLiteral(
+            "runtime/qtwebengine_chromium_flags"),
+        "QTWEBENGINE_CHROMIUM_FLAGS");
+}
+
+} // namespace
 
 
 int main(
@@ -26,6 +97,13 @@ int main(
     // 必须在 QApplication 创建之前设置。
     // ========================================================================
 
+
+
+    loadRuntimeConfiguration(
+        argv[0]);
+
+    RuntimeBootstrap::configureIbusEnvironment();
+    RuntimeBootstrap::ensureIbusLibpinyin();
 
 
     QApplication app(

@@ -100,6 +100,7 @@ void NetClient::onReadyRead()
     m_buffer.append(m_socket->readAll());
     QJsonObject obj;
     while (Protocol::tryDecode(m_buffer, obj)) {
+        m_lastSuccessfulCommunication = QDateTime::currentDateTime();
         const int code = obj.value(QStringLiteral("code")).toInt(-1);
         if (code == Protocol::SessionInvalid)
             clearToken();

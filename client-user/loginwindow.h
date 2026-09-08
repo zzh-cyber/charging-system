@@ -45,7 +45,6 @@ private:
 
     QPushButton *m_loginBtn = nullptr;
     QPushButton *m_registerBtn = nullptr;
-
     QLabel *m_hint = nullptr;
 
     NetClient *m_net = nullptr;

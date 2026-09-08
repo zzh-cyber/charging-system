@@ -1,5 +1,6 @@
 #include "stationlistpage.h"
 
+#include "amapwidget.h"
 #include "netclient.h"
 #include "protocol.h"
 #include "stationcardwidget.h"
@@ -17,6 +18,7 @@
 #include <QScrollArea>
 #include <QSet>
 #include <QShowEvent>
+#include <QSizePolicy>
 #include <QStackedWidget>
 #include <QVBoxLayout>
 #include <QVector>
@@ -30,6 +32,7 @@ StationListPage::StationListPage(
     QWidget *parent)
     : QWidget(parent)
     , m_net(net)
+    , m_mapWidget(new AmapWidget(this))
 {
     setObjectName(
         QStringLiteral(
@@ -61,13 +64,13 @@ StationListPage::StationListPage(
             "stationHeaderCardLayout"));
 
     headerCardLayout->setContentsMargins(
-        16,
         14,
-        16,
-        14);
+        7,
+        14,
+        7);
 
     headerCardLayout->setSpacing(
-        9);
+        3);
 
 
     auto *header =
@@ -488,6 +491,97 @@ StationListPage::StationListPage(
 
 
     // ========================================================================
+    // 地图卡片
+    // 地图只负责展示，站点列表四态继续由下方 m_stack 管理。
+    // ========================================================================
+    auto *mapCard =
+        new QFrame(this);
+
+    mapCard->setObjectName(
+        QStringLiteral(
+            "stationMapCard"));
+
+    auto *mapCardLayout =
+        new QVBoxLayout(mapCard);
+
+    mapCardLayout->setObjectName(
+        QStringLiteral(
+            "stationMapCardLayout"));
+
+    mapCardLayout->setContentsMargins(
+        0,
+        0,
+        0,
+        0);
+
+    mapCardLayout->setSpacing(0);
+
+
+    auto *mapHeader =
+        new QHBoxLayout;
+
+    mapHeader->setObjectName(
+        QStringLiteral(
+            "stationMapHeaderLayout"));
+
+
+    auto *mapTitle =
+        new QLabel(
+            QStringLiteral(
+                "附近地图"),
+            mapCard);
+
+    mapTitle->setObjectName(
+        QStringLiteral(
+            "stationMapTitle"));
+    mapTitle->hide();
+
+
+    auto *mapHint =
+        new QLabel(
+            QStringLiteral(
+                "当前位置与附近站点"),
+            mapCard);
+
+    mapHint->setObjectName(
+        QStringLiteral(
+            "stationMapHint"));
+    mapHint->hide();
+
+
+    mapHeader->addWidget(
+        mapTitle);
+
+    mapHeader->addStretch();
+
+    mapHeader->addWidget(
+        mapHint);
+
+
+    mapCardLayout->addLayout(
+        mapHeader);
+
+    m_mapWidget->setObjectName(
+        QStringLiteral(
+            "stationMapWidget"));
+
+    m_mapWidget->setMinimumHeight(
+        220);
+
+    m_mapWidget->setSizePolicy(
+        QSizePolicy::Expanding,
+        QSizePolicy::Expanding);
+
+    mapCard->setSizePolicy(
+        QSizePolicy::Expanding,
+        QSizePolicy::Expanding);
+
+    mapCardLayout->addWidget(
+        m_mapWidget,
+        1);
+
+
+    // ========================================================================
     // 总布局
     // ========================================================================
     auto *layout =
@@ -510,9 +604,24 @@ StationListPage::StationListPage(
     layout->addWidget(
         headerCard);
 
+    // 首页顶部只保留 MainWindow 的地址定位行；站点标题/筛选行下移，
+    // 避免地图首屏被第二行控件挤压。
+    headerCard->hide();
+
+    layout->addWidget(
+        mapCard,
+        5);
+
+    m_stack->setSizePolicy(
+        QSizePolicy::Expanding,
+        QSizePolicy::Expanding);
+
+    m_stack->setMinimumHeight(
+        320);
+
     layout->addWidget(
         m_stack,
-        1);
+        3);
 
 
     m_stack->setCurrentIndex(
@@ -560,7 +669,7 @@ void StationListPage::applyResponsiveStyle()
     const int titleFont =
         scaledUi(
             scaleBase,
-            22);
+            18);
 
     const int normalFont =
         scaledUi(
@@ -576,6 +685,11 @@ void StationListPage::applyResponsiveStyle()
         scaledUi(
             scaleBase,
             15);
+
+    const int mapTitleFont =
+        scaledUi(
+            scaleBase,
+            14);
 
     const int buttonFont =
         scaledUi(
@@ -661,6 +775,30 @@ void StationListPage::applyResponsiveStyle()
             "background:#284C41;"
             "}"
 
+            "QFrame#stationMapCard{"
+            "background:transparent;"
+            "border:none;"
+            "border-radius:0;"
+            "}"
+
+            "QLabel#stationMapTitle{"
+            "background:transparent;"
+            "color:#202824;"
+            "font-size:%8px;"
+            "font-weight:800;"
+            "}"
+
+            "QLabel#stationMapHint{"
+            "background:transparent;"
+            "color:#7A837E;"
+            "font-size:%3px;"
+            "}"
+
+            "AmapWidget#stationMapWidget{"
+            "background:#FAF8F3;"
+            "border:none;"
+            "}"
+
             "QStackedWidget#stationStack{"
             "background:transparent;"
             "border:none;"
@@ -730,7 +868,10 @@ void StationListPage::applyResponsiveStyle()
             stateFont)
 
         .arg(
-            buttonFont));
+            buttonFont)
+
+        .arg(
+            mapTitleFont));
 
 
     // ========================================================================
@@ -750,7 +891,7 @@ void StationListPage::applyResponsiveStyle()
         pageLayout->setSpacing(
             scaledUi(
                 scaleBase,
-                12));
+                8));
     }
 
 
@@ -763,15 +904,15 @@ void StationListPage::applyResponsiveStyle()
                     "stationHeaderCardLayout"))) {
 
         headerCardLayout->setContentsMargins(
-            scaledUi(scaleBase, 16),
             scaledUi(scaleBase, 14),
-            scaledUi(scaleBase, 16),
-            scaledUi(scaleBase, 14));
+            scaledUi(scaleBase, 7),
+            scaledUi(scaleBase, 14),
+            scaledUi(scaleBase, 7));
 
         headerCardLayout->setSpacing(
             scaledUi(
                 scaleBase,
-                9));
+                3));
     }
 
 
@@ -784,6 +925,52 @@ void StationListPage::applyResponsiveStyle()
             scaledUi(
                 scaleBase,
                 8));
+    }
+
+
+    // ========================================================================
+    // 地图卡
+    // ========================================================================
+    if (auto *mapCardLayout =
+            findChild<QVBoxLayout *>(
+                QStringLiteral(
+                    "stationMapCardLayout"))) {
+
+        mapCardLayout->setContentsMargins(
+            0,
+            0,
+            0,
+            0);
+
+        mapCardLayout->setSpacing(0);
+    }
+
+
+    if (auto *mapHeader =
+            findChild<QHBoxLayout *>(
+                QStringLiteral(
+                    "stationMapHeaderLayout"))) {
+
+        mapHeader->setSpacing(
+            scaledUi(
+                scaleBase,
+                8));
+    }
+
+
+    if (m_mapWidget) {
+        m_mapWidget->setMinimumHeight(
+            scaledUi(
+                scaleBase,
+                520));
+    }
+
+
+    if (m_stack) {
+        m_stack->setMinimumHeight(
+            scaledUi(
+                scaleBase,
+                320));
     }
 
 
@@ -891,6 +1078,15 @@ void StationListPage::setLocation(
 
     m_hasLocation =
         true;
+
+
+    m_mapWidget->setStations(
+        QJsonArray());
+
+
+    m_mapWidget->setUserLocation(
+        lat,
+        lng);
 
 
     // 最新 main：
@@ -1062,6 +1258,10 @@ void StationListPage::loadStations()
 
         m_cachedList =
             QJsonArray();
+
+
+        m_mapWidget->setStations(
+            QJsonArray());
 
 
         m_tip->setText(
@@ -1331,6 +1531,9 @@ void StationListPage::renderStations()
 
     if (total == 0) {
 
+        m_mapWidget->setStations(
+            QJsonArray());
+
         m_tip->setText(
             QStringLiteral(
                 "附近暂无充电站"));
@@ -1360,6 +1563,10 @@ void StationListPage::renderStations()
             m_cachedList.at(
                 i));
     }
+
+
+    m_mapWidget->setStations(
+        view);
 
 
     buildCards(
