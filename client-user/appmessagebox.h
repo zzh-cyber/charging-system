@@ -13,6 +13,7 @@
 #include <QPushButton>
 #include <QScreen>
 #include <QShowEvent>
+#include <QStyle>
 #include <QTimer>
 #include <QVBoxLayout>
 
@@ -35,14 +36,21 @@ public:
         const QString &message,
         const QString &acceptText = QStringLiteral("确定"),
         const QString &rejectText = QString())
-        : QDialog(parent)
+        : QDialog(parent ? parent->window() : nullptr)
     {
-        // =====================================================================
-        // 窗口
-        // =====================================================================
-        setWindowFlags(
-            Qt::Dialog |
-            Qt::FramelessWindowHint);
+        m_anchorWindow = parentWidget();
+
+        // 挂在用户端主窗口上当子控件，move 用客户区坐标。
+        // 独立无边框 Dialog 在 WSLg 上会被映射到屏幕 (0,0)。
+        if (m_anchorWindow) {
+            setParent(
+                m_anchorWindow,
+                Qt::FramelessWindowHint);
+        } else {
+            setWindowFlags(
+                Qt::Dialog |
+                Qt::FramelessWindowHint);
+        }
 
 
         setAttribute(
@@ -798,54 +806,93 @@ protected:
             0,
             this,
             [this]() {
+                recenterOnParentWindow();
+            });
 
+        QTimer::singleShot(
+            50,
+            this,
+            [this]() {
                 recenterOnParentWindow();
             });
     }
 
 
 private:
-    // =========================================================================
-    // 根据父窗口重新定位
-    // =========================================================================
+    QWidget *m_anchorWindow = nullptr;
+
     void recenterOnParentWindow()
     {
-        QWidget *anchor =
-            parentWidget();
+        if (layout())
+            layout()->activate();
 
+        adjustSize();
 
-        if (anchor) {
+        const QSize sz =
+            size().expandedTo(
+                minimumSizeHint());
 
-            anchor =
-                anchor->window();
+        if (sz.width() < 32 ||
+            sz.height() < 32) {
+
+            return;
         }
 
 
-        QPoint center;
+        QWidget *anchor =
+            m_anchorWindow
+                ? m_anchorWindow
+                : (parentWidget()
+                       ? parentWidget()->window()
+                       : nullptr);
 
+
+        // 子控件：相对用户端窗口客户区居中（不依赖屏幕坐标）
+        if (anchor &&
+            !isWindow()) {
+
+            const int x =
+                (anchor->width() -
+                 sz.width()) /
+                2;
+
+            const int y =
+                (anchor->height() -
+                 sz.height()) /
+                2;
+
+            setGeometry(
+                QRect(
+                    QPoint(
+                        qMax(0, x),
+                        qMax(0, y)),
+                    sz));
+
+            raise();
+            return;
+        }
+
+
+        QRect ref;
 
         if (anchor) {
 
-            // -----------------------------------------------------------------
-            // 必须使用全局坐标。
-            //
-            // 子 QWidget 的 frameGeometry() 是父坐标，
-            // WSLg 下直接拿它定位会跑到左上角。
-            // -----------------------------------------------------------------
-            center =
-                anchor->mapToGlobal(
-                    anchor->rect()
-                        .center());
+            if (anchor->isWindow())
+                ref =
+                    anchor->frameGeometry();
+            else
+                ref =
+                    QRect(
+                        anchor->mapToGlobal(
+                            QPoint(0, 0)),
+                        anchor->size());
 
         } else if (
             QScreen *screen =
-                QGuiApplication::
-                    primaryScreen()) {
+                QGuiApplication::primaryScreen()) {
 
-            center =
-                screen
-                    ->availableGeometry()
-                    .center();
+            ref =
+                screen->availableGeometry();
 
         } else {
 
@@ -853,53 +900,55 @@ private:
         }
 
 
-        QRect geometry(
-            center.x() -
-                width() /
-                    2,
-
-            center.y() -
-                height() /
-                    2,
-
-            width(),
-            height());
+        QRect placed =
+            QStyle::alignedRect(
+                Qt::LeftToRight,
+                Qt::AlignCenter,
+                sz,
+                ref);
 
 
-        // ---------------------------------------------------------------------
-        // 防止弹窗超出当前显示器
-        // ---------------------------------------------------------------------
         if (QScreen *screen =
-                QGuiApplication::
-                    screenAt(
-                        center)) {
+                QGuiApplication::screenAt(
+                    ref.center())) {
 
             const QRect available =
-                screen
-                    ->availableGeometry();
+                screen->availableGeometry();
 
+            if (placed.width() >
+                available.width()) {
 
-            geometry.moveLeft(
+                placed.setWidth(
+                    available.width());
+            }
+
+            if (placed.height() >
+                available.height()) {
+
+                placed.setHeight(
+                    available.height());
+            }
+
+            placed.moveLeft(
                 qBound(
                     available.left(),
-                    geometry.left(),
+                    placed.left(),
                     available.right() -
-                        geometry.width() +
+                        placed.width() +
                         1));
 
-
-            geometry.moveTop(
+            placed.moveTop(
                 qBound(
                     available.top(),
-                    geometry.top(),
+                    placed.top(),
                     available.bottom() -
-                        geometry.height() +
+                        placed.height() +
                         1));
         }
 
 
-        move(
-            geometry.topLeft());
+        setGeometry(
+            placed);
     }
 };
 
