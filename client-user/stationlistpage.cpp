@@ -7,12 +7,17 @@
 #include "uitheme.h"
 #include "windowhelper.h"
 
+#include <QAbstractAnimation>
 #include <QComboBox>
+#include <QCursor>
+#include <QEasingCurve>
+#include <QEvent>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QLabel>
+#include <QMouseEvent>
 #include <QPushButton>
 #include <QResizeEvent>
 #include <QScrollArea>
@@ -20,6 +25,7 @@
 #include <QShowEvent>
 #include <QSizePolicy>
 #include <QStackedWidget>
+#include <QVariantAnimation>
 #include <QVBoxLayout>
 #include <QVector>
 
@@ -49,11 +55,19 @@ StationListPage::StationListPage(
         QStringLiteral(
             "stationHeaderCard"));
 
-    UiTheme::applyCardShadow(
-        headerCard,
-        18,
-        4);
+    headerCard->setAttribute(
+        Qt::WA_StyledBackground,
+        true);
 
+    headerCard->setFrameShape(
+        QFrame::NoFrame);
+
+    headerCard->setLineWidth(
+        0);
+
+    headerCard->setSizePolicy(
+        QSizePolicy::Expanding,
+        QSizePolicy::Preferred);
 
     auto *headerCardLayout =
         new QVBoxLayout(
@@ -64,13 +78,13 @@ StationListPage::StationListPage(
             "stationHeaderCardLayout"));
 
     headerCardLayout->setContentsMargins(
-        14,
-        7,
-        14,
-        7);
+        10,
+        4,
+        10,
+        4);
 
     headerCardLayout->setSpacing(
-        3);
+        0);
 
 
     auto *header =
@@ -192,6 +206,8 @@ StationListPage::StationListPage(
 
     m_tip->setWordWrap(
         true);
+
+    m_tip->hide();
 
 
     headerCardLayout->addWidget(
@@ -509,13 +525,12 @@ StationListPage::StationListPage(
             "stationMapCardLayout"));
 
     mapCardLayout->setContentsMargins(
-        8,
-        7,
-        8,
-        8);
+        0,
+        0,
+        0,
+        0);
 
-    mapCardLayout->setSpacing(
-        4);
+    mapCardLayout->setSpacing(0);
 
 
     auto *mapHeader =
@@ -535,6 +550,7 @@ StationListPage::StationListPage(
     mapTitle->setObjectName(
         QStringLiteral(
             "stationMapTitle"));
+    mapTitle->hide();
 
 
     auto *mapHint =
@@ -546,6 +562,7 @@ StationListPage::StationListPage(
     mapHint->setObjectName(
         QStringLiteral(
             "stationMapHint"));
+    mapHint->hide();
 
 
     mapHeader->addWidget(
@@ -565,7 +582,7 @@ StationListPage::StationListPage(
             "stationMapWidget"));
 
     m_mapWidget->setMinimumHeight(
-        220);
+        80);
 
     m_mapWidget->setSizePolicy(
         QSizePolicy::Expanding,
@@ -581,8 +598,143 @@ StationListPage::StationListPage(
 
 
     // ========================================================================
-    // 总布局
+    // 底部上拉面板（仿高德）：手柄 + 筛选行 + 站点列表
+    // 用地图/面板分栏，避免盖在 WebEngine 原生窗口上被挡住。
     // ========================================================================
+    m_sheet =
+        new QFrame(this);
+
+    m_sheet->setObjectName(
+        QStringLiteral(
+            "stationBottomSheet"));
+
+    m_sheet->setAttribute(
+        Qt::WA_StyledBackground,
+        true);
+
+    m_sheet->setSizePolicy(
+        QSizePolicy::Expanding,
+        QSizePolicy::Fixed);
+
+
+    auto *sheetLayout =
+        new QVBoxLayout(
+            m_sheet);
+
+    sheetLayout->setObjectName(
+        QStringLiteral(
+            "stationSheetLayout"));
+
+    sheetLayout->setContentsMargins(
+        12,
+        0,
+        12,
+        8);
+
+    sheetLayout->setSpacing(
+        6);
+
+
+    m_handle =
+        new QFrame(
+            m_sheet);
+
+    m_handle->setObjectName(
+        QStringLiteral(
+            "stationSheetHandle"));
+
+    m_handle->setCursor(
+        Qt::SizeVerCursor);
+
+    m_handle->setFixedHeight(
+        22);
+
+    m_handle->installEventFilter(
+        this);
+
+
+    auto *handleLayout =
+        new QHBoxLayout(
+            m_handle);
+
+    handleLayout->setObjectName(
+        QStringLiteral(
+            "stationHandleLayout"));
+
+    handleLayout->setContentsMargins(
+        0,
+        8,
+        0,
+        6);
+
+    handleLayout->setAlignment(
+        Qt::AlignHCenter | Qt::AlignTop);
+
+
+    auto *grip =
+        new QFrame(
+            m_handle);
+
+    grip->setObjectName(
+        QStringLiteral(
+            "stationSheetGrip"));
+
+    grip->setFixedSize(
+        36,
+        4);
+
+    grip->setAttribute(
+        Qt::WA_TransparentForMouseEvents,
+        true);
+
+
+    handleLayout->addWidget(
+        grip);
+
+
+    sheetLayout->addWidget(
+        m_handle);
+
+    m_stack->setSizePolicy(
+        QSizePolicy::Expanding,
+        QSizePolicy::Expanding);
+
+    sheetLayout->addWidget(
+        m_stack,
+        1);
+
+
+    // ========================================================================
+    // 总布局：筛选条固定在顶部，不随底部站点面板拖动
+    // ========================================================================
+    auto *headerWrap =
+        new QWidget(this);
+
+    headerWrap->setObjectName(
+        QStringLiteral(
+            "stationHeaderWrap"));
+
+    auto *headerWrapLayout =
+        new QHBoxLayout(
+            headerWrap);
+
+    headerWrapLayout->setObjectName(
+        QStringLiteral(
+            "stationHeaderRow"));
+
+    headerWrapLayout->setContentsMargins(
+        14,
+        0,
+        14,
+        2);
+
+    headerWrapLayout->setSpacing(
+        0);
+
+    headerWrapLayout->addWidget(
+        headerCard);
+
+
     auto *layout =
         new QVBoxLayout(this);
 
@@ -591,32 +743,28 @@ StationListPage::StationListPage(
             "stationPageLayout"));
 
     layout->setContentsMargins(
-        14,
-        14,
-        14,
-        14);
+        0,
+        0,
+        0,
+        0);
 
     layout->setSpacing(
-        12);
+        0);
 
 
     layout->addWidget(
-        headerCard);
+        headerWrap);
 
     layout->addWidget(
         mapCard,
-        3);
-
-    m_stack->setSizePolicy(
-        QSizePolicy::Expanding,
-        QSizePolicy::Expanding);
-
-    m_stack->setMinimumHeight(
-        320);
+        1);
 
     layout->addWidget(
-        m_stack,
-        2);
+        m_sheet);
+
+
+    m_sheet->setFixedHeight(
+        360);
 
 
     m_stack->setCurrentIndex(
@@ -634,6 +782,9 @@ StationListPage::StationListPage(
 
 
     applyResponsiveStyle();
+
+    applySheetFromRatio(
+        false);
 }
 
 
@@ -647,6 +798,13 @@ void StationListPage::resizeEvent(
         event);
 
     applyResponsiveStyle();
+
+    if (m_draggingSheet) {
+        return;
+    }
+
+    applySheetFromRatio(
+        false);
 }
 
 
@@ -664,7 +822,7 @@ void StationListPage::applyResponsiveStyle()
     const int titleFont =
         scaledUi(
             scaleBase,
-            18);
+            15);
 
     const int normalFont =
         scaledUi(
@@ -694,7 +852,7 @@ void StationListPage::applyResponsiveStyle()
     const int cardRadius =
         scaledUi(
             scaleBase,
-            18);
+            16);
 
     const int smallRadius =
         scaledUi(
@@ -707,90 +865,106 @@ void StationListPage::applyResponsiveStyle()
 
             "QWidget#stationListPage{"
             "background:transparent;"
-            "color:#202824;"
+            "color:__TEXT__;"
             "}"
 
             "QFrame#stationHeaderCard{"
-            "background:#FFFFFF;"
-            "border:1px solid #E7E3DA;"
+            "background:__DARK__;"
+            "border:1px solid __DARK__;"
             "border-radius:%1px;"
             "}"
 
             "QLabel#stationTitle{"
             "background:transparent;"
-            "color:#202824;"
+            "color:#FFFFFF;"
             "font-size:%2px;"
             "font-weight:800;"
             "}"
 
             "QLabel#stationTip{"
             "background:transparent;"
-            "color:#7A837E;"
+            "color:#B9C1CB;"
             "font-size:%3px;"
             "}"
 
             "QComboBox#stationLimitCombo{"
-            "background:#FAF8F3;"
-            "color:#315B4D;"
-            "border:1px solid #E1DDD4;"
+            "background:__SOFT__;"
+            "color:#FFFFFF;"
+            "border:1px solid #2F3845;"
             "border-radius:%4px;"
-            "padding:7px 10px;"
+            "padding:4px 8px;"
             "font-size:%5px;"
             "font-weight:600;"
             "}"
 
             "QComboBox#stationLimitCombo:hover{"
-            "border-color:#C9D8CF;"
+            "border-color:__LIME__;"
             "}"
 
             "QComboBox#stationLimitCombo:focus{"
-            "border:1px solid #315B4D;"
+            "border:1px solid __LIME__;"
             "}"
 
             "QComboBox#stationLimitCombo QAbstractItemView{"
-            "background:#FFFFFF;"
-            "color:#202824;"
-            "border:1px solid #E7E3DA;"
-            "selection-background-color:#E9F0EC;"
-            "selection-color:#315B4D;"
+            "background:__DARK__;"
+            "color:#FFFFFF;"
+            "border:1px solid #2F3845;"
+            "selection-background-color:__LIME__;"
+            "selection-color:__DARK__;"
             "outline:0;"
             "}"
 
             "QPushButton#stationRefreshButton{"
-            "background:#315B4D;"
-            "color:#FFFFFF;"
+            "background:__LIME__;"
+            "color:__DARK__;"
             "border:none;"
             "border-radius:%4px;"
             "font-size:%5px;"
-            "font-weight:700;"
-            "padding:8px 14px;"
+            "font-weight:800;"
+            "padding:5px 10px;"
             "}"
 
             "QPushButton#stationRefreshButton:hover{"
-            "background:#284C41;"
+            "background:__LIMEBRIGHT__;"
+            "}"
+
+            "QFrame#stationBottomSheet{"
+            "background:__PAGE__;"
+            "border:none;"
+            "border-top-left-radius:%1px;"
+            "border-top-right-radius:%1px;"
+            "}"
+
+            "QFrame#stationSheetHandle{"
+            "background:transparent;"
+            "}"
+
+            "QFrame#stationSheetGrip{"
+            "background:__LIME__;"
+            "border:none;"
+            "border-radius:2px;"
             "}"
 
             "QFrame#stationMapCard{"
-            "background:#FFFFFF;"
-            "border:1px solid #E7E3DA;"
-            "border-radius:%1px;"
+            "background:transparent;"
+            "border:none;"
             "}"
 
             "QLabel#stationMapTitle{"
             "background:transparent;"
-            "color:#202824;"
+            "color:__TEXT__;"
             "font-size:%8px;"
             "font-weight:800;"
             "}"
 
             "QLabel#stationMapHint{"
             "background:transparent;"
-            "color:#7A837E;"
+            "color:__SEC__;"
             "font-size:%3px;"
             "}"
 
             "AmapWidget#stationMapWidget{"
-            "background:#FAF8F3;"
+            "background:__PAGE__;"
             "border:none;"
             "}"
 
@@ -813,35 +987,35 @@ void StationListPage::applyResponsiveStyle()
             "}"
 
             "QFrame#stationStatePage{"
-            "background:#FFFFFF;"
-            "border:1px solid #E7E3DA;"
+            "background:__DARK__;"
+            "border:none;"
             "border-radius:%1px;"
             "}"
 
             "QLabel#stationStateLabel{"
             "background:transparent;"
-            "color:#7A837E;"
+            "color:#B9C1CB;"
             "font-size:%6px;"
             "}"
 
             "QLabel#stationErrorLabel{"
             "background:transparent;"
-            "color:#C96C66;"
+            "color:#E26868;"
             "font-size:%6px;"
             "}"
 
             "QPushButton#stationStateButton{"
-            "background:#E9F0EC;"
-            "color:#315B4D;"
-            "border:1px solid #D6E1DA;"
+            "background:__LIME__;"
+            "color:__DARK__;"
+            "border:none;"
             "border-radius:%4px;"
             "font-size:%7px;"
-            "font-weight:700;"
+            "font-weight:800;"
             "padding:8px 16px;"
             "}"
 
             "QPushButton#stationStateButton:hover{"
-            "background:#DFE9E3;"
+            "background:__LIMEBRIGHT__;"
             "}")
 
         .arg(
@@ -866,7 +1040,35 @@ void StationListPage::applyResponsiveStyle()
             buttonFont)
 
         .arg(
-            mapTitleFont));
+            mapTitleFont)
+
+        .replace(
+            QStringLiteral("__DARK__"),
+            UiTheme::dark())
+
+        .replace(
+            QStringLiteral("__SOFT__"),
+            UiTheme::darkSoft())
+
+        .replace(
+            QStringLiteral("__LIMEBRIGHT__"),
+            UiTheme::lime())
+
+        .replace(
+            QStringLiteral("__LIME__"),
+            UiTheme::limeStrong())
+
+        .replace(
+            QStringLiteral("__PAGE__"),
+            UiTheme::pageBackground())
+
+        .replace(
+            QStringLiteral("__TEXT__"),
+            UiTheme::textPrimary())
+
+        .replace(
+            QStringLiteral("__SEC__"),
+            UiTheme::textSecondary()));
 
 
     // ========================================================================
@@ -878,15 +1080,13 @@ void StationListPage::applyResponsiveStyle()
                     "stationPageLayout"))) {
 
         pageLayout->setContentsMargins(
-            scaledUi(scaleBase, 14),
-            scaledUi(scaleBase, 14),
-            scaledUi(scaleBase, 14),
-            scaledUi(scaleBase, 14));
+            0,
+            0,
+            0,
+            0);
 
         pageLayout->setSpacing(
-            scaledUi(
-                scaleBase,
-                12));
+            0);
     }
 
 
@@ -899,15 +1099,49 @@ void StationListPage::applyResponsiveStyle()
                     "stationHeaderCardLayout"))) {
 
         headerCardLayout->setContentsMargins(
-            scaledUi(scaleBase, 14),
-            scaledUi(scaleBase, 7),
-            scaledUi(scaleBase, 14),
-            scaledUi(scaleBase, 7));
+            scaledUi(scaleBase, 10),
+            scaledUi(scaleBase, 4),
+            scaledUi(scaleBase, 10),
+            scaledUi(scaleBase, 4));
 
         headerCardLayout->setSpacing(
+            0);
+    }
+
+
+    if (auto *headerCard =
+            findChild<QFrame *>(
+                QStringLiteral(
+                    "stationHeaderCard"))) {
+
+        headerCard->setSizePolicy(
+            QSizePolicy::Expanding,
+            QSizePolicy::Preferred);
+    }
+
+
+    if (auto *headerWrapLayout =
+            findChild<QHBoxLayout *>(
+                QStringLiteral(
+                    "stationHeaderRow"))) {
+
+        headerWrapLayout->setContentsMargins(
+            scaledUi(scaleBase, 14),
+            0,
+            scaledUi(scaleBase, 14),
+            scaledUi(scaleBase, 2));
+    }
+
+
+    if (auto *limitCombo =
+            findChild<QComboBox *>(
+                QStringLiteral(
+                    "stationLimitCombo"))) {
+
+        limitCombo->setMinimumWidth(
             scaledUi(
                 scaleBase,
-                3));
+                108));
     }
 
 
@@ -932,15 +1166,12 @@ void StationListPage::applyResponsiveStyle()
                     "stationMapCardLayout"))) {
 
         mapCardLayout->setContentsMargins(
-            scaledUi(scaleBase, 8),
-            scaledUi(scaleBase, 7),
-            scaledUi(scaleBase, 8),
-            scaledUi(scaleBase, 8));
+            0,
+            0,
+            0,
+            0);
 
-        mapCardLayout->setSpacing(
-            scaledUi(
-                scaleBase,
-                4));
+        mapCardLayout->setSpacing(0);
     }
 
 
@@ -960,15 +1191,62 @@ void StationListPage::applyResponsiveStyle()
         m_mapWidget->setMinimumHeight(
             scaledUi(
                 scaleBase,
-                220));
+                72));
     }
 
 
-    if (m_stack) {
-        m_stack->setMinimumHeight(
+    // ========================================================================
+    // 底部面板
+    // ========================================================================
+    if (auto *sheetLayout =
+            findChild<QVBoxLayout *>(
+                QStringLiteral(
+                    "stationSheetLayout"))) {
+
+        sheetLayout->setContentsMargins(
+            scaledUi(scaleBase, 12),
+            0,
+            scaledUi(scaleBase, 12),
+            scaledUi(scaleBase, 8));
+
+        sheetLayout->setSpacing(
             scaledUi(
                 scaleBase,
-                320));
+                6));
+    }
+
+
+    if (m_handle) {
+        m_handle->setFixedHeight(
+            scaledUi(
+                scaleBase,
+                22));
+    }
+
+
+    if (auto *handleLayout =
+            findChild<QHBoxLayout *>(
+                QStringLiteral(
+                    "stationHandleLayout"))) {
+
+        handleLayout->setContentsMargins(
+            0,
+            scaledUi(scaleBase, 8),
+            0,
+            scaledUi(scaleBase, 6));
+    }
+
+
+    if (auto *grip =
+            findChild<QFrame *>(
+                QStringLiteral(
+                    "stationSheetGrip"))) {
+
+        grip->setFixedSize(
+            scaledUi(scaleBase, 36),
+            qMax(
+                3,
+                scaledUi(scaleBase, 4)));
     }
 
 
@@ -1049,6 +1327,348 @@ void StationListPage::applyResponsiveStyle()
 
 
 // =============================================================================
+// 底部面板高度
+// =============================================================================
+int StationListPage::sheetMinHeight() const
+{
+    const QWidget *scaleBase =
+        window()
+            ? window()
+            : this;
+
+    return scaledUi(
+        scaleBase,
+        120);
+}
+
+
+int StationListPage::sheetPeekHeight() const
+{
+    const QWidget *scaleBase =
+        window()
+            ? window()
+            : this;
+
+    const int pageH =
+        height();
+
+    if (pageH <= 0) {
+        return scaledUi(
+            scaleBase,
+            360);
+    }
+
+    const int preferred =
+        qMax(
+            scaledUi(scaleBase, 360),
+            qRound(pageH * 0.46));
+
+    const int maxPeek =
+        pageH - scaledUi(
+            scaleBase,
+            80);
+
+    return qBound(
+        sheetMinHeight(),
+        preferred,
+        qMax(sheetMinHeight(), maxPeek));
+}
+
+
+int StationListPage::sheetExpandedHeight() const
+{
+    const QWidget *scaleBase =
+        window()
+            ? window()
+            : this;
+
+    const int pageH =
+        height();
+
+    if (pageH <= 0) {
+        return scaledUi(
+            scaleBase,
+            620);
+    }
+
+    return qBound(
+        sheetMinHeight(),
+        pageH - scaledUi(scaleBase, 56),
+        pageH);
+}
+
+
+void StationListPage::setSheetHeight(
+    int height)
+{
+    if (!m_sheet) {
+        return;
+    }
+
+    const int clamped =
+        qBound(
+            sheetMinHeight(),
+            height,
+            sheetExpandedHeight());
+
+    m_sheet->setFixedHeight(
+        clamped);
+
+    if (this->height() > 0) {
+        m_sheetRatio =
+            static_cast<double>(clamped) /
+            static_cast<double>(this->height());
+    }
+}
+
+
+void StationListPage::applySheetFromRatio(
+    bool animate)
+{
+    if (!m_sheet ||
+        height() <= 0) {
+        return;
+    }
+
+    const int target =
+        qBound(
+            sheetMinHeight(),
+            qRound(height() * m_sheetRatio),
+            sheetExpandedHeight());
+
+    if (!animate) {
+
+        if (m_sheetAnim &&
+            m_sheetAnim->state() ==
+                QAbstractAnimation::Running) {
+
+            m_sheetAnim->stop();
+        }
+
+        setSheetHeight(
+            target);
+
+        return;
+    }
+
+    if (m_sheetAnim) {
+        m_sheetAnim->stop();
+        m_sheetAnim->deleteLater();
+        m_sheetAnim = nullptr;
+    }
+
+    auto *anim =
+        new QVariantAnimation(
+            this);
+
+    m_sheetAnim =
+        anim;
+
+    anim->setDuration(
+        240);
+
+    anim->setStartValue(
+        m_sheet->height());
+
+    anim->setEndValue(
+        target);
+
+    anim->setEasingCurve(
+        QEasingCurve::OutCubic);
+
+    connect(
+        anim,
+        &QVariantAnimation::valueChanged,
+        this,
+        [this](const QVariant &value) {
+            setSheetHeight(
+                value.toInt());
+        });
+
+    connect(
+        anim,
+        &QVariantAnimation::finished,
+        this,
+        [this, anim]() {
+            if (m_sheetAnim == anim) {
+                m_sheetAnim = nullptr;
+            }
+        });
+
+    anim->start(
+        QAbstractAnimation::DeleteWhenStopped);
+}
+
+
+void StationListPage::applySheetState(
+    bool animate)
+{
+    if (height() <= 0) {
+        return;
+    }
+
+    const int target =
+        m_sheetExpanded
+            ? sheetExpandedHeight()
+            : sheetPeekHeight();
+
+    m_sheetRatio =
+        static_cast<double>(target) /
+        static_cast<double>(height());
+
+    applySheetFromRatio(
+        animate);
+}
+
+
+void StationListPage::startSheetDrag(
+    int globalY)
+{
+    if (!m_sheet) {
+        return;
+    }
+
+    if (m_sheetAnim &&
+        m_sheetAnim->state() ==
+            QAbstractAnimation::Running) {
+
+        m_sheetAnim->stop();
+    }
+
+    m_draggingSheet =
+        true;
+
+    m_dragStartY =
+        globalY;
+
+    m_dragStartHeight =
+        m_sheet->height();
+
+    if (m_handle) {
+        m_handle->grabMouse();
+    }
+}
+
+
+void StationListPage::updateSheetDrag(
+    int globalY)
+{
+    if (!m_draggingSheet) {
+        return;
+    }
+
+    // 手柄上移 = 面板变高
+    const int nextHeight =
+        m_dragStartHeight - (globalY - m_dragStartY);
+
+    setSheetHeight(
+        nextHeight);
+}
+
+
+void StationListPage::finishSheetDrag(
+    int globalY)
+{
+    if (!m_draggingSheet) {
+        return;
+    }
+
+    m_draggingSheet =
+        false;
+
+    if (m_handle &&
+        QWidget::mouseGrabber() == m_handle) {
+
+        m_handle->releaseMouse();
+    }
+
+    const int deltaY =
+        globalY - m_dragStartY;
+
+    // 几乎没动：点手柄，在半屏 / 铺满之间切换
+    if (qAbs(deltaY) < 8) {
+
+        const int mid =
+            (sheetPeekHeight() +
+             sheetExpandedHeight()) / 2;
+
+        m_sheetExpanded =
+            m_sheet->height() < mid;
+
+        applySheetState(
+            true);
+
+        return;
+    }
+
+    // 拖过一段距离：停在松手位置，不再回弹到两档
+    setSheetHeight(
+        m_sheet->height());
+}
+
+
+bool StationListPage::eventFilter(
+    QObject *watched,
+    QEvent *event)
+{
+    if (watched == m_handle &&
+        event) {
+
+        if (event->type() == QEvent::MouseButtonPress) {
+
+            auto *mouse =
+                static_cast<QMouseEvent *>(
+                    event);
+
+            if (mouse->button() == Qt::LeftButton) {
+
+                startSheetDrag(
+                    mouse->globalPosition()
+                        .toPoint()
+                        .y());
+
+                return true;
+            }
+        }
+
+        if (event->type() == QEvent::MouseMove &&
+            m_draggingSheet) {
+
+            auto *mouse =
+                static_cast<QMouseEvent *>(
+                    event);
+
+            updateSheetDrag(
+                mouse->globalPosition()
+                    .toPoint()
+                    .y());
+
+            return true;
+        }
+
+        if (event->type() == QEvent::MouseButtonRelease &&
+            m_draggingSheet) {
+
+            auto *mouse =
+                static_cast<QMouseEvent *>(
+                    event);
+
+            finishSheetDrag(
+                mouse->globalPosition()
+                    .toPoint()
+                    .y());
+
+            return true;
+        }
+    }
+
+    return QWidget::eventFilter(
+        watched,
+        event);
+}
+
+
+// =============================================================================
 // 设置用户当前位置
 // =============================================================================
 void StationListPage::setLocation(
@@ -1125,6 +1745,9 @@ void StationListPage::showEvent(
 
         loadStations();
     }
+
+    applySheetFromRatio(
+        false);
 }
 
 
@@ -1571,13 +2194,7 @@ void StationListPage::renderStations()
         view);
 
 
-    m_tip->setText(
-        QStringLiteral(
-            "附近共 %1 个，按距离显示最近 %2 个")
-            .arg(
-                total)
-            .arg(
-                shown));
+    m_tip->hide();
 
 
     m_stack->setCurrentIndex(
@@ -1685,6 +2302,10 @@ void StationListPage::buildCards(
 
                 request.requestId =
                     ++m_nextRouteRequestId;
+
+                request.fromName =
+                    QStringLiteral(
+                        "我的位置");
 
                 request.fromLat =
                     m_latitude;

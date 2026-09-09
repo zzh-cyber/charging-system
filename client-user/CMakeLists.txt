@@ -45,9 +45,11 @@ add_executable(charging-user
     routerequest.h
     appmessagebox.h
     uitheme.h
+    mainwindowstyle.h
     windowhelper.h
 
     fonts.qrc
+    uiassets.qrc
     mapresources.qrc
 )
 

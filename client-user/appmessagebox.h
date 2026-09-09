@@ -3,6 +3,7 @@
 
 #include "uitheme.h"
 
+#include <QColor>
 #include <QDialog>
 #include <QFrame>
 #include <QGraphicsDropShadowEffect>
@@ -12,8 +13,10 @@
 #include <QPushButton>
 #include <QScreen>
 #include <QShowEvent>
+#include <QStyle>
 #include <QTimer>
 #include <QVBoxLayout>
+
 
 class AppMessageBox : public QDialog
 {
@@ -25,6 +28,7 @@ public:
         Question
     };
 
+
     explicit AppMessageBox(
         QWidget *parent,
         Type type,
@@ -32,81 +36,170 @@ public:
         const QString &message,
         const QString &acceptText = QStringLiteral("确定"),
         const QString &rejectText = QString())
-        : QDialog(parent)
+        : QDialog(parent ? parent->window() : nullptr)
     {
-        setWindowFlags(
-            Qt::Dialog |
-            Qt::FramelessWindowHint);
+        m_anchorWindow = parentWidget();
+
+        // 挂在用户端主窗口上当子控件，move 用客户区坐标。
+        // 独立无边框 Dialog 在 WSLg 上会被映射到屏幕 (0,0)。
+        if (m_anchorWindow) {
+            setParent(
+                m_anchorWindow,
+                Qt::FramelessWindowHint);
+        } else {
+            setWindowFlags(
+                Qt::Dialog |
+                Qt::FramelessWindowHint);
+        }
+
 
         setAttribute(
             Qt::WA_TranslucentBackground);
 
-        setModal(true);
+
+        setModal(
+            true);
+
 
         setObjectName(
-            QStringLiteral("appMessageDialog"));
-
-        setMinimumWidth(360);
-        setMaximumWidth(500);
+            QStringLiteral(
+                "appMessageDialog"));
 
 
-        // ================================================================
-        // 外层透明区域，用来给阴影留空间
-        // ================================================================
+        setMinimumWidth(
+            360);
+
+        setMaximumWidth(
+            500);
+
+
+        // =====================================================================
+        // 类型属性
+        //
+        // 只影响视觉，不改变业务行为。
+        // =====================================================================
+        QString typeName =
+            QStringLiteral(
+                "information");
+
+
+        if (type ==
+            Type::Warning) {
+
+            typeName =
+                QStringLiteral(
+                    "warning");
+
+        } else if (
+            type ==
+            Type::Question) {
+
+            typeName =
+                QStringLiteral(
+                    "question");
+        }
+
+
+        setProperty(
+            "messageType",
+            typeName);
+
+
+        // =====================================================================
+        // 外层透明区域
+        // 为阴影保留空间
+        // =====================================================================
         auto *outerLayout =
-            new QVBoxLayout(this);
+            new QVBoxLayout(
+                this);
+
 
         outerLayout->setContentsMargins(
-            20,
-            20,
-            20,
-            20);
+            24,
+            24,
+            24,
+            24);
 
 
-        // ================================================================
-        // 米白色圆角主体
-        // ================================================================
+        outerLayout->setSpacing(
+            0);
+
+
+        // =====================================================================
+        // 主卡片
+        // =====================================================================
         auto *card =
-            new QFrame(this);
+            new QFrame(
+                this);
+
 
         card->setObjectName(
-            QStringLiteral("messageCard"));
+            QStringLiteral(
+                "messageCard"));
+
 
         card->setAttribute(
             Qt::WA_StyledBackground,
             true);
 
 
+        // =====================================================================
+        // 阴影
+        // =====================================================================
         auto *shadow =
-            new QGraphicsDropShadowEffect(card);
+            new QGraphicsDropShadowEffect(
+                card);
 
-        shadow->setBlurRadius(28);
-        shadow->setOffset(0, 7);
+
+        shadow->setBlurRadius(
+            34);
+
+
+        shadow->setOffset(
+            0,
+            8);
+
+
         shadow->setColor(
-            QColor(40, 46, 42, 55));
+            QColor(
+                20,
+                27,
+                34,
+                48));
 
-        card->setGraphicsEffect(shadow);
+
+        card->setGraphicsEffect(
+            shadow);
 
 
+        // =====================================================================
+        // Card Layout
+        // =====================================================================
         auto *cardLayout =
-            new QVBoxLayout(card);
+            new QVBoxLayout(
+                card);
+
 
         cardLayout->setContentsMargins(
             22,
-            18,
+            20,
             22,
             20);
 
-        cardLayout->setSpacing(16);
+
+        cardLayout->setSpacing(
+            17);
 
 
-        // ================================================================
-        // 标题行
-        // ================================================================
+        // =====================================================================
+        // Header
+        // =====================================================================
         auto *headerLayout =
             new QHBoxLayout;
 
-        headerLayout->setSpacing(10);
+
+        headerLayout->setSpacing(
+            10);
 
 
         auto *titleLabel =
@@ -114,101 +207,164 @@ public:
                 title,
                 card);
 
+
         titleLabel->setObjectName(
-            QStringLiteral("messageTitle"));
+            QStringLiteral(
+                "messageTitle"));
+
+
+        titleLabel->setWordWrap(
+            true);
 
 
         auto *closeButton =
             new QPushButton(
-                QStringLiteral("×"),
+                QStringLiteral(
+                    "×"),
                 card);
 
+
         closeButton->setObjectName(
-            QStringLiteral("messageCloseButton"));
+            QStringLiteral(
+                "messageCloseButton"));
+
 
         closeButton->setFixedSize(
-            30,
-            30);
+            32,
+            32);
+
 
         closeButton->setCursor(
             Qt::PointingHandCursor);
 
 
-        headerLayout->addWidget(
-            titleLabel);
+        closeButton->setFocusPolicy(
+            Qt::NoFocus);
 
-        headerLayout->addStretch();
 
         headerLayout->addWidget(
-            closeButton);
+            titleLabel,
+            1);
+
+
+        headerLayout->addWidget(
+            closeButton,
+            0,
+            Qt::AlignTop);
 
 
         cardLayout->addLayout(
             headerLayout);
 
 
-        // ================================================================
-        // 内容
-        // ================================================================
+        // =====================================================================
+        // Content
+        // =====================================================================
         auto *contentLayout =
             new QHBoxLayout;
 
-        contentLayout->setSpacing(14);
+
+        contentLayout->setSpacing(
+            14);
 
 
+        // ---------------------------------------------------------------------
+        // 状态图标
+        //
+        // 不使用 Emoji。
+        // ---------------------------------------------------------------------
         auto *iconLabel =
-            new QLabel(card);
+            new QLabel(
+                card);
+
 
         iconLabel->setObjectName(
-            QStringLiteral("messageIcon"));
+            QStringLiteral(
+                "messageIcon"));
+
 
         iconLabel->setAlignment(
             Qt::AlignCenter);
 
+
         iconLabel->setFixedSize(
-            42,
-            42);
+            46,
+            46);
 
 
-        if (type == Type::Warning) {
+        if (type ==
+            Type::Warning) {
 
             iconLabel->setText(
-                QStringLiteral("!"));
+                QStringLiteral(
+                    "!"));
+
 
             iconLabel->setProperty(
                 "messageType",
-                QStringLiteral("warning"));
+                QStringLiteral(
+                    "warning"));
+
+        } else if (
+            type ==
+            Type::Question) {
+
+            iconLabel->setText(
+                QStringLiteral(
+                    "?"));
+
+
+            iconLabel->setProperty(
+                "messageType",
+                QStringLiteral(
+                    "question"));
 
         } else {
 
             iconLabel->setText(
-                QStringLiteral("i"));
+                QStringLiteral(
+                    "i"));
+
 
             iconLabel->setProperty(
                 "messageType",
-                QStringLiteral("info"));
+                QStringLiteral(
+                    "information"));
         }
 
 
+        // ---------------------------------------------------------------------
+        // 正文
+        // ---------------------------------------------------------------------
         auto *messageLabel =
             new QLabel(
                 message,
                 card);
 
-        messageLabel->setObjectName(
-            QStringLiteral("messageText"));
 
-        messageLabel->setWordWrap(true);
+        messageLabel->setObjectName(
+            QStringLiteral(
+                "messageText"));
+
+
+        messageLabel->setWordWrap(
+            true);
+
 
         messageLabel->setAlignment(
             Qt::AlignLeft |
             Qt::AlignVCenter);
 
 
+        messageLabel->setTextInteractionFlags(
+            Qt::TextSelectableByMouse);
+
+
         contentLayout->addWidget(
             iconLabel,
             0,
             Qt::AlignTop);
+
 
         contentLayout->addWidget(
             messageLabel,
@@ -219,17 +375,23 @@ public:
             contentLayout);
 
 
-        // ================================================================
-        // 按钮区
-        // ================================================================
+        // =====================================================================
+        // Button Area
+        // =====================================================================
         auto *buttonLayout =
             new QHBoxLayout;
 
-        buttonLayout->setSpacing(10);
+
+        buttonLayout->setSpacing(
+            10);
+
 
         buttonLayout->addStretch();
 
 
+        // ---------------------------------------------------------------------
+        // Secondary
+        // ---------------------------------------------------------------------
         if (!rejectText.isEmpty()) {
 
             auto *rejectButton =
@@ -237,17 +399,27 @@ public:
                     rejectText,
                     card);
 
+
             rejectButton->setObjectName(
-                QStringLiteral("messageSecondaryButton"));
+                QStringLiteral(
+                    "messageSecondaryButton"));
+
 
             rejectButton->setCursor(
                 Qt::PointingHandCursor);
 
-            rejectButton->setMinimumWidth(105);
-            rejectButton->setMinimumHeight(42);
+
+            rejectButton->setMinimumWidth(
+                104);
+
+
+            rejectButton->setMinimumHeight(
+                43);
+
 
             buttonLayout->addWidget(
                 rejectButton);
+
 
             QObject::connect(
                 rejectButton,
@@ -257,21 +429,34 @@ public:
         }
 
 
+        // ---------------------------------------------------------------------
+        // Primary
+        // ---------------------------------------------------------------------
         auto *acceptButton =
             new QPushButton(
                 acceptText,
                 card);
 
+
         acceptButton->setObjectName(
-            QStringLiteral("messagePrimaryButton"));
+            QStringLiteral(
+                "messagePrimaryButton"));
+
 
         acceptButton->setCursor(
             Qt::PointingHandCursor);
 
-        acceptButton->setMinimumWidth(105);
-        acceptButton->setMinimumHeight(42);
 
-        acceptButton->setDefault(true);
+        acceptButton->setMinimumWidth(
+            104);
+
+
+        acceptButton->setMinimumHeight(
+            43);
+
+
+        acceptButton->setDefault(
+            true);
 
 
         buttonLayout->addWidget(
@@ -286,14 +471,15 @@ public:
             card);
 
 
-        // ================================================================
-        // 信号
-        // ================================================================
+        // =====================================================================
+        // Signals
+        // =====================================================================
         QObject::connect(
             closeButton,
             &QPushButton::clicked,
             this,
             &QDialog::reject);
+
 
         QObject::connect(
             acceptButton,
@@ -302,113 +488,231 @@ public:
             &QDialog::accept);
 
 
-        // ================================================================
-        // 样式
-        // ================================================================
+        // =====================================================================
+        // Style
+        // =====================================================================
         setStyleSheet(
             QStringLiteral(
 
+                // =============================================================
+                // Root
+                // =============================================================
                 "QDialog#appMessageDialog{"
                 "background:transparent;"
                 "}"
 
+
+                // =============================================================
+                // Card
+                // =============================================================
                 "QFrame#messageCard{"
-                "background:#F7F4EE;"
-                "border:1px solid #E2DBD0;"
-                "border-radius:20px;"
+                "background:#FFFFFF;"
+                "border:1px solid %1;"
+                "border-radius:24px;"
                 "}"
 
+
+                // =============================================================
+                // Title
+                // =============================================================
                 "QLabel#messageTitle{"
                 "background:transparent;"
                 "border:none;"
-                "color:%1;"
+                "color:%2;"
                 "font-size:18px;"
-                "font-weight:800;"
+                "font-weight:850;"
                 "}"
 
+
+                // =============================================================
+                // Message
+                // =============================================================
                 "QLabel#messageText{"
                 "background:transparent;"
                 "border:none;"
-                "color:#59635E;"
-                "font-size:15px;"
+                "color:%3;"
+                "font-size:14px;"
+                "line-height:1.4;"
                 "}"
 
+
+                // =============================================================
+                // Icon Base
+                // =============================================================
                 "QLabel#messageIcon{"
                 "border:none;"
-                "border-radius:21px;"
+                "border-radius:23px;"
                 "font-size:20px;"
-                "font-weight:800;"
+                "font-weight:900;"
                 "}"
 
-                "QLabel#messageIcon[messageType=\"info\"]{"
-                "background:#E8F0EB;"
+
+                // -------------------------------------------------------------
+                // Information
+                // -------------------------------------------------------------
+                "QLabel#messageIcon"
+                "[messageType=\"information\"]{"
+                "background:%4;"
+                "color:%5;"
+                "}"
+
+
+                // -------------------------------------------------------------
+                // Warning
+                // -------------------------------------------------------------
+                "QLabel#messageIcon"
+                "[messageType=\"warning\"]{"
+                "background:#FFF3DD;"
+                "color:#D0932E;"
+                "}"
+
+
+                // -------------------------------------------------------------
+                // Question
+                // -------------------------------------------------------------
+                "QLabel#messageIcon"
+                "[messageType=\"question\"]{"
+                "background:%6;"
                 "color:%2;"
                 "}"
 
-                "QLabel#messageIcon[messageType=\"warning\"]{"
-                "background:#FFF0D9;"
-                "color:#B57828;"
-                "}"
 
+                // =============================================================
+                // Close
+                // =============================================================
                 "QPushButton#messageCloseButton{"
                 "background:transparent;"
                 "border:none;"
-                "border-radius:15px;"
-                "color:#8A918D;"
+                "border-radius:16px;"
+                "color:%7;"
                 "font-size:22px;"
                 "font-weight:500;"
                 "padding:0px;"
                 "}"
 
+
                 "QPushButton#messageCloseButton:hover{"
-                "background:#ECE8E0;"
-                "color:%1;"
+                "background:%8;"
+                "color:%2;"
                 "}"
 
+
+                "QPushButton#messageCloseButton:pressed{"
+                "background:#E8ECEA;"
+                "}"
+
+
+                // =============================================================
+                // Primary Button
+                // =============================================================
                 "QPushButton#messagePrimaryButton{"
-                "background:%2;"
+                "background:%9;"
                 "color:#FFFFFF;"
                 "border:none;"
                 "border-radius:13px;"
-                "font-size:15px;"
+                "font-size:14px;"
+                "font-weight:750;"
+                "padding:9px 18px;"
+                "}"
+
+
+                "QPushButton#messagePrimaryButton:hover{"
+                "background:%10;"
+                "}"
+
+
+                "QPushButton#messagePrimaryButton:pressed{"
+                "background:#10151C;"
+                "}"
+
+
+                // =============================================================
+                // Question 主按钮使用亮绿色
+                // =============================================================
+                "QDialog#appMessageDialog"
+                "[messageType=\"question\"] "
+                "QPushButton#messagePrimaryButton{"
+                "background:%6;"
+                "color:%9;"
+                "}"
+
+
+                "QDialog#appMessageDialog"
+                "[messageType=\"question\"] "
+                "QPushButton#messagePrimaryButton:hover{"
+                "background:#63E27C;"
+                "}"
+
+
+                "QDialog#appMessageDialog"
+                "[messageType=\"question\"] "
+                "QPushButton#messagePrimaryButton:pressed{"
+                "background:#52D96E;"
+                "}"
+
+
+                // =============================================================
+                // Secondary Button
+                // =============================================================
+                "QPushButton#messageSecondaryButton{"
+                "background:%8;"
+                "color:%2;"
+                "border:1px solid %1;"
+                "border-radius:13px;"
+                "font-size:14px;"
                 "font-weight:700;"
                 "padding:9px 18px;"
                 "}"
 
-                "QPushButton#messagePrimaryButton:hover{"
-                "background:%3;"
-                "}"
-
-                "QPushButton#messagePrimaryButton:pressed{"
-                "background:#24473C;"
-                "}"
-
-                "QPushButton#messageSecondaryButton{"
-                "background:#ECE8E0;"
-                "color:%1;"
-                "border:1px solid #DDD6CA;"
-                "border-radius:13px;"
-                "font-size:15px;"
-                "font-weight:650;"
-                "padding:9px 18px;"
-                "}"
 
                 "QPushButton#messageSecondaryButton:hover{"
-                "background:#E4DFD5;"
+                "background:#E9EEEB;"
+                "border-color:%11;"
+                "}"
+
+
+                "QPushButton#messageSecondaryButton:pressed{"
+                "background:#E1E7E3;"
                 "}")
 
                 .arg(
-                    UiTheme::textPrimary())
+                    UiTheme::border())          // %1
 
                 .arg(
-                    UiTheme::primary())
+                    UiTheme::textPrimary())     // %2
 
                 .arg(
-                    UiTheme::primaryHover()));
+                    UiTheme::textSecondary())   // %3
+
+                .arg(
+                    UiTheme::limeSoft())        // %4
+
+                .arg(
+                    UiTheme::limeStrong())      // %5
+
+                .arg(
+                    UiTheme::lime())            // %6
+
+                .arg(
+                    UiTheme::textTertiary())    // %7
+
+                .arg(
+                    UiTheme::surfaceSoft())     // %8
+
+                .arg(
+                    UiTheme::dark())            // %9
+
+                .arg(
+                    UiTheme::darkHover())       // %10
+
+                .arg(
+                    UiTheme::borderStrong()));  // %11
     }
 
 
+    // =========================================================================
     // 普通提示
+    // =========================================================================
     static void information(
         QWidget *parent,
         const QString &title,
@@ -420,11 +724,14 @@ public:
             title,
             message);
 
+
         box.exec();
     }
 
 
+    // =========================================================================
     // 警告
+    // =========================================================================
     static void warning(
         QWidget *parent,
         const QString &title,
@@ -436,17 +743,24 @@ public:
             title,
             message);
 
+
         box.exec();
     }
 
 
+    // =========================================================================
     // 二选一
+    // =========================================================================
     static bool question(
         QWidget *parent,
         const QString &title,
         const QString &message,
-        const QString &acceptText = QStringLiteral("确定"),
-        const QString &rejectText = QStringLiteral("取消"))
+        const QString &acceptText =
+            QStringLiteral(
+                "确定"),
+        const QString &rejectText =
+            QStringLiteral(
+                "取消"))
     {
         AppMessageBox box(
             parent,
@@ -456,75 +770,187 @@ public:
             acceptText,
             rejectText);
 
-        return box.exec() ==
-               QDialog::Accepted;
+
+        return
+            box.exec() ==
+            QDialog::Accepted;
     }
 
 
 protected:
+    // =========================================================================
+    // WSLg / Frameless Dialog 居中处理
+    // =========================================================================
     void showEvent(
         QShowEvent *event) override
     {
-        QDialog::showEvent(event);
+        QDialog::showEvent(
+            event);
+
 
         adjustSize();
+
+
         recenterOnParentWindow();
 
-        // WSLg / 无边框窗体有时会在首次映射后再把窗口挪回 (0,0)
+
+        // ---------------------------------------------------------------------
+        // WSLg：
+        //
+        // 无边框窗口第一次映射以后，
+        // compositor 偶尔会再次移动窗口。
+        //
+        // 所以事件循环进入以后再次居中一次。
+        // ---------------------------------------------------------------------
         QTimer::singleShot(
             0,
             this,
             [this]() {
                 recenterOnParentWindow();
             });
+
+        QTimer::singleShot(
+            50,
+            this,
+            [this]() {
+                recenterOnParentWindow();
+            });
     }
 
+
 private:
+    QWidget *m_anchorWindow = nullptr;
+
     void recenterOnParentWindow()
     {
-        QWidget *anchor = parentWidget();
-        if (anchor)
-            anchor = anchor->window();
+        if (layout())
+            layout()->activate();
 
-        QPoint center;
-        if (anchor) {
-            // 子页面 frameGeometry 是相对坐标，不能直接 move。
-            // 顶层窗口或 mapToGlobal 才是屏幕坐标。
-            center = anchor->mapToGlobal(
-                anchor->rect().center());
-        } else if (QScreen *screen =
-                       QGuiApplication::primaryScreen()) {
-            center = screen->availableGeometry().center();
-        } else {
+        adjustSize();
+
+        const QSize sz =
+            size().expandedTo(
+                minimumSizeHint());
+
+        if (sz.width() < 32 ||
+            sz.height() < 32) {
+
             return;
         }
 
-        QRect geo(
-            center.x() - width() / 2,
-            center.y() - height() / 2,
-            width(),
-            height());
 
-        if (QScreen *screen =
-                QGuiApplication::screenAt(center)) {
-            const QRect avail =
-                screen->availableGeometry();
+        QWidget *anchor =
+            m_anchorWindow
+                ? m_anchorWindow
+                : (parentWidget()
+                       ? parentWidget()->window()
+                       : nullptr);
 
-            geo.moveLeft(
-                qBound(
-                    avail.left(),
-                    geo.left(),
-                    avail.right() - geo.width() + 1));
 
-            geo.moveTop(
-                qBound(
-                    avail.top(),
-                    geo.top(),
-                    avail.bottom() - geo.height() + 1));
+        // 子控件：相对用户端窗口客户区居中（不依赖屏幕坐标）
+        if (anchor &&
+            !isWindow()) {
+
+            const int x =
+                (anchor->width() -
+                 sz.width()) /
+                2;
+
+            const int y =
+                (anchor->height() -
+                 sz.height()) /
+                2;
+
+            setGeometry(
+                QRect(
+                    QPoint(
+                        qMax(0, x),
+                        qMax(0, y)),
+                    sz));
+
+            raise();
+            return;
         }
 
-        move(geo.topLeft());
+
+        QRect ref;
+
+        if (anchor) {
+
+            if (anchor->isWindow())
+                ref =
+                    anchor->frameGeometry();
+            else
+                ref =
+                    QRect(
+                        anchor->mapToGlobal(
+                            QPoint(0, 0)),
+                        anchor->size());
+
+        } else if (
+            QScreen *screen =
+                QGuiApplication::primaryScreen()) {
+
+            ref =
+                screen->availableGeometry();
+
+        } else {
+
+            return;
+        }
+
+
+        QRect placed =
+            QStyle::alignedRect(
+                Qt::LeftToRight,
+                Qt::AlignCenter,
+                sz,
+                ref);
+
+
+        if (QScreen *screen =
+                QGuiApplication::screenAt(
+                    ref.center())) {
+
+            const QRect available =
+                screen->availableGeometry();
+
+            if (placed.width() >
+                available.width()) {
+
+                placed.setWidth(
+                    available.width());
+            }
+
+            if (placed.height() >
+                available.height()) {
+
+                placed.setHeight(
+                    available.height());
+            }
+
+            placed.moveLeft(
+                qBound(
+                    available.left(),
+                    placed.left(),
+                    available.right() -
+                        placed.width() +
+                        1));
+
+            placed.moveTop(
+                qBound(
+                    available.top(),
+                    placed.top(),
+                    available.bottom() -
+                        placed.height() +
+                        1));
+        }
+
+
+        setGeometry(
+            placed);
     }
 };
+
 
 #endif // APPMESSAGEBOX_H
