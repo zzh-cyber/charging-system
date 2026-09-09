@@ -10,6 +10,8 @@
 #include <QLineEdit>
 #include <QMap>
 #include <QMessageBox>
+#include <QPainter>
+#include <QPaintEvent>
 #include <QPushButton>
 #include <QResizeEvent>
 #include <QScrollArea>
@@ -18,6 +20,68 @@
 #include <QTimer>
 #include <QVBoxLayout>
 #include <algorithm>
+
+class StatusDonutWidget final : public QFrame
+{
+public:
+    explicit StatusDonutWidget(QWidget *parent = nullptr) : QFrame(parent)
+    {
+        setObjectName(QStringLiteral("monitorStatusDonut"));
+        setMinimumSize(188, 126);
+    }
+
+    void setValues(int idle, int busy, int fault)
+    {
+        m_values = {qMax(0, idle), qMax(0, busy), qMax(0, fault)};
+        update();
+    }
+    void setDarkTheme(bool dark) { m_dark = dark; update(); }
+
+protected:
+    void paintEvent(QPaintEvent *event) override
+    {
+        Q_UNUSED(event)
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing);
+        const QRectF ring(17, 20, 78, 78);
+        const int total = m_values[0] + m_values[1] + m_values[2];
+        const QColor colors[] = {QColor("#9AAD73"), QColor("#7297D6"), QColor("#D77868")};
+        painter.setPen(QPen(QColor("#E7E6DF"), 11, Qt::SolidLine, Qt::RoundCap));
+        painter.drawArc(ring, 0, 360 * 16);
+        if (total > 0) {
+            int start = 90 * 16;
+            for (int i = 0; i < 3; ++i) {
+                const int span = qRound(360.0 * 16.0 * m_values[i] / total);
+                painter.setPen(QPen(colors[i], 11, Qt::SolidLine, Qt::RoundCap));
+                painter.drawArc(ring, start, -span);
+                start -= span;
+            }
+        }
+        painter.setPen(m_dark ? QColor("#E9ECEF") : QColor("#282A26"));
+        painter.setFont(QFont(QStringLiteral("Microsoft YaHei UI"), 15, QFont::Bold));
+        painter.drawText(ring, Qt::AlignCenter, QString::number(total));
+        painter.setPen(m_dark ? QColor("#A5ADB5") : QColor("#7B7E76"));
+        painter.setFont(QFont(QStringLiteral("Microsoft YaHei UI"), 9));
+        painter.drawText(QRectF(108, 17, 70, 18), Qt::AlignLeft | Qt::AlignVCenter, QStringLiteral("状态概览"));
+        const QStringList labels = {QStringLiteral("闲置"), QStringLiteral("在用"), QStringLiteral("故障")};
+        for (int i = 0; i < 3; ++i) {
+            const qreal y = 43 + i * 23;
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(colors[i]);
+            painter.drawEllipse(QRectF(109, y + 4, 7, 7));
+            painter.setPen(m_dark ? QColor("#D4D9DE") : QColor("#51544D"));
+            painter.drawText(QRectF(122, y, 32, 16), Qt::AlignLeft | Qt::AlignVCenter, labels[i]);
+            painter.setPen(m_dark ? QColor("#F1F3F5") : QColor("#282A26"));
+            painter.setFont(QFont(QStringLiteral("Microsoft YaHei UI"), 10, QFont::Bold));
+            painter.drawText(QRectF(153, y, 28, 16), Qt::AlignRight | Qt::AlignVCenter, QString::number(m_values[i]));
+            painter.setFont(QFont(QStringLiteral("Microsoft YaHei UI"), 9));
+        }
+    }
+
+private:
+    QVector<int> m_values{0, 0, 0};
+    bool m_dark = false;
+};
 
 namespace {
 QWidget *createKpiCard(const QString &title, QLabel **valueLabel, QWidget *parent)
@@ -76,6 +140,8 @@ void PileStatusWidget::initUI()
     kpiLayout->addWidget(createKpiCard(QStringLiteral("闲置"), &m_idleValue, this));
     kpiLayout->addWidget(createKpiCard(QStringLiteral("在用"), &m_busyValue, this));
     kpiLayout->addWidget(createKpiCard(QStringLiteral("故障"), &m_faultValue, this));
+    m_statusDonut = new StatusDonutWidget(this);
+    kpiLayout->addWidget(m_statusDonut);
     mainLayout->addLayout(kpiLayout);
 
     auto *toolbar = new QFrame(this);
@@ -130,7 +196,10 @@ void PileStatusWidget::loadStatus()
     if (!m_net || m_requestInFlight)
         return;
     m_requestInFlight = true;
-    const QJsonObject response = m_net->request(Protocol::makeRequest(Protocol::MsgType::AdminPileList));
+    QJsonObject requestData;
+    requestData.insert(QStringLiteral("page"), 1);
+    requestData.insert(QStringLiteral("page_size"), 50);
+    const QJsonObject response = m_net->request(Protocol::makeRequest(Protocol::MsgType::AdminPileList, requestData));
     m_requestInFlight = false;
     const int code = response.value(QStringLiteral("code")).toInt(-1);
     const QString message = response.value(QStringLiteral("msg")).toString();
@@ -146,7 +215,22 @@ void PileStatusWidget::loadStatus()
     }
 
     const QJsonObject data = response.value(QStringLiteral("data")).toObject();
-    const QJsonArray list = data.value(QStringLiteral("list")).toArray();
+    QJsonArray list = data.value(QStringLiteral("list")).toArray();
+    const int total = data.value(QStringLiteral("total")).toInt(list.size());
+    int page = 2;
+    while (list.size() < total) {
+        requestData.insert(QStringLiteral("page"), page++);
+        const QJsonObject nextResponse = m_net->request(
+            Protocol::makeRequest(Protocol::MsgType::AdminPileList, requestData));
+        if (nextResponse.value(QStringLiteral("code")).toInt(-1) != Protocol::Ok)
+            break;
+        const QJsonArray nextList = nextResponse.value(QStringLiteral("data")).toObject()
+                                        .value(QStringLiteral("list")).toArray();
+        if (nextList.isEmpty())
+            break;
+        for (const QJsonValue &value : nextList)
+            list.append(value);
+    }
     QVector<PileStatusItem> items;
     items.reserve(list.size());
     for (const QJsonValue &value : list) {
@@ -172,10 +256,19 @@ void PileStatusWidget::loadStatus()
         && stats.value(QStringLiteral("fault")).isObject() && statTime.isValid();
     if (validStats) {
         updateSummary(stats);
+        m_statusDonut->setValues(stats.value(QStringLiteral("idle")).toObject().value(QStringLiteral("count")).toInt(),
+                                 stats.value(QStringLiteral("busy")).toObject().value(QStringLiteral("count")).toInt(),
+                                 stats.value(QStringLiteral("fault")).toObject().value(QStringLiteral("count")).toInt());
         m_lastUpdateLabel->setText(QStringLiteral("最后更新：%1").arg(statTime.toString(QStringLiteral("yyyy-MM-dd HH:mm:ss"))));
     } else {
         m_lastUpdateLabel->setText(QStringLiteral("设备已更新，统计暂不可用"));
     }
+}
+
+void PileStatusWidget::setDarkTheme(bool dark)
+{
+    if (m_statusDonut)
+        m_statusDonut->setDarkTheme(dark);
 }
 
 void PileStatusWidget::applyFilters() { rebuildCards(); }

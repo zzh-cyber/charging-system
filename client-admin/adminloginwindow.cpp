@@ -5,7 +5,9 @@
 #include "protocol.h"
 
 #include <QApplication>
+#include <QGraphicsDropShadowEffect>
 #include <QHBoxLayout>
+#include <QIcon>
 #include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
@@ -21,15 +23,33 @@ static constexpr const char *kServerHost = "127.0.0.1";
 static constexpr quint16 kServerPort = 9000;
 
 namespace {
+QIcon fieldIcon(bool locked)
+{
+    QPixmap icon(22, 22);
+    icon.fill(Qt::transparent);
+    QPainter painter(&icon);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setPen(QPen(QColor("#A4AAA6"), 1.6, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    painter.setBrush(Qt::NoBrush);
+    if (locked) {
+        painter.drawRoundedRect(QRectF(5.5, 9.5, 11, 8.5), 2, 2);
+        painter.drawArc(QRectF(7.5, 3.5, 7, 10), 0, 180 * 16);
+    } else {
+        painter.drawEllipse(QRectF(8, 3.5, 6, 6));
+        painter.drawArc(QRectF(4.5, 10, 13, 9), 15 * 16, 150 * 16);
+    }
+    return QIcon(icon);
+}
+
 class BrandVisualWidget final : public QWidget
 {
 public:
     explicit BrandVisualWidget(QWidget *parent = nullptr) : QWidget(parent)
     {
         setObjectName(QStringLiteral("loginBrandVisual"));
-        setMinimumHeight(310);
-        m_car.load(QStringLiteral(":/login-car.jpg"));
-        m_charger.load(QStringLiteral(":/login-charger.jpg"));
+        setMinimumHeight(250);
+        m_car.load(QStringLiteral(":/login-car-transparent.png"));
+        m_charger.load(QStringLiteral(":/login-charger-transparent.png"));
     }
 
 protected:
@@ -37,57 +57,37 @@ protected:
     {
         QPainter painter(this);
         painter.setRenderHint(QPainter::Antialiasing);
-        const QRectF area = rect().adjusted(4, 6, -4, -6);
+        const QRectF area = rect().adjusted(4, 2, -4, -2);
 
-        QRadialGradient glow(area.center() + QPointF(area.width() * .18, 0), area.width() * .58);
-        glow.setColorAt(0, QColor(91, 222, 136, 34));
-        glow.setColorAt(1, QColor(91, 222, 136, 0));
+        QRadialGradient glow(area.center() + QPointF(area.width() * .18, area.height() * .15),
+                             area.width() * .58);
+        glow.setColorAt(0, QColor(53, 198, 107, 18));
+        glow.setColorAt(1, QColor(53, 198, 107, 0));
         painter.fillRect(area, glow);
 
-        painter.setPen(QPen(QColor(255, 255, 255, 13), 1));
-        for (qreal x = area.left(); x < area.right(); x += 28)
-            for (qreal y = area.top(); y < area.bottom(); y += 28)
-                painter.drawPoint(QPointF(x, y));
+        painter.setPen(QPen(QColor(53, 198, 107, 24), 1));
+        painter.drawArc(area.adjusted(20, 32, -10, 30), 12 * 16, 135 * 16);
 
-        // 参考展厅式登录页：深色外框中放置一个柔和浅灰影棚，白底素材自然融入。
-        const QRectF scene = area.adjusted(8, 5, -8, -5);
-        QPainterPath scenePath;
-        scenePath.addRoundedRect(scene, 18, 18);
-        painter.save();
-        painter.setClipPath(scenePath);
-        QLinearGradient backdrop(scene.topLeft(), scene.bottomRight());
-        backdrop.setColorAt(0, QColor("#F7F7F3"));
-        backdrop.setColorAt(.62, QColor("#FFFFFF"));
-        backdrop.setColorAt(1, QColor("#E9ECE7"));
-        painter.fillPath(scenePath, backdrop);
-
-        painter.setPen(QPen(QColor(22, 27, 23, 13), 1));
-        for (qreal y = scene.top() + 28; y < scene.bottom(); y += 34)
-            painter.drawLine(QPointF(scene.left(), y), QPointF(scene.right(), y));
+        const QRectF scene = area.adjusted(6, 0, -6, -2);
 
         // 后景只保留一个充电桩，按原始比例缩放。
-        const qreal chargerHeight = scene.height() * .82;
+        const qreal chargerHeight = scene.height() * .86;
         const QSizeF chargerSize(chargerHeight * m_charger.width() / qreal(m_charger.height()),
                                  chargerHeight);
-        const QRectF chargerRect(scene.right() - chargerSize.width() - scene.width() * .05,
-                                 scene.bottom() - chargerSize.height() - scene.height() * .04,
+        const QRectF chargerRect(scene.right() - chargerSize.width() + scene.width() * .015,
+                                 scene.bottom() - chargerSize.height() - scene.height() * .17,
                                  chargerSize.width(), chargerSize.height());
-        painter.setOpacity(.96);
+        painter.setOpacity(.94);
         painter.drawPixmap(chargerRect, m_charger, m_charger.rect());
 
         // 白色电动车位于左下前景，不拉伸，横向形成视觉主导。
-        const qreal carWidth = scene.width() * .77;
+        const qreal carWidth = scene.width() * .82;
         const qreal carHeight = carWidth * m_car.height() / qreal(m_car.width());
         const QRectF carRect(scene.left() - scene.width() * .035,
-                             scene.bottom() - carHeight + scene.height() * .035,
+                             scene.bottom() - carHeight + scene.height() * .02,
                              carWidth, carHeight);
         painter.setOpacity(1.0);
         painter.drawPixmap(carRect, m_car, m_car.rect());
-        painter.restore();
-
-        painter.setPen(QPen(QColor("#57DB7E"), 1));
-        painter.setBrush(Qt::NoBrush);
-        painter.drawRoundedRect(scene, 18, 18);
     }
 
 private:
@@ -103,7 +103,7 @@ AdminLoginWindow::AdminLoginWindow(QWidget *parent)
 {
     setWindowTitle(QStringLiteral("充电桩运营管理后台 - 登录"));
     setObjectName(QStringLiteral("adminLoginWindow"));
-    resize(1200, 800);
+    resize(1000, 680);
 
     auto *root = new QHBoxLayout(this);
     root->setContentsMargins(0, 0, 0, 0);
@@ -112,7 +112,7 @@ AdminLoginWindow::AdminLoginWindow(QWidget *parent)
     auto *brandPanel = new QWidget(this);
     brandPanel->setObjectName(QStringLiteral("loginBrandPanel"));
     auto *brandLayout = new QVBoxLayout(brandPanel);
-    brandLayout->setContentsMargins(54, 42, 48, 42);
+    brandLayout->setContentsMargins(48, 38, 40, 30);
     brandLayout->setSpacing(0);
     auto *brandName = new QLabel(QStringLiteral("充电桩综合运营管理系统"), brandPanel);
     brandName->setObjectName(QStringLiteral("loginBrandName"));
@@ -120,28 +120,33 @@ AdminLoginWindow::AdminLoginWindow(QWidget *parent)
     brandEnglish->setObjectName(QStringLiteral("loginBrandEnglish"));
     auto *statement = new QLabel(QStringLiteral("连接每一座站点，\n让每一次充电都可感知。"), brandPanel);
     statement->setObjectName(QStringLiteral("loginStatement"));
-    auto *caption = new QLabel(QStringLiteral("Smart Charging · Real-time Monitoring · Energy Operations"), brandPanel);
-    caption->setObjectName(QStringLiteral("loginBrandCaption"));
-    caption->setWordWrap(true);
     brandLayout->addWidget(brandName);
     brandLayout->addWidget(brandEnglish);
-    brandLayout->addSpacing(48);
+    auto *accentLine = new QWidget(brandPanel);
+    accentLine->setObjectName(QStringLiteral("loginAccentLine"));
+    accentLine->setFixedSize(36, 3);
+    brandLayout->addSpacing(30);
+    brandLayout->addWidget(accentLine);
+    brandLayout->addSpacing(22);
     brandLayout->addWidget(statement);
-    brandLayout->addSpacing(10);
-    brandLayout->addWidget(caption);
-    brandLayout->addStretch();
-    brandLayout->addWidget(new BrandVisualWidget(brandPanel), 2);
+    brandLayout->addSpacing(18);
+    brandLayout->addWidget(new BrandVisualWidget(brandPanel), 1);
 
     auto *loginPanel = new QWidget(this);
     loginPanel->setObjectName(QStringLiteral("loginFormPanel"));
     auto *rightLayout = new QVBoxLayout(loginPanel);
-    rightLayout->setContentsMargins(76, 64, 76, 64);
+    rightLayout->setContentsMargins(36, 52, 36, 52);
     auto *form = new QWidget(loginPanel);
     form->setObjectName(QStringLiteral("loginForm"));
-    form->setMaximumWidth(430);
+    form->setFixedWidth(380);
     auto *formLayout = new QVBoxLayout(form);
-    formLayout->setContentsMargins(0, 0, 0, 0);
+    formLayout->setContentsMargins(26, 28, 26, 26);
     formLayout->setSpacing(10);
+    auto *formShadow = new QGraphicsDropShadowEffect(form);
+    formShadow->setBlurRadius(28);
+    formShadow->setOffset(0, 8);
+    formShadow->setColor(QColor(0, 0, 0, 78));
+    form->setGraphicsEffect(formShadow);
     auto *eyebrow = new QLabel(QStringLiteral("ADMINISTRATOR ACCESS"), form);
     eyebrow->setObjectName(QStringLiteral("loginEyebrow"));
     auto *title = new QLabel(QStringLiteral("管理员登录"), form);
@@ -157,6 +162,7 @@ AdminLoginWindow::AdminLoginWindow(QWidget *parent)
     );
     m_userEdit->setText("admin");
     m_userEdit->setMinimumHeight(48);
+    m_userEdit->addAction(fieldIcon(false), QLineEdit::LeadingPosition);
 
     m_pwdEdit = new QLineEdit(this);
     m_pwdEdit->setPlaceholderText(
@@ -164,6 +170,7 @@ AdminLoginWindow::AdminLoginWindow(QWidget *parent)
     );
     m_pwdEdit->setEchoMode(QLineEdit::Password);
     m_pwdEdit->setMinimumHeight(48);
+    m_pwdEdit->addAction(fieldIcon(true), QLineEdit::LeadingPosition);
     auto *passwordLabel = new QLabel(QStringLiteral("密码"), form);
     passwordLabel->setObjectName(QStringLiteral("loginFieldLabel"));
 
@@ -171,7 +178,7 @@ AdminLoginWindow::AdminLoginWindow(QWidget *parent)
         QStringLiteral("登录"),
         this
     );
-    m_loginBtn->setMinimumHeight(50);
+    m_loginBtn->setMinimumHeight(48);
     auto *securityHint = new QLabel(QStringLiteral("仅限授权管理员访问"), form);
     securityHint->setObjectName(QStringLiteral("loginSecurityHint"));
     securityHint->setAlignment(Qt::AlignCenter);
@@ -189,10 +196,10 @@ AdminLoginWindow::AdminLoginWindow(QWidget *parent)
     formLayout->addWidget(m_loginBtn);
     formLayout->addWidget(securityHint);
     rightLayout->addStretch();
-    rightLayout->addWidget(form, 0, Qt::AlignHCenter);
+    rightLayout->addWidget(form, 0, Qt::AlignRight);
     rightLayout->addStretch();
-    root->addWidget(brandPanel, 11);
-    root->addWidget(loginPanel, 10);
+    root->addWidget(brandPanel, 57);
+    root->addWidget(loginPanel, 43);
 
     connect(
         m_loginBtn,

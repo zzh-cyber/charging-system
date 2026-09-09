@@ -14,6 +14,7 @@ class QResizeEvent;
 class QScrollArea;
 class QTimer;
 class QVBoxLayout;
+class StatusDonutWidget;
 
 struct PileStatusItem
 {
@@ -31,6 +32,7 @@ class PileStatusWidget : public QWidget
 public:
     explicit PileStatusWidget(NetClient *netClient, QWidget *parent = nullptr);
     void applyRefreshSettings(bool autoRefresh, int intervalMs, bool pauseWhenHidden, bool pageVisible);
+    void setDarkTheme(bool dark);
 
 signals:
     void openPileManageRequested(qint64 pileId);
@@ -62,6 +64,7 @@ private:
     QLabel *m_idleValue = nullptr;
     QLabel *m_busyValue = nullptr;
     QLabel *m_faultValue = nullptr;
+    StatusDonutWidget *m_statusDonut = nullptr;
     QLabel *m_lastUpdateLabel = nullptr;
     QScrollArea *m_scrollArea = nullptr;
     QWidget *m_cardsContainer = nullptr;

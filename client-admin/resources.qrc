@@ -2,4 +2,6 @@
     <file>admin.qss</file>
     <file alias="login-car.jpg">image/login-car.jpg</file>
     <file alias="login-charger.jpg">image/login-charger.jpg</file>
+    <file alias="login-car-transparent.png">image/login-car-transparent.png</file>
+    <file alias="login-charger-transparent.png">image/login-charger-transparent.png</file>
 </qresource></RCC>

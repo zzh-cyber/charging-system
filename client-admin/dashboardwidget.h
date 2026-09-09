@@ -20,6 +20,7 @@ class DashboardWidget : public QWidget
 
 public:
     explicit DashboardWidget(NetClient *netClient, QWidget *parent = nullptr);
+    void setDarkTheme(bool dark);
 
 public slots:
     void refreshData();

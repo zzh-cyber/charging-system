@@ -121,11 +121,11 @@ void PileManagerWidget::initUI()
     m_table->horizontalHeader()->setSectionResizeMode(PowerColumn, QHeaderView::Fixed);
     m_table->horizontalHeader()->setSectionResizeMode(StatusColumn, QHeaderView::Fixed);
     m_table->horizontalHeader()->setSectionResizeMode(ActionColumn, QHeaderView::Fixed);
-    m_table->setColumnWidth(CodeColumn, 145);
-    m_table->setColumnWidth(TypeColumn, 90);
-    m_table->setColumnWidth(PowerColumn, 115);
-    m_table->setColumnWidth(StatusColumn, 100);
-    m_table->setColumnWidth(ActionColumn, 80);
+    m_table->setColumnWidth(CodeColumn, 120);
+    m_table->setColumnWidth(TypeColumn, 72);
+    m_table->setColumnWidth(PowerColumn, 100);
+    m_table->setColumnWidth(StatusColumn, 88);
+    m_table->setColumnWidth(ActionColumn, 112);
     m_table->verticalHeader()->setVisible(false);
     m_table->verticalHeader()->setDefaultSectionSize(48);
     m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);

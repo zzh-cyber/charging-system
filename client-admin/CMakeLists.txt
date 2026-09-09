@@ -23,6 +23,8 @@ add_executable(charging-admin
     stationmanagerwidget.h
     ordermanagerwidget.cpp
     ordermanagerwidget.h
+    workbenchwidget.cpp
+    workbenchwidget.h
     resources.qrc
 )
 

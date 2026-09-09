@@ -100,18 +100,16 @@ void UserManagerWidget::initUI()
         QStringLiteral("账户余额"), QStringLiteral("注册时间"), QStringLiteral("状态"), QStringLiteral("操作")});
     auto *header = m_table->horizontalHeader();
     header->setSectionResizeMode(IdColumn, QHeaderView::Fixed);
-    header->setSectionResizeMode(PhoneColumn, QHeaderView::Interactive);
+    header->setSectionResizeMode(PhoneColumn, QHeaderView::Stretch);
     header->setSectionResizeMode(NicknameColumn, QHeaderView::Stretch);
     header->setSectionResizeMode(BalanceColumn, QHeaderView::Fixed);
-    header->setSectionResizeMode(CreatedAtColumn, QHeaderView::Fixed);
+    header->setSectionResizeMode(CreatedAtColumn, QHeaderView::Stretch);
     header->setSectionResizeMode(StatusColumn, QHeaderView::Fixed);
     header->setSectionResizeMode(ActionColumn, QHeaderView::Fixed);
-    m_table->setColumnWidth(IdColumn, 90);
-    m_table->setColumnWidth(PhoneColumn, 165);
-    m_table->setColumnWidth(BalanceColumn, 120);
-    m_table->setColumnWidth(CreatedAtColumn, 180);
-    m_table->setColumnWidth(StatusColumn, 100);
-    m_table->setColumnWidth(ActionColumn, 120);
+    m_table->setColumnWidth(IdColumn, 66);
+    m_table->setColumnWidth(BalanceColumn, 100);
+    m_table->setColumnWidth(StatusColumn, 78);
+    m_table->setColumnWidth(ActionColumn, 108);
     m_table->verticalHeader()->setVisible(false);
     m_table->verticalHeader()->setDefaultSectionSize(48);
     m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -205,7 +203,9 @@ void UserManagerWidget::populateTable(const QVector<ManagedUserItem> &users)
         id->setData(Qt::UserRole, user.id);
         m_table->setItem(row, IdColumn, id);
         m_table->setItem(row, PhoneColumn, tableItem(user.phone));
-        m_table->setItem(row, NicknameColumn, tableItem(user.nickname));
+        m_table->setItem(row, NicknameColumn,
+                         tableItem(user.nickname.trimmed().isEmpty() ? QStringLiteral("未设置")
+                                                                    : user.nickname));
         m_table->setItem(row, BalanceColumn, tableItem(formatBalance(user.balance)));
         m_table->setItem(row, CreatedAtColumn, tableItem(formatDateTime(user.createdAt)));
         auto *statusItem = tableItem(QStringLiteral("●  %1").arg(statusText(user.status)));

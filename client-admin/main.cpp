@@ -22,8 +22,7 @@ int main(int argc, char *argv[])
 
     AdminLoginWindow w;
 
-    // 与 AdminMainWindow 的默认尺寸保持一致，避免登录前后视觉跳变。
-    w.resize(1200, 800);
+    w.resize(1000, 680);
 
     // 移动到主屏幕中央
     if (QScreen *screen = QApplication::primaryScreen()) {

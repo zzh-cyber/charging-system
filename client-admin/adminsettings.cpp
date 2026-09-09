@@ -23,6 +23,7 @@ QString AdminSettings::tableDensity() { return settings().value(QStringLiteral("
 bool AdminSettings::monitorAutoRefresh() { return settings().value(QStringLiteral("monitor/autoRefresh"), true).toBool(); }
 int AdminSettings::monitorRefreshInterval() { return settings().value(QStringLiteral("monitor/refreshInterval"), 10000).toInt(); }
 bool AdminSettings::pauseWhenHidden() { return settings().value(QStringLiteral("refresh/pauseWhenHidden"), true).toBool(); }
+bool AdminSettings::darkMode() { return settings().value(QStringLiteral("appearance/theme"), QStringLiteral("light")).toString() == QStringLiteral("dark"); }
 
 void AdminSettings::setValue(const QString &key, const QVariant &value)
 {
@@ -34,6 +35,7 @@ void AdminSettings::resetPreferences()
 {
     QSettings s = settings();
     const QStringList groups = {QStringLiteral("navigation"), QStringLiteral("ui"),
+                                QStringLiteral("appearance"),
                                 QStringLiteral("monitor"), QStringLiteral("dashboard"),
                                 QStringLiteral("refresh")};
     for (const QString &group : groups) s.remove(group);
@@ -42,7 +44,7 @@ void AdminSettings::resetPreferences()
 void AdminSettings::applyDisplaySettings()
 {
     const QString size = fontSize();
-    int pixels = 13;
+    int pixels = 14;
     if (size == QStringLiteral("compact")) pixels = 12;
     else if (size == QStringLiteral("large")) pixels = 14;
     else if (size == QStringLiteral("extra_large")) pixels = 16;
@@ -51,7 +53,7 @@ void AdminSettings::applyDisplaySettings()
     qApp->setFont(font);
 
     const QString density = tableDensity();
-    int rowHeight = 38;
+    int rowHeight = 46;
     if (density == QStringLiteral("compact")) rowHeight = 32;
     else if (density == QStringLiteral("spacious")) rowHeight = 44;
     for (QWidget *widget : QApplication::allWidgets()) {
