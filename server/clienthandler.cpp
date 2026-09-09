@@ -13,6 +13,7 @@
 #include <QMutexLocker>
 #include <QHash>
 #include <QSet>
+#include <QStringList>
 #include <QTcpSocket>
 #include <QThread>
 
@@ -62,6 +63,40 @@ bool containsAny(const QString &text, const QList<const char *> &kws)
         if (text.contains(QString::fromUtf8(kw)))
             return true;
     return false;
+}
+
+// 请求日志用：列出 data 字段，脱敏手机号/密码，长文本截断
+QString summarizeRequestData(const QJsonObject &data)
+{
+    QStringList parts;
+    const QStringList keys = data.keys();
+    for (const QString &key : keys) {
+        if (key == QLatin1String("password") || key == QLatin1String("token")) {
+            parts << key + QStringLiteral("=*");
+            continue;
+        }
+        const QJsonValue value = data.value(key);
+        QString text;
+        if (value.isString())
+            text = value.toString();
+        else if (value.isDouble())
+            text = QString::number(value.toDouble());
+        else if (value.isBool())
+            text = value.toBool() ? QStringLiteral("true") : QStringLiteral("false");
+        else if (value.isArray())
+            text = QStringLiteral("[%1]").arg(value.toArray().size());
+        else if (value.isObject())
+            text = QStringLiteral("{...}");
+        else
+            continue;
+
+        if (key == QLatin1String("phone") && text.size() >= 7)
+            text = text.left(3) + QStringLiteral("****") + text.right(4);
+        if (text.size() > 48)
+            text = text.left(48) + QStringLiteral("…");
+        parts << key + QLatin1Char('=') + text;
+    }
+    return parts.join(QLatin1Char(' '));
 }
 } // namespace
 
@@ -114,6 +149,12 @@ void ClientHandler::onDisconnected()
 
 void ClientHandler::reply(const QJsonObject &resp)
 {
+    qInfo().noquote()
+        << QStringLiteral("[send] type=%1 code=%2 msg=%3")
+               .arg(resp.value(QStringLiteral("type")).toString(),
+                    QString::number(resp.value(QStringLiteral("code")).toInt()),
+                    resp.value(QStringLiteral("msg")).toString());
+
     if (m_socket && m_socket->state() == QAbstractSocket::ConnectedState) {
         m_socket->write(Protocol::encode(resp));
         m_socket->flush();
@@ -126,6 +167,13 @@ void ClientHandler::dispatch(const QJsonObject &req)
 
     const QString type = req.value("type").toString();
     const QJsonObject data = req.value("data").toObject();
+    const QString dataSummary = summarizeRequestData(data);
+    qInfo().noquote()
+        << QStringLiteral("[recv] type=%1%2")
+               .arg(type,
+                    dataSummary.isEmpty()
+                        ? QString()
+                        : (QStringLiteral(" ") + dataSummary));
 
     if (type.isEmpty()) {
         reply(makeResponse(type, InvalidRequest, "缺少 type 字段"));
@@ -149,6 +197,10 @@ void ClientHandler::dispatch(const QJsonObject &req)
             reply(makeResponse(type, SessionInvalid, "登录已失效，请重新登录"));
             return;
         }
+        qInfo().noquote()
+            << QStringLiteral("[auth] userId=%1 role=%2")
+                   .arg(sess.userId)
+                   .arg(sess.role);
     }
 
     if (!m_db || !m_db->isOpen()) {
