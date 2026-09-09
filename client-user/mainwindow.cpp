@@ -1,7 +1,9 @@
 #include "mainwindow.h"
 
+#include "aichatdialog.h"
 #include "appmessagebox.h"
 #include "chargepage.h"
+#include "floatingball.h"
 #include "locationmanager.h"
 #include "loginwindow.h"
 #include "mainwindowstyle.h"
@@ -1837,9 +1839,25 @@ MainWindow::MainWindow(
                 message);
         });
 
+    // =========================================================================
+    // AI 客服：悬浮圆球（点击打开聊天对话框）
+    // =========================================================================
+    m_navBar = navBar;
+    m_aiBall = new FloatingBall(this);
+    m_aiBall->raise();
+    connect(m_aiBall, &FloatingBall::clicked, this, [this]() {
+        auto *dlg = new AiChatDialog(m_net, this);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        dlg->show();
+    });
 
     // 所有控件创建完以后再套新样式
     applyResponsiveStyle();
+
+    // 悬浮球精确定位（以底部导航条上缘为基准，避开【我的】）
+    positionAiBall();
+    // 等窗口首轮布局完成后再校正一次坐标
+    QTimer::singleShot(0, this, [this]() { positionAiBall(); });
 }
 
 
@@ -1854,6 +1872,25 @@ void MainWindow::resizeEvent(
 
 
     applyResponsiveStyle();
+
+    if (m_aiBall)
+        positionAiBall();
+}
+
+void MainWindow::positionAiBall()
+{
+    if (!m_aiBall)
+        return;
+
+    const int x = width() - m_aiBall->width() - 14;
+
+    int y = height() - m_aiBall->height() - 24;   // 兜底：贴近窗口底边
+    if (m_navBar) {
+        const int navTop = m_navBar->mapTo(this, QPoint(0, 0)).y();
+        if (navTop > 0)
+            y = navTop - m_aiBall->height() - 14; // 悬浮在底部导航条之上，不遮挡 tab
+    }
+    m_aiBall->move(x, y);
 }
 
 

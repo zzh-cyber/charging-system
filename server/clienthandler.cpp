@@ -1,4 +1,5 @@
 #include "clienthandler.h"
+#include "aiservice.h"
 #include "database.h"
 #include "protocol.h"
 #include "sessionmanager.h"
@@ -233,6 +234,28 @@ void ClientHandler::dispatch(const QJsonObject &req)
             sess.userId,
             data.value("amount").toDouble(), code, msg);
         reply(makeResponse(type, code, msg, out));
+        return;
+    }
+
+    // ------------------------------------------------------------------------
+    // AI 客服（方案 B）：调用外部大模型，返回答案
+    // ------------------------------------------------------------------------
+    if (type == MsgType::AiChat) {
+        const QString question = data.value(QStringLiteral("question")).toString().trimmed();
+        if (question.isEmpty()) {
+            reply(makeResponse(type, InvalidRequest, QStringLiteral("问题不能为空")));
+            return;
+        }
+        AiService ai;
+        QString err;
+        const QString answer = ai.ask(sess.userId, question, &err);
+        if (answer.isEmpty()) {
+            reply(makeResponse(type, Unknown, QStringLiteral("AI 客服暂不可用：") + err));
+            return;
+        }
+        QJsonObject out;
+        out[QStringLiteral("answer")] = answer;
+        reply(makeResponse(type, Ok, QStringLiteral("ok"), out));
         return;
     }
 

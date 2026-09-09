@@ -25,6 +25,18 @@
             background: #faf8f3;
             font-family: sans-serif;
         }
+
+        .station-marker-nearest {
+            display: block;
+            width: 42px;
+            height: 42px;
+        }
+
+        .station-marker-normal {
+            display: block;
+            width: 34px;
+            height: 34px;
+        }
     </style>
 </head>
 <body>
@@ -108,17 +120,12 @@
                 const marker = new AMap.Marker({
                     position: [longitude, latitude],
                     title: station.name || "充电站",
+                    anchor: isNearest ? "bottom-center" : "center",
                     content: isNearest
-                        ? '<div style="background:#315B4D;color:#fff;'
-                          + 'border:2px solid #fff;border-radius:50%;'
-                          + 'width:30px;height:30px;line-height:30px;'
-                          + 'text-align:center;font-weight:700;">★</div>'
-                        : '<div style="background:#D79A4B;color:#fff;'
-                          + 'border:2px solid #fff;border-radius:50%;'
-                          + 'width:26px;height:26px;line-height:26px;'
-                          + 'text-align:center;font-weight:700;">'
-                          + String(index + 1)
-                          + '</div>'
+                        ? '<img class="station-marker-nearest" '
+                          + 'src="station-marker-nearest.png" alt="最近充电站">'
+                        : '<img class="station-marker-normal" '
+                          + 'src="station-marker-normal.png" alt="充电站">'
                 });
 
                 stationMarkers.push(marker);

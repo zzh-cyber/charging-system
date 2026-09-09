@@ -1,5 +1,7 @@
 <RCC>
     <qresource prefix="/maps">
         <file alias="amap-map.html">resources/amap-map.html</file>
+        <file alias="station-marker-nearest.png">resources/station-marker-nearest.png</file>
+        <file alias="station-marker-normal.png">resources/station-marker-normal.png</file>
     </qresource>
 </RCC>
