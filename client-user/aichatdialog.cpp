@@ -1,5 +1,6 @@
 #include "aichatdialog.h"
 
+#include "locationmanager.h"
 #include "netclient.h"
 #include "protocol.h"
 
@@ -43,9 +44,10 @@ static QPixmap aiAvatarPixmap(int size)
     return pm.scaled(size, size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
 }
 
-AiChatDialog::AiChatDialog(NetClient *net, QWidget *parent)
+AiChatDialog::AiChatDialog(NetClient *net, LocationManager *loc, QWidget *parent)
     : QDialog(parent)
     , m_net(net)
+    , m_loc(loc)
 {
     // 无边框 + 透明背景，自绘圆角（去掉系统标题栏）
     setWindowFlags(Qt::FramelessWindowHint | Qt::Dialog);
@@ -180,9 +182,13 @@ void AiChatDialog::askQuestion(const QString &q)
     addBubble(QStringLiteral("user"), q);
     m_sendBtn->setEnabled(false);
 
-    m_net->send(Protocol::makeRequest(
-        Protocol::MsgType::AiChat,
-        QJsonObject{ { QStringLiteral("question"), q } }));
+    // 已定位则附带经纬度，供服务端解析"帮我预约最近的充电桩"
+    QJsonObject data{ { QStringLiteral("question"), q } };
+    if (m_loc && m_loc->hasLocation()) {
+        data[QStringLiteral("lat")] = m_loc->latitude();
+        data[QStringLiteral("lng")] = m_loc->longitude();
+    }
+    m_net->send(Protocol::makeRequest(Protocol::MsgType::AiChat, data));
 }
 
 void AiChatDialog::onResponse(const QJsonObject &resp)
@@ -192,8 +198,16 @@ void AiChatDialog::onResponse(const QJsonObject &resp)
 
     m_sendBtn->setEnabled(true);
 
-    QString answer = resp.value(QStringLiteral("data")).toObject()
-                         .value(QStringLiteral("answer")).toString();
+    const QJsonObject data = resp.value(QStringLiteral("data")).toObject();
+
+    // E小充通过"AI 代执行"帮用户预约成功：通知主窗口同步"充电"页状态
+    if (data.value(QStringLiteral("action")).toString() == QStringLiteral("reserve_ok")) {
+        const QString orderNo = data.value(QStringLiteral("order_no")).toString();
+        if (!orderNo.isEmpty())
+            emit reserveSucceeded(orderNo);
+    }
+
+    QString answer = data.value(QStringLiteral("answer")).toString();
     if (answer.isEmpty())
         answer = resp.value(QStringLiteral("msg")).toString();
     addBubble(QStringLiteral("E小充"), answer);
