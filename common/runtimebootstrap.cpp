@@ -4,6 +4,7 @@
 #include <QDebug>
 #include <QProcess>
 #include <QStringList>
+#include <QThread>
 
 namespace
 {
@@ -59,20 +60,29 @@ void ensureIbusLibpinyin()
             {QStringLiteral("engine")});
 
     if (!engine.succeeded) {
-        const ProcessResult daemon =
-            runProcess(
+        qint64 daemonPid = 0;
+        if (!QProcess::startDetached(
                 QStringLiteral("ibus-daemon"),
-                {QStringLiteral("-drx")});
-
-        if (!daemon.succeeded) {
+                {QStringLiteral("-drx")},
+                QString(),
+                &daemonPid)) {
             qWarning() << "IBus could not be started; Chinese input may be unavailable.";
             return;
         }
 
-        engine =
-            runProcess(
+        // The daemon is persistent, so wait briefly for its bus service instead
+        // of waiting for the daemon process itself to finish.
+        constexpr int kReadyAttempts = 10;
+        constexpr int kReadyIntervalMilliseconds = 200;
+        for (int attempt = 0; attempt < kReadyAttempts; ++attempt) {
+            QThread::msleep(kReadyIntervalMilliseconds);
+            engine = runProcess(
                 QStringLiteral("ibus"),
                 {QStringLiteral("engine")});
+            if (engine.succeeded) {
+                break;
+            }
+        }
 
         if (!engine.succeeded) {
             qWarning() << "IBus is not available; Chinese input may be unavailable.";
