@@ -1437,7 +1437,7 @@ NavigationPage::NavigationPage(
         1);
 
 
-    // 首屏优先展示地图，目的地信息放在地图下方。
+    // 目的地白卡仍加入布局，与地图并存（她的 UI）；默认 hide 由上面逻辑控制。
     mainLayout->addWidget(
         stationCard);
 
@@ -2275,7 +2275,7 @@ void NavigationPage::applyResponsiveStyle()
             "AmapWidget#navigationMap{"
             "background:#FAF8F3;"
             "border:none;"
-            "border-radius:0;"
+            "border-radius:%1px;"
             "}")
 
         .arg(
@@ -2302,6 +2302,6 @@ void NavigationPage::applyResponsiveStyle()
         m_mapWidget->setMinimumHeight(
             scaledUi(
                 scaleBase,
-                480));
+                620));
     }
 }

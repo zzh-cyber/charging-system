@@ -620,6 +620,17 @@ StationListPage::StationListPage(
         320);
 
     layout->addWidget(
+        mapCard,
+        3);
+
+    m_stack->setSizePolicy(
+        QSizePolicy::Expanding,
+        QSizePolicy::Expanding);
+
+    m_stack->setMinimumHeight(
+        320);
+
+    layout->addWidget(
         m_stack,
         3);
 
@@ -778,7 +789,7 @@ void StationListPage::applyResponsiveStyle()
             "QFrame#stationMapCard{"
             "background:transparent;"
             "border:none;"
-            "border-radius:0;"
+            "border-radius:%1px;"
             "}"
 
             "QLabel#stationMapTitle{"
