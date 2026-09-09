@@ -17,12 +17,19 @@ class QPushButton;
 class QScrollArea;
 class QVBoxLayout;
 class NetClient;
+class LocationManager;
 
 class AiChatDialog : public QDialog
 {
     Q_OBJECT
 public:
-    explicit AiChatDialog(NetClient *net, QWidget *parent = nullptr);
+    // loc 用于在发消息时附带用户当前位置，支持"帮我预约最近的充电桩"这类请求
+    explicit AiChatDialog(NetClient *net, LocationManager *loc = nullptr,
+                          QWidget *parent = nullptr);
+
+signals:
+    // E小充通过"AI 代执行"帮用户成功预约了一根充电桩（服务端回包带 reserve_ok）
+    void reserveSucceeded(const QString &orderNo);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -39,6 +46,7 @@ private:
     void askQuestion(const QString &q);
 
     NetClient   *m_net;
+    LocationManager *m_loc = nullptr;
     QScrollArea *m_scroll;
     QVBoxLayout *m_messageLayout;
     QLineEdit   *m_input;

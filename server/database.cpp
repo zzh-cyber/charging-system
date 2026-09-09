@@ -701,6 +701,31 @@ QJsonArray Database::pileList(qint64 stationId, int &code, QString &msg)
     return arr;
 }
 
+QJsonArray Database::stationNameIndex(int &code, QString &msg)
+{
+    QJsonArray arr;
+
+    QSqlQuery q(m_db);
+    q.prepare("SELECT id, name, price FROM station ORDER BY id");
+    if (!q.exec()) {
+        code = Protocol::DbError;
+        msg = q.lastError().text();
+        return arr;
+    }
+
+    while (q.next()) {
+        QJsonObject o;
+        o["id"]    = q.value("id").toLongLong();
+        o["name"]  = q.value("name").toString();
+        o["price"] = q.value("price").toDouble();
+        arr.append(o);
+    }
+
+    code = Protocol::Ok;
+    msg = "ok";
+    return arr;
+}
+
 QJsonObject Database::reserve(qint64 userId, qint64 pileId, int &code, QString &msg)
 {
     QJsonObject data;

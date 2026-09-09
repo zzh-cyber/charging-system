@@ -48,6 +48,9 @@ public:
     // 某站电桩列表
     QJsonArray pileList(qint64 stationId, int &code, QString &msg);
 
+    // 全部电站的 id/名称/单价（供 AI 客服把口语站名解析到具体电站）
+    QJsonArray stationNameIndex(int &code, QString &msg);
+
     // 预约充电桩，成功时返回订单号
     QJsonObject reserve(qint64 userId, qint64 pileId, int &code, QString &msg);
 
