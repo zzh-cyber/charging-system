@@ -1846,8 +1846,16 @@ MainWindow::MainWindow(
     m_aiBall = new FloatingBall(this);
     m_aiBall->raise();
     connect(m_aiBall, &FloatingBall::clicked, this, [this]() {
-        auto *dlg = new AiChatDialog(m_net, this);
+        auto *dlg = new AiChatDialog(m_net, m_locationManager, this);
         dlg->setAttribute(Qt::WA_DeleteOnClose);
+        // E小充 AI 代执行预约成功：把预约订单交给"充电"页并切过去，
+        // 让用户直接看到"预约成功，可以开始充电"（与手动预约成功的行为一致）
+        connect(dlg, &AiChatDialog::reserveSucceeded, this, [this](const QString &orderNo) {
+            m_chargePage->setReservedOrder(orderNo);
+            m_contentStack->setCurrentIndex(1);
+            if (m_navGroup->button(1))
+                m_navGroup->button(1)->setChecked(true);
+        });
         dlg->show();
     });
 
