@@ -18,6 +18,7 @@ signals:
     void displaySettingsChanged();
     void refreshSettingsChanged();
     void sidebarPreferenceChanged(bool expanded);
+    void themeChanged(bool dark);
 
 private:
     void initUi();
@@ -28,6 +29,7 @@ private:
     QComboBox *m_defaultPage = nullptr;
     QCheckBox *m_rememberPage = nullptr;
     QCheckBox *m_sidebarExpanded = nullptr;
+    QCheckBox *m_darkMode = nullptr;
     QComboBox *m_fontSize = nullptr;
     QComboBox *m_tableDensity = nullptr;
     QCheckBox *m_monitorRefresh = nullptr;

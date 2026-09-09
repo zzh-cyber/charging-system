@@ -14,6 +14,7 @@ public:
     static bool monitorAutoRefresh();
     static int monitorRefreshInterval();
     static bool pauseWhenHidden();
+    static bool darkMode();
 
     static void setValue(const QString &key, const QVariant &value);
     static void resetPreferences();

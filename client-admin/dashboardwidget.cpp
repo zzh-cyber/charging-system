@@ -56,6 +56,7 @@ DashboardWidget::DashboardWidget(NetClient *netClient, QWidget *parent)
 
 void DashboardWidget::initUi()
 {
+    setObjectName(QStringLiteral("dashboardPage"));
     auto *mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(26, 18, 26, 24);
     mainLayout->setSpacing(16);
@@ -66,6 +67,7 @@ void DashboardWidget::initUi()
     m_loadingLabel = new QLabel(this);
     m_loadingLabel->setObjectName(QStringLiteral("dashboardLoading"));
     m_refreshButton = new QPushButton(QStringLiteral("刷新数据"), this);
+    m_refreshButton->setObjectName(QStringLiteral("dashboardRefresh"));
     m_lastUpdateLabel = new QLabel(QStringLiteral("最后更新: --:--:--"), this);
     m_lastUpdateLabel->setObjectName(QStringLiteral("dashboardUpdate"));
     toolbar->addWidget(title);
@@ -93,6 +95,8 @@ void DashboardWidget::initUi()
     chartTitle->setObjectName(QStringLiteral("dashboardSectionTitle"));
     m_sevenDaysButton = new QRadioButton(QStringLiteral("近 7 日"), this);
     m_thirtyDaysButton = new QRadioButton(QStringLiteral("近 30 日"), this);
+    m_sevenDaysButton->setObjectName(QStringLiteral("dashboardRange"));
+    m_thirtyDaysButton->setObjectName(QStringLiteral("dashboardRange"));
     m_sevenDaysButton->setMinimumWidth(82);
     m_thirtyDaysButton->setMinimumWidth(96);
     m_sevenDaysButton->setChecked(true);
@@ -116,8 +120,8 @@ void DashboardWidget::initUi()
     m_chart->addSeries(m_series);
     m_chart->legend()->hide();
     m_chart->setAnimationOptions(QChart::SeriesAnimations);
-    m_chart->setBackgroundBrush(QColor(QStringLiteral("#FCFCF8")));
-    m_chart->setPlotAreaBackgroundBrush(QColor(QStringLiteral("#FCFCF8")));
+    m_chart->setBackgroundBrush(Qt::NoBrush);
+    m_chart->setPlotAreaBackgroundBrush(Qt::NoBrush);
     m_chart->setPlotAreaBackgroundVisible(true);
     m_chart->setBackgroundRoundness(14);
     m_chart->setMargins(QMargins(8, 8, 8, 8));
@@ -160,6 +164,21 @@ void DashboardWidget::initUi()
             this, &DashboardWidget::onRangeChanged);
     connect(m_series, &QLineSeries::hovered,
             this, &DashboardWidget::onPointHovered);
+}
+
+void DashboardWidget::setDarkTheme(bool dark)
+{
+    const QColor text = dark ? QColor("#C4CCD3") : QColor("#62645E");
+    const QColor grid = dark ? QColor("#2B323A") : QColor("#E9E8E1");
+    const QColor axis = dark ? QColor("#59636C") : QColor("#C9C8C0");
+    m_chart->setBackgroundBrush(dark ? QBrush(QColor("#171C22")) : QBrush(Qt::NoBrush));
+    m_chart->setPlotAreaBackgroundBrush(dark ? QBrush(QColor("#151A1F")) : QBrush(Qt::NoBrush));
+    m_dateAxis->setLinePen(QPen(axis)); m_valueAxis->setLinePen(QPen(axis));
+    m_dateAxis->setGridLinePen(QPen(grid)); m_valueAxis->setGridLinePen(QPen(grid));
+    m_dateAxis->setLabelsBrush(text); m_valueAxis->setLabelsBrush(text);
+    m_dateAxis->setTitleBrush(text); m_valueAxis->setTitleBrush(text);
+    m_series->setColor(dark ? QColor("#58B97B") : QColor("#2B2B29"));
+    m_chart->update();
 }
 
 QWidget *DashboardWidget::createKpiCard(const QString &title, const QString &description, QLabel **valueLabel)

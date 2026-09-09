@@ -87,10 +87,13 @@ void StationManagerWidget::initUI()
     m_stationTable->setColumnCount(4);
     m_stationTable->setHorizontalHeaderLabels({QStringLiteral("电站名称"), QStringLiteral("地址"),
                                                 QStringLiteral("总桩数"), QStringLiteral("在线率")});
-    m_stationTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+    m_stationTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
     m_stationTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
-    m_stationTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
-    m_stationTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
+    m_stationTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Fixed);
+    m_stationTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Fixed);
+    m_stationTable->setColumnWidth(0, 145);
+    m_stationTable->setColumnWidth(2, 72);
+    m_stationTable->setColumnWidth(3, 82);
     m_stationTable->verticalHeader()->setVisible(false);
     m_stationTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_stationTable->setSelectionMode(QAbstractItemView::SingleSelection);

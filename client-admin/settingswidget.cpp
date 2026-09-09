@@ -97,9 +97,14 @@ void SettingsWidget::initUi()
     layout->addSpacing(4);
 
     QVBoxLayout *body = nullptr;
+    auto *appearance = card(QStringLiteral("外观设置"), content, &body);
+    m_darkMode = new QCheckBox(QStringLiteral("开启"), appearance);
+    body->addWidget(createRow(QStringLiteral("深色模式"), QStringLiteral("切换管理端的界面显示风格"), m_darkMode, appearance));
+    layout->addWidget(appearance);
+
     auto *preferences = card(QStringLiteral("客户端偏好"), content, &body);
     m_defaultPage = new QComboBox(preferences);
-    const QList<QPair<QString, QString>> pages = {{QStringLiteral("运营总览"), QStringLiteral("dashboard")}, {QStringLiteral("实时监控"), QStringLiteral("monitor")}, {QStringLiteral("电站管理"), QStringLiteral("station")}, {QStringLiteral("电桩管理"), QStringLiteral("pile")}, {QStringLiteral("订单管理"), QStringLiteral("order")}, {QStringLiteral("用户管理"), QStringLiteral("user")}};
+    const QList<QPair<QString, QString>> pages = {{QStringLiteral("工作台"), QStringLiteral("workbench")}, {QStringLiteral("运营总览"), QStringLiteral("dashboard")}, {QStringLiteral("实时监控"), QStringLiteral("monitor")}, {QStringLiteral("电站管理"), QStringLiteral("station")}, {QStringLiteral("电桩管理"), QStringLiteral("pile")}, {QStringLiteral("订单管理"), QStringLiteral("order")}, {QStringLiteral("用户管理"), QStringLiteral("user")}};
     for (const auto &page : pages) m_defaultPage->addItem(page.first, page.second);
     m_rememberPage = new QCheckBox(QStringLiteral("开启"), preferences);
     m_sidebarExpanded = new QCheckBox(QStringLiteral("开启"), preferences);
@@ -107,15 +112,6 @@ void SettingsWidget::initUi()
     body->addWidget(createRow(QStringLiteral("记住上次访问页面"), QStringLiteral("开启后，下次登录优先恢复上一次访问页面"), m_rememberPage, preferences));
     body->addWidget(createRow(QStringLiteral("启动时展开侧边栏"), QStringLiteral("控制管理端启动后的导航栏状态"), m_sidebarExpanded, preferences));
     layout->addWidget(preferences);
-
-    auto *display = card(QStringLiteral("显示设置"), content, &body);
-    m_fontSize = new QComboBox(display);
-    m_fontSize->addItem(QStringLiteral("紧凑"), QStringLiteral("compact")); m_fontSize->addItem(QStringLiteral("标准"), QStringLiteral("normal")); m_fontSize->addItem(QStringLiteral("大"), QStringLiteral("large")); m_fontSize->addItem(QStringLiteral("特大"), QStringLiteral("extra_large"));
-    m_tableDensity = new QComboBox(display);
-    m_tableDensity->addItem(QStringLiteral("紧凑"), QStringLiteral("compact")); m_tableDensity->addItem(QStringLiteral("舒适"), QStringLiteral("comfortable")); m_tableDensity->addItem(QStringLiteral("宽松"), QStringLiteral("spacious"));
-    body->addWidget(createRow(QStringLiteral("字体大小"), QStringLiteral("立即应用到普通文字与常用控件"), m_fontSize, display));
-    body->addWidget(createRow(QStringLiteral("表格密度"), QStringLiteral("统一调整管理页面的表格行高"), m_tableDensity, display));
-    layout->addWidget(display);
 
     auto *refresh = card(QStringLiteral("数据刷新"), content, &body);
     m_monitorRefresh = new QCheckBox(QStringLiteral("开启"), refresh);
@@ -155,25 +151,24 @@ void SettingsWidget::initUi()
     connect(m_defaultPage, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this] { AdminSettings::setValue(QStringLiteral("navigation/defaultPage"), m_defaultPage->currentData()); });
     connect(m_rememberPage, &QCheckBox::toggled, this, [](bool on) { AdminSettings::setValue(QStringLiteral("navigation/rememberLastPage"), on); });
     connect(m_sidebarExpanded, &QCheckBox::toggled, this, [this](bool on) { AdminSettings::setValue(QStringLiteral("navigation/sidebarExpanded"), on); emit sidebarPreferenceChanged(on); });
-    connect(m_fontSize, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this] { AdminSettings::setValue(QStringLiteral("ui/fontSize"), m_fontSize->currentData()); emit displaySettingsChanged(); });
-    connect(m_tableDensity, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this] { AdminSettings::setValue(QStringLiteral("ui/tableDensity"), m_tableDensity->currentData()); emit displaySettingsChanged(); });
+    connect(m_darkMode, &QCheckBox::toggled, this, [this](bool on) { AdminSettings::setValue(QStringLiteral("appearance/theme"), on ? QStringLiteral("dark") : QStringLiteral("light")); emit themeChanged(on); });
     connect(m_monitorRefresh, &QCheckBox::toggled, this, [this](bool on) { AdminSettings::setValue(QStringLiteral("monitor/autoRefresh"), on); m_monitorInterval->setEnabled(on); emit refreshSettingsChanged(); });
     connect(m_monitorInterval, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this] { AdminSettings::setValue(QStringLiteral("monitor/refreshInterval"), m_monitorInterval->currentData()); emit refreshSettingsChanged(); });
     connect(m_pauseHidden, &QCheckBox::toggled, this, [this](bool on) { AdminSettings::setValue(QStringLiteral("refresh/pauseWhenHidden"), on); emit refreshSettingsChanged(); });
     connect(reset, &QPushButton::clicked, this, [this] {
-        const QString text = QStringLiteral("将重置客户端偏好、字体大小、表格密度和自动刷新设置。\n\n不会影响用户、订单、电站、电桩或数据库业务数据。");
+        const QString text = QStringLiteral("将重置客户端偏好和自动刷新设置。\n\n不会影响用户、订单、电站、电桩或数据库业务数据。");
         if (QMessageBox::question(this, QStringLiteral("恢复默认设置？"), text, QMessageBox::Cancel | QMessageBox::Ok, QMessageBox::Cancel) != QMessageBox::Ok) return;
-        AdminSettings::resetPreferences(); reloadValues(); emit displaySettingsChanged(); emit refreshSettingsChanged(); emit sidebarPreferenceChanged(true);
+        AdminSettings::resetPreferences(); reloadValues(); emit displaySettingsChanged(); emit refreshSettingsChanged(); emit sidebarPreferenceChanged(true); emit themeChanged(false);
     });
 }
 
 void SettingsWidget::reloadValues()
 {
-    const QSignalBlocker b1(m_defaultPage), b2(m_rememberPage), b3(m_sidebarExpanded), b4(m_fontSize);
-    const QSignalBlocker b5(m_tableDensity), b6(m_monitorRefresh), b7(m_monitorInterval), b8(m_pauseHidden);
+    const QSignalBlocker b1(m_defaultPage), b2(m_rememberPage), b3(m_sidebarExpanded), b4(m_darkMode);
+    const QSignalBlocker b5(m_monitorRefresh), b6(m_monitorInterval), b7(m_pauseHidden);
     m_defaultPage->setCurrentIndex(qMax(0, m_defaultPage->findData(AdminSettings::defaultPage())));
     m_rememberPage->setChecked(AdminSettings::rememberLastPage()); m_sidebarExpanded->setChecked(AdminSettings::sidebarExpanded());
-    m_fontSize->setCurrentIndex(qMax(0, m_fontSize->findData(AdminSettings::fontSize()))); m_tableDensity->setCurrentIndex(qMax(0, m_tableDensity->findData(AdminSettings::tableDensity())));
+    m_darkMode->setChecked(AdminSettings::darkMode());
     m_monitorRefresh->setChecked(AdminSettings::monitorAutoRefresh()); m_monitorInterval->setCurrentIndex(qMax(0, m_monitorInterval->findData(AdminSettings::monitorRefreshInterval()))); m_monitorInterval->setEnabled(m_monitorRefresh->isChecked());
     m_pauseHidden->setChecked(AdminSettings::pauseWhenHidden()); updateConnectionInfo();
 }

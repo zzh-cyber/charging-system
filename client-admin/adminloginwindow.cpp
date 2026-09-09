@@ -74,14 +74,14 @@ protected:
         const qreal chargerHeight = scene.height() * .86;
         const QSizeF chargerSize(chargerHeight * m_charger.width() / qreal(m_charger.height()),
                                  chargerHeight);
-        const QRectF chargerRect(scene.right() - chargerSize.width() - scene.width() * .05,
-                                 scene.bottom() - chargerSize.height() - scene.height() * .10,
+        const QRectF chargerRect(scene.right() - chargerSize.width() + scene.width() * .015,
+                                 scene.bottom() - chargerSize.height() - scene.height() * .17,
                                  chargerSize.width(), chargerSize.height());
         painter.setOpacity(.94);
         painter.drawPixmap(chargerRect, m_charger, m_charger.rect());
 
         // 白色电动车位于左下前景，不拉伸，横向形成视觉主导。
-        const qreal carWidth = scene.width() * .84;
+        const qreal carWidth = scene.width() * .82;
         const qreal carHeight = carWidth * m_car.height() / qreal(m_car.width());
         const QRectF carRect(scene.left() - scene.width() * .035,
                              scene.bottom() - carHeight + scene.height() * .02,
@@ -120,9 +120,6 @@ AdminLoginWindow::AdminLoginWindow(QWidget *parent)
     brandEnglish->setObjectName(QStringLiteral("loginBrandEnglish"));
     auto *statement = new QLabel(QStringLiteral("连接每一座站点，\n让每一次充电都可感知。"), brandPanel);
     statement->setObjectName(QStringLiteral("loginStatement"));
-    auto *caption = new QLabel(QStringLiteral("Smart Charging · A Greener Tomorrow."), brandPanel);
-    caption->setObjectName(QStringLiteral("loginBrandCaption"));
-    caption->setWordWrap(true);
     brandLayout->addWidget(brandName);
     brandLayout->addWidget(brandEnglish);
     auto *accentLine = new QWidget(brandPanel);
@@ -132,8 +129,6 @@ AdminLoginWindow::AdminLoginWindow(QWidget *parent)
     brandLayout->addWidget(accentLine);
     brandLayout->addSpacing(22);
     brandLayout->addWidget(statement);
-    brandLayout->addSpacing(10);
-    brandLayout->addWidget(caption);
     brandLayout->addSpacing(18);
     brandLayout->addWidget(new BrandVisualWidget(brandPanel), 1);
 
@@ -148,9 +143,9 @@ AdminLoginWindow::AdminLoginWindow(QWidget *parent)
     formLayout->setContentsMargins(26, 28, 26, 26);
     formLayout->setSpacing(10);
     auto *formShadow = new QGraphicsDropShadowEffect(form);
-    formShadow->setBlurRadius(34);
-    formShadow->setOffset(0, 12);
-    formShadow->setColor(QColor(0, 0, 0, 105));
+    formShadow->setBlurRadius(28);
+    formShadow->setOffset(0, 8);
+    formShadow->setColor(QColor(0, 0, 0, 78));
     form->setGraphicsEffect(formShadow);
     auto *eyebrow = new QLabel(QStringLiteral("ADMINISTRATOR ACCESS"), form);
     eyebrow->setObjectName(QStringLiteral("loginEyebrow"));
@@ -201,7 +196,7 @@ AdminLoginWindow::AdminLoginWindow(QWidget *parent)
     formLayout->addWidget(m_loginBtn);
     formLayout->addWidget(securityHint);
     rightLayout->addStretch();
-    rightLayout->addWidget(form, 0, Qt::AlignHCenter);
+    rightLayout->addWidget(form, 0, Qt::AlignRight);
     rightLayout->addStretch();
     root->addWidget(brandPanel, 57);
     root->addWidget(loginPanel, 43);

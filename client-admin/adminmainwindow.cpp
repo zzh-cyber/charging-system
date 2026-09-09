@@ -7,7 +7,9 @@
 #include "ordermanagerwidget.h"
 #include "settingswidget.h"
 #include "adminsettings.h"
+#include "workbenchwidget.h"
 
+#include <QApplication>
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QLabel>
@@ -29,6 +31,7 @@ AdminMainWindow::~AdminMainWindow()
 
 void AdminMainWindow::initUI()
 {
+    setProperty("darkTheme", AdminSettings::darkMode());
     setWindowTitle("充电桩综合运营管理系统 - PC服务端");
     resize(1200, 800);
 
@@ -45,16 +48,14 @@ void AdminMainWindow::initUI()
     auto *sidebarLayout = new QVBoxLayout(m_sidebarContainer);
     sidebarLayout->setContentsMargins(18, 24, 18, 22);
     sidebarLayout->setSpacing(0);
-    auto *brand = new QLabel(QStringLiteral("◆  VOLTERRA"), m_sidebarContainer);
+    auto *brand = new QLabel(QStringLiteral("◆  充电管理系统"), m_sidebarContainer);
     brand->setObjectName(QStringLiteral("sidebarBrand"));
-    auto *brandCaption = new QLabel(QStringLiteral("EV OPERATIONS"), m_sidebarContainer);
+    auto *brandCaption = new QLabel(QStringLiteral("OPERATIONS CONSOLE"), m_sidebarContainer);
     brandCaption->setObjectName(QStringLiteral("sidebarBrandCaption"));
-    auto *menuCaption = new QLabel(QStringLiteral("工作台"), m_sidebarContainer);
-    menuCaption->setObjectName(QStringLiteral("sidebarCaption"));
     sidebarLayout->addWidget(brand);
     sidebarLayout->addWidget(brandCaption);
     sidebarLayout->addSpacing(42);
-    sidebarLayout->addWidget(menuCaption);
+    sidebarLayout->addSpacing(0);
     sidebarLayout->addSpacing(10);
 
     sidebarList = new QListWidget(m_sidebarContainer);
@@ -63,12 +64,12 @@ void AdminMainWindow::initUI()
     sidebarList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
     m_menuLabels = {
-        QStringLiteral("运营总览"), QStringLiteral("实时监控"),
+        QStringLiteral("工作台"), QStringLiteral("运营总览"), QStringLiteral("实时监控"),
         QStringLiteral("电站管理"), QStringLiteral("电桩管理"),
         QStringLiteral("订单管理"), QStringLiteral("用户管理"),
         QStringLiteral("系统设置")
     };
-    const QStringList icons = {"◈", "◉", "⌂", "▤", "▦", "♙", "⚙"};
+    const QStringList icons = {"✦", "◈", "◉", "⌂", "▤", "▦", "♙", "⚙"};
     for (int i = 0; i < m_menuLabels.size(); ++i) {
         auto *item = new QListWidgetItem(icons[i] + QStringLiteral("   ") + m_menuLabels[i], sidebarList);
         item->setData(Qt::UserRole, icons[i]);
@@ -123,7 +124,8 @@ void AdminMainWindow::initUI()
     // 右侧业务内容区
     contentStack = new QStackedWidget(this);
 
-    // 索引 0: 数据总览
+    contentStack->addWidget(new WorkbenchWidget(m_net, this));
+    // 索引 1: 数据总览
     contentStack->addWidget(new DashboardWidget(m_net, this));
 
     // 索引 1: 电桩状态
@@ -144,6 +146,10 @@ void AdminMainWindow::initUI()
 
     m_settingsPage = new SettingsWidget(m_net, this);
     contentStack->addWidget(m_settingsPage);
+    if (auto *workbench = qobject_cast<WorkbenchWidget *>(contentStack->widget(0))) {
+        connect(workbench, &WorkbenchWidget::openRealtime, this, [this](const QString &) { sidebarList->setCurrentRow(2); });
+        connect(workbench, &WorkbenchWidget::openOrders, this, [this](const QString &) { sidebarList->setCurrentRow(5); });
+    }
 
     mainLayout->addWidget(contentStack);
     workspaceLayout->addWidget(body, 1);
@@ -151,11 +157,24 @@ void AdminMainWindow::initUI()
 
     connect(sidebarList, &QListWidget::currentRowChanged, this, &AdminMainWindow::onMenuSelected);
     connect(m_toggleButton, &QPushButton::clicked, this, &AdminMainWindow::toggleSidebar);
-    m_pageIds = {QStringLiteral("dashboard"), QStringLiteral("monitor"), QStringLiteral("station"), QStringLiteral("pile"), QStringLiteral("order"), QStringLiteral("user"), QStringLiteral("settings")};
+    m_pageIds = {QStringLiteral("workbench"), QStringLiteral("dashboard"), QStringLiteral("monitor"), QStringLiteral("station"), QStringLiteral("pile"), QStringLiteral("order"), QStringLiteral("user"), QStringLiteral("settings")};
     connect(m_settingsPage, &SettingsWidget::displaySettingsChanged, this, [] { AdminSettings::applyDisplaySettings(); });
+    connect(m_settingsPage, &SettingsWidget::themeChanged, this, [this](bool dark) {
+        setProperty("darkTheme", dark);
+        qApp->setStyleSheet(qApp->styleSheet());
+        update();
+        if (auto *dashboard = contentStack->findChild<DashboardWidget *>())
+            dashboard->setDarkTheme(dark);
+        if (m_monitorPage)
+            m_monitorPage->setDarkTheme(dark);
+    });
     connect(m_settingsPage, &SettingsWidget::refreshSettingsChanged, this, &AdminMainWindow::applyRefreshSettings);
     connect(m_settingsPage, &SettingsWidget::sidebarPreferenceChanged, this, [this](bool expanded) { setSidebarCollapsed(!expanded); });
     AdminSettings::applyDisplaySettings();
+    if (auto *dashboard = contentStack->findChild<DashboardWidget *>())
+        dashboard->setDarkTheme(AdminSettings::darkMode());
+    if (m_monitorPage)
+        m_monitorPage->setDarkTheme(AdminSettings::darkMode());
     setSidebarCollapsed(!AdminSettings::sidebarExpanded());
     QString initialPage = AdminSettings::rememberLastPage() ? AdminSettings::lastPage() : AdminSettings::defaultPage();
     int initialIndex = m_pageIds.indexOf(initialPage);
