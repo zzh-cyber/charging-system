@@ -11,6 +11,12 @@ add_executable(charging-user
     mainwindow.cpp
     mainwindow.h
 
+    floatingball.cpp
+    floatingball.h
+
+    aichatdialog.cpp
+    aichatdialog.h
+
     stationlistpage.cpp
     stationlistpage.h
 
@@ -51,6 +57,7 @@ add_executable(charging-user
     fonts.qrc
     uiassets.qrc
     mapresources.qrc
+    images.qrc
 )
 
 set_target_properties(charging-user PROPERTIES

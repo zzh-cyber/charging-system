@@ -16,6 +16,7 @@ class QComboBox;
 class QLineEdit;
 class QPushButton;
 class QLabel;
+class QFrame;
 class QResizeEvent;
 
 class NetClient;
@@ -25,6 +26,8 @@ class ChargePage;
 class ProfilePage;
 class LocationManager;
 class NavigationPage;
+class QResizeEvent;
+class FloatingBall;
 
 
 class MainWindow : public QWidget
@@ -57,6 +60,8 @@ private slots:
 private:
     void applyResponsiveStyle();
 
+    void positionAiBall();
+
 
     NetClient        *m_net;
 
@@ -81,6 +86,8 @@ private:
     QPushButton      *m_locationBtn;
     QLabel           *m_locationTip;
 
+    FloatingBall     *m_aiBall = nullptr;   // AI 客服悬浮圆球
+    QFrame           *m_navBar  = nullptr;  // 底部导航条（悬浮球避让基准）
 
     QString           m_nickname;
     QString           m_phone;
