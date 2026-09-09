@@ -7,6 +7,7 @@
 #include "uitheme.h"
 #include "windowhelper.h"
 
+#include <QAction>
 #include <QDebug>
 #include <QFrame>
 #include <QHBoxLayout>
@@ -16,6 +17,7 @@
 #include <QLineEdit>
 #include <QPainter>
 #include <QPainterPath>
+#include <QPen>
 #include <QPixmap>
 #include <QPushButton>
 #include <QRegularExpression>
@@ -38,6 +40,158 @@ static constexpr quint16 kServerPort =
 
 namespace
 {
+
+QPixmap phoneIconPixmap(
+    int size)
+{
+    const int pixelSize =
+        qMax(22, size);
+
+    QPixmap pixmap(
+        pixelSize,
+        pixelSize);
+
+    pixmap.fill(
+        Qt::transparent);
+
+    QPainter painter(
+        &pixmap);
+
+    painter.setRenderHint(
+        QPainter::Antialiasing,
+        true);
+
+    QPen pen(
+        QColor("#5F6973"),
+        qMax(2.2, pixelSize / 12.0));
+
+    pen.setCapStyle(
+        Qt::RoundCap);
+
+    painter.setPen(
+        pen);
+
+    painter.setBrush(
+        Qt::NoBrush);
+
+    const qreal margin =
+        pixelSize * 0.16;
+
+    painter.drawRoundedRect(
+        QRectF(
+            margin,
+            pixelSize * 0.06,
+            pixelSize - margin * 2,
+            pixelSize * 0.88),
+        pixelSize * 0.14,
+        pixelSize * 0.14);
+
+    const qreal y =
+        pixelSize * 0.82;
+
+    painter.drawLine(
+        QPointF(pixelSize * 0.36, y),
+        QPointF(pixelSize * 0.64, y));
+
+    painter.end();
+
+    return pixmap;
+}
+
+
+QPixmap benefitIconPixmap(
+    int kind,
+    int size)
+{
+    const int pixelSize =
+        qMax(24, size);
+
+    QPixmap pixmap(
+        pixelSize,
+        pixelSize);
+
+    pixmap.fill(
+        Qt::transparent);
+
+    QPainter painter(
+        &pixmap);
+
+    painter.setRenderHint(
+        QPainter::Antialiasing,
+        true);
+
+    const QColor lime(
+        "#70E889");
+
+    painter.setPen(
+        Qt::NoPen);
+
+    painter.setBrush(
+        lime);
+
+    const qreal s =
+        pixelSize;
+
+    if (kind == 0) {
+
+        QPainterPath shield;
+        shield.moveTo(s * 0.50, s * 0.08);
+        shield.lineTo(s * 0.86, s * 0.22);
+        shield.lineTo(s * 0.86, s * 0.52);
+        shield.cubicTo(
+            s * 0.86, s * 0.78,
+            s * 0.68, s * 0.90,
+            s * 0.50, s * 0.94);
+        shield.cubicTo(
+            s * 0.32, s * 0.90,
+            s * 0.14, s * 0.78,
+            s * 0.14, s * 0.52);
+        shield.lineTo(s * 0.14, s * 0.22);
+        shield.closeSubpath();
+        painter.drawPath(shield);
+
+    } else if (kind == 1) {
+
+        QPainterPath leaf;
+        leaf.moveTo(s * 0.22, s * 0.72);
+        leaf.cubicTo(
+            s * 0.18, s * 0.34,
+            s * 0.42, s * 0.10,
+            s * 0.78, s * 0.18);
+        leaf.cubicTo(
+            s * 0.70, s * 0.58,
+            s * 0.46, s * 0.80,
+            s * 0.22, s * 0.72);
+        painter.drawPath(leaf);
+
+        QPen stem(
+            QColor("#171D27"),
+            qMax(1.6, s / 16.0));
+        stem.setCapStyle(Qt::RoundCap);
+        painter.setPen(stem);
+        painter.setBrush(Qt::NoBrush);
+        painter.drawLine(
+            QPointF(s * 0.34, s * 0.66),
+            QPointF(s * 0.62, s * 0.28));
+
+    } else {
+
+        QPainterPath bolt;
+        bolt.moveTo(s * 0.58, s * 0.08);
+        bolt.lineTo(s * 0.28, s * 0.50);
+        bolt.lineTo(s * 0.48, s * 0.50);
+        bolt.lineTo(s * 0.40, s * 0.92);
+        bolt.lineTo(s * 0.74, s * 0.44);
+        bolt.lineTo(s * 0.52, s * 0.44);
+        bolt.closeSubpath();
+        painter.drawPath(bolt);
+    }
+
+    painter.end();
+
+    return pixmap;
+}
+
 
 // 登录页浅色主视觉背景：用代码绘制柔和渐变与城市剪影，
 // 车辆和充电桩仍使用项目内现有透明 PNG。
@@ -620,18 +774,9 @@ LoginWindow::LoginWindow(
 
 
     // 手机图标直接绘制，避免部分运行环境不加载 SVG 插件。
-    QPixmap phonePixmap(28, 28);
-    phonePixmap.fill(Qt::transparent);
-    QPainter phonePainter(&phonePixmap);
-    phonePainter.setRenderHint(QPainter::Antialiasing);
-    phonePainter.setPen(QPen(QColor("#5F6973"), 2));
-    phonePainter.setBrush(Qt::NoBrush);
-    phonePainter.drawRoundedRect(QRectF(8, 4, 12, 20), 2.5, 2.5);
-    phonePainter.drawLine(QPointF(12, 20), QPointF(16, 20));
-    phonePainter.end();
-
     m_phoneEdit->addAction(
-        QIcon(phonePixmap),
+        QIcon(
+            phoneIconPixmap(36)),
         QLineEdit::LeadingPosition);
 
 
@@ -725,17 +870,32 @@ LoginWindow::LoginWindow(
     benefitLayout->setContentsMargins(22, 36, 22, 18);
     benefitLayout->setSpacing(8);
 
-    const QStringList benefitItems = {
-        QStringLiteral("◇\n安全可靠"),
-        QStringLiteral("♧\n绿色低碳"),
-        QStringLiteral("ϟ\n便捷高效")
+    const QStringList benefitCaptions = {
+        QStringLiteral("安全可靠"),
+        QStringLiteral("绿色低碳"),
+        QStringLiteral("便捷高效")
     };
 
-    for (const QString &text : benefitItems) {
-        auto *label = new QLabel(text, benefits);
+    for (int i = 0; i < benefitCaptions.size(); ++i) {
+        auto *cell = new QWidget(benefits);
+        auto *cellLayout = new QVBoxLayout(cell);
+        cellLayout->setContentsMargins(0, 0, 0, 0);
+        cellLayout->setSpacing(8);
+        cellLayout->setAlignment(Qt::AlignHCenter);
+
+        auto *icon = new QLabel(cell);
+        icon->setObjectName(QStringLiteral("loginBenefitIcon"));
+        icon->setProperty("benefitKind", i);
+        icon->setAlignment(Qt::AlignCenter);
+        icon->setPixmap(benefitIconPixmap(i, 32));
+
+        auto *label = new QLabel(benefitCaptions.at(i), cell);
         label->setObjectName(QStringLiteral("loginBenefitItem"));
         label->setAlignment(Qt::AlignCenter);
-        benefitLayout->addWidget(label, 1);
+
+        cellLayout->addWidget(icon, 0, Qt::AlignHCenter);
+        cellLayout->addWidget(label);
+        benefitLayout->addWidget(cell, 1);
     }
 
     lowerLayout->addWidget(benefits);
@@ -989,6 +1149,11 @@ void LoginWindow::applyResponsiveStyle()
             "border:none;"
             "}"
 
+            "QLabel#loginBenefitIcon{"
+            "background:transparent;"
+            "border:none;"
+            "}"
+
             "QLabel#loginBenefitItem{"
             "background:transparent;"
             "color:#C3CBD2;"
@@ -1232,6 +1397,51 @@ void LoginWindow::applyResponsiveStyle()
 
         contentLayout->setSpacing(
             0);
+    }
+
+
+    const int phoneIconSize =
+        scaledUi(
+            this,
+            24);
+
+    if (m_phoneEdit) {
+
+        const auto actions =
+            m_phoneEdit->actions();
+
+        if (!actions.isEmpty()) {
+
+            actions.first()->setIcon(
+                QIcon(
+                    phoneIconPixmap(
+                        phoneIconSize)));
+        }
+    }
+
+
+    const int benefitIconSize =
+        scaledUi(
+            this,
+            30);
+
+    const auto benefitIcons =
+        findChildren<QLabel *>(
+            QStringLiteral(
+                "loginBenefitIcon"));
+
+    for (QLabel *icon : benefitIcons) {
+
+        icon->setPixmap(
+            benefitIconPixmap(
+                icon->property(
+                        "benefitKind")
+                    .toInt(),
+                benefitIconSize));
+
+        icon->setFixedSize(
+            benefitIconSize,
+            benefitIconSize);
     }
 }
 

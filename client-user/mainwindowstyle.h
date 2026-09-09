@@ -53,7 +53,7 @@ inline QString locationPanelStyle()
                "QFrame#locationPanel{"
                "background:#FFFFFF;"
                "border:1px solid %1;"
-               "border-radius:22px;"
+               "border-radius:16px;"
                "}")
         .arg(
             UiTheme::border());
@@ -71,8 +71,8 @@ inline QString regionComboStyle(
                "background:#F5F7F6;"
                "color:%1;"
                "border:1px solid %2;"
-               "border-radius:14px;"
-               "padding:9px 28px 9px 12px;"
+               "border-radius:12px;"
+               "padding:5px 22px 5px 10px;"
                "font-size:%3px;"
                "font-weight:650;"
                "}"
@@ -124,8 +124,8 @@ inline QString addressEditStyle(
                "background:#F5F7F6;"
                "color:%1;"
                "border:1px solid %2;"
-               "border-radius:14px;"
-               "padding:10px 12px;"
+               "border-radius:12px;"
+               "padding:6px 10px;"
                "font-size:%3px;"
                "}"
 
@@ -159,8 +159,8 @@ inline QString locationButtonStyle(
                "background:%1;"
                "color:#FFFFFF;"
                "border:none;"
-               "border-radius:14px;"
-               "padding:9px 14px;"
+               "border-radius:12px;"
+               "padding:6px 12px;"
                "font-size:%2px;"
                "font-weight:700;"
                "}"

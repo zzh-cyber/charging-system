@@ -184,12 +184,12 @@ MainWindow::MainWindow(
 
     homeLayout->setContentsMargins(
         0,
-        14,
+        8,
         0,
         0);
 
     homeLayout->setSpacing(
-        12);
+        6);
 
 
     // =========================================================================
@@ -218,14 +218,18 @@ MainWindow::MainWindow(
         new QVBoxLayout(
             locationPanel);
 
+    locationMainLayout->setObjectName(
+        QStringLiteral(
+            "locationMainLayout"));
+
     locationMainLayout->setContentsMargins(
-        16,
-        14,
-        16,
-        12);
+        12,
+        6,
+        12,
+        6);
 
     locationMainLayout->setSpacing(
-        8);
+        0);
 
 
     // =========================================================================
@@ -344,6 +348,8 @@ MainWindow::MainWindow(
     m_locationTip->setObjectName(
         QStringLiteral(
             "locationTip"));
+
+    m_locationTip->hide();
 
 
     // =========================================================================
@@ -1878,7 +1884,7 @@ void MainWindow::applyResponsiveStyle()
 
     const int controlHeight =
         qRound(
-            46 * scale);
+            34 * scale);
 
 
     const int navHeight =
@@ -1935,6 +1941,21 @@ void MainWindow::applyResponsiveStyle()
         locationPanel->setStyleSheet(
             MainWindowStyle::
                 locationPanelStyle());
+    }
+
+
+    if (auto *locationMainLayout =
+            findChild<QVBoxLayout *>(
+                QStringLiteral(
+                    "locationMainLayout"))) {
+
+        locationMainLayout->setContentsMargins(
+            qRound(12 * scale),
+            qRound(6 * scale),
+            qRound(12 * scale),
+            qRound(6 * scale));
+
+        locationMainLayout->setSpacing(0);
     }
 
 
