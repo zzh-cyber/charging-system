@@ -9,6 +9,8 @@ add_executable(charging-server
     database.h
     sessionmanager.cpp
     sessionmanager.h
+    aiservice.cpp
+    aiservice.h
     config.h
     schema.qrc
 )

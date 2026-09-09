@@ -52,6 +52,7 @@ inline constexpr const char *FinishCharge = "finish_charge";  // 结束充电出
 inline constexpr const char *PayCharge    = "pay_charge";     // 确认支付扣款
 inline constexpr const char *Settle       = "settle";         // 已停用，改用 finish_charge + pay_charge
 inline constexpr const char *UnfinishedOrder = "unfinished_order"; // 查询未完成订单
+inline constexpr const char *AiChat         = "ai_chat";         // AI 客服（调用大模型）
 
 // 管理端
 inline constexpr const char *AdminLogin       = "admin_login";
