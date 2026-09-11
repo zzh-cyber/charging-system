@@ -50,8 +50,8 @@ private:
                         double userLat = 0.0, double userLng = 0.0,
                         bool hasLocation = false);
 
-    qintptr     m_descriptor;
-    QTcpSocket *m_socket = nullptr;
-    Database   *m_db = nullptr;
-    QByteArray  m_buffer;
+    qintptr     m_descriptor;//系统交给你的 socket 编号
+    QTcpSocket *m_socket = nullptr;//本线程里的 QTcpSocket
+    Database   *m_db = nullptr;//本线程自己的 Database
+    QByteArray  m_buffer;//粘包用的字节缓存
 };

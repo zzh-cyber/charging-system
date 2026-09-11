@@ -3,7 +3,7 @@
 > **项目名称**：新能源汽车充电管理系统（Linux + Qt）  
 > **小组人数**：5 人（组长 + A/B/C/D）  
 > **大分类（四项，9/4 评审整改）**：① 充电用户端　② PC管理端　③ **服务端业务处理**　④ 数据库端  
-> **编制日期**：2026-09-02　**修订日期**：2026-09-06（按当前 main 进度更新状态栏）  
+> **编制日期**：2026-09-02　**修订日期**：2026-09-10（按阶段答辩前 main 实际进度更新分工与状态，并补智能客服等新增小类）  
 > **评审节点**：9/4 需求分析评审 · 9/7 中期评审 · 9/10 阶段答辩 · 9/11 24:00 提交  
 > **鉴权定稿**：TCP + 长度前缀 JSON；**除 `login` / `admin_login` 外，每个业务请求必须在 JSON 顶层携带 `token`**；服务器用 token 反查真实用户/管理员身份，**禁止客户端自报 `user_id` 充当登录身份**（同账号多端靠不同 token 区分）。
 
@@ -18,7 +18,6 @@
 | ○ | 完成（通过评审或测试） |
 | △ | 进行中 |
 | × | 未着手 |
-| N/A | 不适用（没有此项活动） |
 
 ---
 
@@ -90,7 +89,7 @@
 
 ## 用户端/管理端消息类型一览
 
-用户端：`login`（含注册）、`station_list`、`pile_list`、`pile_detail`、`update_profile`、`recharge`、`unfinished_order`、`reserve`、`start_charge`、`finish_charge`、`pay_charge`。  
+用户端：`login`（含注册）、`station_list`、`pile_list`、`pile_detail`、`update_profile`、`recharge`、`unfinished_order`、`reserve`、`start_charge`、`finish_charge`、`pay_charge`、`ai_chat`（智能客服问答 / 代预约）。  
 管理端：`admin_login`、`admin_user_list`、`admin_user_freeze`、`admin_pile_list`、`admin_pile_restart`、`admin_station_list`、`admin_station_add`、`admin_order_list`、`admin_order_detail`、`admin_revenue_trend`（营收，原草稿名 revenue_trend_query，须 `admin_` 前缀才能过管理员鉴权门）。
 
 ---
@@ -101,18 +100,18 @@
 
 | 模块 | 主负责人 | 主要代码文件（个人成果区分） | 说明 |
 |------|----------|------------------------------|------|
-| 服务端业务处理（后端，NO.61–107） | **成员A 朱雅琪**（后端主力，用户侧全部服务端处理）+ **组长 翟梓涵**（收发框架/会话/鉴权/管理侧重启·新增站·冻结处理/联调整合） | `server/clienthandler.cpp`、`server/database.*`、`server/sessionmanager.*`、`server/tcpserver.*`、`common/protocol.h` | 后端为独立进程 `charging-server`，是本项目工作量最大的一块，单独立项、单独排期。该大类 47 行全部由后端二人负责，页面同学不占后端行 |
-| 充电用户端（NO.1–26） | 成员B 马晓钰 | `client-user/**` | 只负责界面与交互，不直连 MySQL；其中「服务器查询/校验」类行（登录、预约、结算的服务端实现）归后端 朱雅琪/翟梓涵 |
+| 服务端业务处理（后端，NO.61–107、84a） | **成员A 朱雅琪**（后端主力，用户侧业务处理）+ **组长 翟梓涵**（收发框架/会话/鉴权/管理侧重启·新增站·冻结·订单查询/联调整合）+ **成员D 邓雅心**（智能客服 `ai_chat` / 代预约） | `server/clienthandler.cpp`、`server/database.*`、`server/sessionmanager.*`、`server/tcpserver.*`、`server/aiservice.*`、`common/protocol.h` | 后端为独立进程 `charging-server`，是本项目工作量最大的一块。原 47 条由朱雅琪/翟梓涵负责；智能客服服务端由邓雅心负责，页面同学不占其它后端行 |
+| 充电用户端（NO.1–26、5a、8–12、26a–26c） | **成员B 马晓钰**（首页定位/电站卡片/登录资料/充电页）+ **成员A 朱雅琪**（一键导航、高德 WebEngine、地图 Marker）+ **成员D 邓雅心**（智能 AI 客服界面） | `client-user/**`（导航：`navigationpage.*`、`amapwidget.*`、`routeplanner.*`、`amapconfig.*`；客服：`floatingball.*`、`aichatdialog.*`） | 只负责界面与交互，不直连 MySQL。登录/预约/结算的服务端实现仍归后端；地图 Key 与 AI Key 均不进充电服务器报文 |
 | PC管理端（NO.27–48） | 成员C 牛昀轶 | `client-admin/**` | 同上，所有数据经后端；管理端各查询/操作的服务端实现归后端 朱雅琪/翟梓涵 |
-| 数据库端（NO.49–60） | 成员D 邓雅心 | `sql/schema.sql`、DAO 约定 | 与后端协作，表/字段已在「库表统一口径」列明 |
+| 数据库端（NO.49–60、60a） | 成员D 邓雅心 | `sql/schema.sql`、`sql/seed_expand_stations.sql`、DAO 约定 | 与后端协作；演示库已扩至约 72 站 / 399 桩 / 300+ 订单。备份演练（NO.60）仍未完成 |
 
-**工作量重估**：后端从「附属」提升为独立大类，新增 NO.61–107 共 47 条处理项（含收发框架、会话安全 2 条贯穿项 + 45 条与用户端/管理端一一对应的业务处理）；其中收发框架、会话鉴权、充电闭环（reserve→start_charge→settle）、营收统计、操作日志为新增或需细化的重点，预计比原计划多约 2～3 人日。
+**工作量重估**：后端从「附属」提升为独立大类，原 NO.61–107 共 47 条处理项（收发框架、会话安全 2 条贯穿项 + 与用户端/管理端一一对应的业务处理）；9/8 后新增智能客服 `ai_chat`（NO.26a–26c / 84a）、地图 Marker（NO.5a）、种子扩容（NO.60a）。收发框架、会话鉴权、充电闭环、营收统计、操作日志、导航与 AI 客服为答辩演示重点。
 
 **时间安排调整**：
-- 9/4（今日）：提交本修订版需求矩阵（独立后端大类 + 报文格式 + 库表口径）。
-- 9/5–9/6：后端补 `update_profile`、`admin_revenue_trend`、`operation_logs` 审计写入、电桩状态统计；用户端补 NO.4 条数切换与昵称/头像。
+- 9/4：提交修订版需求矩阵（独立后端大类 + 报文格式 + 库表口径）。
+- 9/5–9/6：后端补 `update_profile`、`admin_revenue_trend`、`operation_logs`、电桩状态统计；用户端补 NO.4 条数切换与昵称/头像。
 - 9/7 中期评审：演示预约→开始→结算闭环 + 管理端冻结/重启，并能逐条对应到后端处理项。
-- 9/8–9/10：补齐剩余 × 项、并发与安全测试、备份演练，联调后录屏。
+- 9/8–9/10：高德导航与地图 Marker、智能 AI 客服（含代预约）、种子扩容、管理端订单/站内桩明细/冻结 UI 已合入 main；阶段答辩（9/10）。备份演练（NO.60）仍待补。
 
 **个人可单独展示的成果边界**：每人对应上表的代码文件与矩阵条目，避免代码混在一起导致贡献无法区分（老师第九节要求）。
 
@@ -120,22 +119,23 @@
 
 # 东软电动汽车充电桩应用管理平台需求矩阵（用户端 + 管理端 + 服务端 + 数据库）
 
-> ○：完成（通过评审或测试）   △：进行中   ×：未着手   N/A：不适用（没有此项活动）
+> ○：完成（通过评审或测试）   △：进行中   ×：未着手
 
 | NO. | 大分类 | 中分类 | 小分类 | 详细说明 | 负责人 | 预计日期 | 状态 | 困难 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | 充电用户端 | 附近充电站查询 | 支持通过下拉选择区域或手动输入地址确定用户位置。 | 实现流程：在首页放置区域下拉框、地址输入框和“定位”按钮；下拉框加载预设区域，手动输入时先去除首尾空格并检查地址非空。将用户选择结果保存到 LocationModel，点击定位后发出 locationChanged 信号，供后续地理编码和附近电站查询统一使用。软件仅模拟 GPS，不读取真实定位权限；重新进入页面时从 QSettings 恢复最近一次地址。 | 马晓钰 | 2026-09-02 | △ |  |
-| 2 |  |  | 调用腾讯地图 Web API 将输入地址转换为经纬度坐标。 | 使用 QNetworkAccessManager 调用腾讯地图地址解析接口，请求参数至少包含 address、region、key 和 output=json；为每次请求生成 requestId，并设置 5 秒超时。解析返回 JSON 中的 status、message、result.location.lat/lng，成功后保存 double 类型经纬度；地址无结果、配额受限、网络超时或 JSON 字段缺失时显示明确提示并允许重试，禁止把无效坐标继续发送给服务器。 | 马晓钰 | 2026-09-03 | ○ |  |
+| 1 | 充电用户端 | 附近充电站查询 | 支持通过下拉选择区域或手动输入地址确定用户位置。 | 首页已放置区域下拉框、地址输入框和“定位”按钮；地址去首尾空格并检查非空。点击定位后由 LocationManager 地理编码，发出 locationChanged 供附近电站查询。软件仅模拟 GPS，不读取真实定位权限；重新进入时从 QSettings 恢复最近一次成功定位的区域/地址/坐标。 | 马晓钰 | 2026-09-02 | ○ |  |
+| 2 |  |  | 调用高德地图 Web API 将输入地址转换为经纬度坐标。 | `LocationManager` 使用 QNetworkAccessManager 调用 `https://restapi.amap.com/v3/geocode/geo`；参数含 address、city（区域）、key；5 秒超时。解析 geocodes 中的 location 为 double 经纬度；无结果、超时或字段缺失时提示并允许重试，禁止把无效坐标发给充电服务器。Key 从配置/环境读取，不硬编码进业务报文。 | 马晓钰 | 2026-09-03 | ○ |  |
 | 3 |  |  | 向 PC 服务器请求当前位置附近的 5/10 个最近充电站。 | 客户端经已登录的 NetClient 发送 {type:'station_list', token, data:{lat, lng}}（token 由 NetClient 自动附带，禁止漏带）。服务器先校验 token 有效且角色为 user，再校验经纬度范围，查询启用电站并按距离排序返回 id、name、address、price、total、idle、distance 等；token 无效返回 code=9。 | 朱雅琪 | 2026-09-04 | ○ |  |
 | 4 |  |  | 按距离由近及远展示充电站，并支持 5 条/10 条结果切换。 | 收到服务器结果后先按 stationId 去重、校验 distance 为非负数，再用 std::stable_sort 按 distance 升序稳定排序；完整排序结果缓存于客户端，用户切换 5/10 条时从缓存即时截取展示（保留当前地址，无需重新定位/请求）。若服务器未返回 distance，客户端用两点经纬度按 Haversine 公式兜底计算，展示统一保留 1 位小数；距离相同时按空闲桩数降序、站名升序排列，保证结果稳定。 | 翟梓涵 | 2026-09-04 | ○ |  |
 | 5 |  |  | 充电站卡片展示站名、充电价格、总桩数、空闲数和距离。 | 用 QScrollArea + 自定义 StationCardWidget 生成卡片列表，每张卡片绑定 stationId，不以界面序号作为业务主键。字段分别显示站名、价格（元/度，保留 2 位）、“空闲数/总数”和距离（km）；空闲数为 0 时卡片显示“已满”并弱化操作按钮，价格或数量缺失时显示“--”而不是崩溃。列表刷新前复用/销毁旧卡片，避免重复信号连接和内存泄漏。 | 马晓钰 | 2026-09-04 | ○ |  |
+| 5a |  |  | 首页地图用自定义 Marker 展示用户位置与电站。 | `StationListPage` 嵌入 `AmapWidget`（QWebEngineView + 高德 JS API，`resources/amap-map.html`）。用户位置与各站打点；最近站用 `station-marker-nearest.png` 高亮，其余用 `station-marker-normal.png`。点击 Marker 可与卡片联动。地图 Key 读 `config/amap.ini` / 环境，不写入充电服务器报文或日志。 | 朱雅琪 | 2026-09-08 | ○ |  |
 | 6 |  |  | 点击充电站可查看该站全部电桩的编号、类型、状态和功率。 | 点击卡片后携带 station_id 进入详情页并发送 {type:'pile_list', token, data:{station_id}}。服务器校验 token 后按 station_id 查询电桩，返回 id、code、type、power_kw、status；客户端表格/卡片展示，状态映射为闲置/在用/故障并用颜色区分，只有闲置桩显示“选择充电”。电站不存在或无电桩时返回业务错误码并展示空状态。 | 马晓钰 | 2026-09-05 | ○ |  |
 | 7 |  |  | 查询过程提供加载、空数据、超时和断网处理。 | 页面用 QStackedWidget 管理 loading/content/empty/error 四种状态，发送请求后立即显示加载状态并暂时禁用重复提交。5 秒无响应则取消等待并提示重试；Socket 断开时统一交给 ConnectionManager 自动重连，最多重试 3 次且采用递增间隔。可缓存最近一次成功列表用于只读展示，但必须标注“缓存数据”，充电操作前仍需重新校验桩状态。 | 邓雅心 | 2026-09-05 | ○ |  |
-| 8 |  | 一键导航 | 点击充电站距离信息后进入该站导航页面。 | 卡片同时提供可点击距离（蓝色下划线）和“导航”按钮；无有效终点经纬度时两者禁用，禁止只凭显示文本跳转。点击后由 StationListPage 再校验用户起点经纬度范围，完整时发出 navigationRequested（stationId、站名、起点 lat/lng、终点 lat/lng、distance），MainWindow 切换至 NavigationPage：页头返回按钮 + 目标站名，正文展示起终点坐标摘要与直线距离。真地图（QWebEngineView）属 NO.9，本条只验收入口与占位页。 | 马晓钰 | 2026-09-04 | ○ |  |
-| 9 |  |  | 使用 QWebEngineView 加载腾讯地图路线规划页面。 | 在 NavigationPage 中嵌入 QWebEngineView，启用必要的 JavaScript 和本地存储，禁止不需要的弹窗与文件下载。首次进入显示占位页，拼接完成路线 URL 后调用 setUrl；连接 loadStarted、loadProgress、loadFinished 信号显示加载进度。地图 API Key 从配置文件或环境配置读取，不硬编码在源文件提交记录中。 | 马晓钰 | 2026-09-05 | × |  |
-| 10 |  |  | 导航请求同时传入当前位置起点和目标电站终点。 | 构造路线参数时使用纬度、经度的固定顺序，起点包含当前位置名称与坐标，终点包含电站名称与坐标；对名称进行 URL 编码并将坐标保留 6 位小数。导航请求格式统一封装为 RouteRequest{fromName,fromLat,fromLng,toName,toLat,toLng,mode}，在发起加载前记录 requestId，避免快速切换电站时旧页面覆盖新目标。 | 朱雅琪 | 2026-09-05 | ○ |  |
-| 11 |  |  | 支持驾车和步行两种出行方式切换。 | 导航页提供“驾车/步行”切换按钮或 QComboBox，默认驾车；选择变化后只更新 RouteRequest.mode，并重新加载对应路线，保留起终点不变。界面上突出当前模式，加载期间禁用连续切换；若腾讯地图不支持当前路线或返回无可用路径，则显示原因并允许返回电站详情页。 | 马晓钰 | 2026-09-05 | × |  |
-| 12 |  |  | 导航加载失败时提供重试、外部浏览器打开和返回操作。 | 监听 QWebEngineView::loadFinished(false)、网络错误和证书异常，失败时显示错误面板而非空白页面；“重试”使用同一 RouteRequest 再次加载，“外部打开”经用户确认后用 QDesktopServices 打开路线 URL，“返回”恢复原电站列表滚动位置。记录失败时间、目标 stationId 和错误码，便于联调排查，但日志中不写入 API Key。 | 翟梓涵 | 2026-09-06 | × |  |
+| 8 |  | 一键导航 | 点击充电站距离信息后进入该站导航页面。 | 卡片同时提供可点击距离和“导航”按钮；无有效终点经纬度时禁用。点击后 StationListPage 校验起点，发出 navigationRequested（stationId、站名、起终点 lat/lng），MainWindow 切换至 NavigationPage（页头返回 + 目标站名 + 起终点摘要）。真地图与路线规划属 NO.9～12，由朱雅琪实现。 | 马晓钰 | 2026-09-04 | ○ |  |
+| 9 |  |  | 使用 QWebEngineView 加载高德地图并规划路线。 | `NavigationPage` 嵌入 `AmapWidget`（QWebEngineView + 高德 JS）。`RoutePlanner` 调 `restapi.amap.com/v5/direction/driving` 或 `walking` 取 polyline，在地图上绘制路线。首次进入可显示占位，加载中有进度提示。Key 从 `config/amap.ini` / 环境读取，不硬编码进充电业务源码、不写入服务器日志。 | 朱雅琪 | 2026-09-08 | ○ |  |
+| 10 |  |  | 导航请求同时传入当前位置起点和目标电站终点。 | 构造路线参数时使用纬度、经度的固定顺序，起点包含当前位置名称与坐标，终点包含电站名称与坐标；坐标保留足够小数位。导航请求封装为 RouteRequest{fromName,fromLat,fromLng,toName,toLat,toLng,mode}，发起加载前记录 requestId，避免快速切换电站时旧路线覆盖新目标。 | 朱雅琪 | 2026-09-05 | ○ |  |
+| 11 |  |  | 支持驾车和步行两种出行方式切换。 | 导航页提供“驾车/步行”切换按钮，默认驾车；切换后只更新 mode 并重新规划，起终点不变。界面突出当前模式；高德无可用路径时提示原因（如步行失败可改驾车）并允许返回电站列表。 | 朱雅琪 | 2026-09-08 | ○ |  |
+| 12 |  |  | 导航加载失败时提供提示、重新规划和返回操作。 | 路线 JSON 无效、无 polyline、网络失败时显示原因而非空白页；用户可切换出行方式重新规划或点返回恢复电站列表。外部浏览器打开路线 URL 未做（高德路线在应用内 WebEngine 完成）。日志不写入 API Key。 | 朱雅琪 | 2026-09-08 | ○ |  |
 | 13 |  | 用户信息维护 | 用户输入 11 位手机号即可发起免密登录。 | 登录页一开始同时提供「登录」「注册」。QLineEdit 限制仅数字、最大 11 位，提交用正则 ^1\\d{10}$。登录发送 {type:'login', data:{phone, register:false}}（**不带 token**）。未注册点登录返回 code=4 且 data.can_register=true，提示「该手机号尚未注册，请点击下方注册」。新号也可直接点注册。不发送验证码；日志对中间四位脱敏。 | 马晓钰 | 2026-09-02 | ○ |  |
 | 14 |  |  | 服务器查询手机号并对已存在的正常用户直接完成登录。 | 服务器对 phone 做格式校验，参数化查询 user 表。存在且 status='normal' 时由 SessionManager 生成随机 UUID token（写入内存会话表，含 userId、role=user、lastActive），响应 data 返回 id、phone、nickname、avatar、balance、**token**；冻结用户返回 code=6，不创建会话。同一账号多次登录可持有多个 token（区分并发会话）。禁止用客户端传来的 user_id 当作已登录身份。 | 朱雅琪 | 2026-09-03 | ○ |  |
 | 15 |  |  | 手机号不存在时通过注册入口创建新用户并立即登录。 | 登录不自动建号。客户端点「注册」发送 {type:'login', data:{phone, register:true}}；服务端事务内插入 user（默认昵称“用户”+后4位、balance=0、status=normal），再创建会话并返回与普通登录相同结构（含 token）。已存在则按普通登录发 token。唯一键冲突回退为查询已有用户。 | 朱雅琪 | 2026-09-03 | ○ |  |
@@ -150,6 +150,9 @@
 | 24 |  |  | 充电页面实时显示时长、功率、已充电量和预估金额。 | 本地 QTimer 刷新时长，定时发送带 token 的状态/业务查询（如 settle 前的展示数据）；界面只读展示。网络中断保留最后值并标注重连；连续失败停止本地金额增长。 | 马晓钰 | 2026-09-06 | ○ |  |
 | 25 |  |  | 停止充电时按充电量和电站单价计算最终费用。 | 客户端发送 {type:'finish_charge', token, data:{order_no}}（不传 kwh）。服务端用 pile.power_kw×时长/3600 得 kwh，再×订单固化 unit_price 得 amount；订单 charging→pending_payment 并释放电桩。响应返回电量、单价、时长、金额供核对。用户端「结束充电」已接本接口。 | 翟梓涵 | 2026-09-07 | ○ |  |
 | 26 |  |  | 完成扣款、订单结算和电桩释放，并处理余额不足。 | 客户端发送 {type:'pay_charge', token, data:{order_no}}。服务器事务内按会话用户扣已出账款、写流水、订单 pending_payment→settled；余额不足 code=7 且订单保持待支付。电桩已在 finish_charge 释放。禁止仅凭 order_no 操作他人订单。用户端「确认支付」已接本接口。 | 朱雅琪 | 2026-09-07 | ○ |  |
+| 26a |  | 智能客服 | 主界面悬浮球打开微信风「E小充」聊天窗口。 | 登录后主窗右下角 `FloatingBall`，点击弹出无边框圆角 `AiChatDialog`（标题「E小充」、自绘气泡、客服/用户头像）。窗口可拖动，关闭后悬浮球仍在。不直连大模型，问答一律走充电服务器 `ai_chat`。 | 邓雅心 | 2026-09-09 | ○ |  |
+| 26b |  |  | 用户自然语言提问，服务端调用大模型返回答案。 | 发送 {type:'ai_chat', token, data:{question, lat?, lng?}}（已定位则带坐标）。服务端 `AiService` 调外部大模型，**Key 只读环境变量 `AI_API_KEY`，不写进源码/库/日志**。回包 data.answer 在聊天窗展示；未配置 Key 时给出明确提示。 | 邓雅心 | 2026-09-09 | ○ |  |
+| 26c |  |  | 关键词多轮对话代用户预约空闲电桩。 | 服务端对问题先走 `tryAiAction`（站名索引、最近站、快/慢充等），命中则调用与页面相同的 `Database::reserve`（token 用户、事务锁桩）。成功回包 `action=reserve_ok` 及 order_no/station_name/pile_code，客户端切到充电页「已预约」。未命中操作再走 26b 文本问答。 | 邓雅心 | 2026-09-09 | ○ |  |
 | 27 | PC管理端 | 管理员登录 | 管理员在登录界面输入账号和密码并提交验证。 | 账号密码输入；发送 {type:'admin_login', data:{username,password}}（**不带 token**）。成功后 NetClient::setToken(data.token)，进入管理后台；退出 clearToken。密码不写客户端日志。 | 牛昀轶 | 2026-09-02 | ○ |  |
 | 28 |  |  | 服务器校验数据库管理员账号并兼容默认账号 admin/123456。 | admin 表存 password_hash+salt；登录校验成功后更新 last_login_at，返回 id、username，并由 SessionManager 创建 role=admin 的 token 写入 data.token。账号停用或密码错误统一 AUTH_FAILED。默认 admin/123456 仅作初始化哈希入库，库中不保留明文。 | 朱雅琪 | 2026-09-03 | ○ |  |
 | 29 |  |  | 登录成功后建立管理员会话并控制后台操作权限。 | SessionManager 保存 token→(adminId, role=admin, lastActive)；**除 admin_login 外，所有 admin_* 请求必须带 token**，分发层校验 token 且 role 为 admin 后才进业务。30 分钟无操作滑动过期。写操作（重启、冻结、新增电站）须鉴权通过并写 operation_logs。服务器鉴权门已开闸；管理端收到 code=9 会清 token 并回到登录窗。 | 朱雅琪 | 2026-09-03 | ○ |  |
@@ -161,16 +164,16 @@
 | 35 |  |  | 服务器统计各状态电桩的数量和占比。 | 已在 `admin_pile_list` 附带 `data.stats`（不新增 MsgType）。`SELECT status,COUNT(*) FROM pile WHERE enabled=1 GROUP BY status`；idle/busy/fault 的 count、rate（1 位）、total、stat_time。统计 SQL 失败时仍返回 `data.list`，管理端继续展示明细并提示统计暂不可用。 | 朱雅琪 | 2026-09-05 | ○ |  |
 | 36 |  |  | 状态页自动刷新并用数量、占比和颜色反映设备健康度。 | 用 QTimer 每 10 秒触发一次状态汇总请求，上一请求未完成时跳过本次，避免堆积；页面顶部显示各状态数量和占比，表格中的闲置/在用/故障分别使用绿色/蓝色/红色标签。刷新时按 pileId 更新模型而非重建整个窗口，保留筛选条件和滚动位置；连接断开时暂停定时器并显示最后更新时间。 | 牛昀轶 | 2026-09-06 | ○ |  |
 | 37 |  | 充电桩管理 | 列表展示电桩编号、所属电站、类型、功率、状态及累计使用数据。 | 使用 QTableView 显示 pileCode、stationName、chargeType、powerKw、status、chargeCount、chargeDurationHours；累计次数只统计已开始的有效订单，累计时长由已结束订单 duration_seconds 求和并换算小时。提供电站、类型、状态筛选和编号搜索，列标题固定、长文本悬停显示完整值，双击可查看详情。 | 牛昀轶 | 2026-09-05 | ○ |  |
-| 38 |  |  | 服务器支持电桩列表的联表查询、筛选和分页。 | 接口 {type:'admin_pile_list', token, data:{...筛选可选}}：先校验管理员 token，再联表查询并聚合累计次数/时长；筛选用绑定参数。无 token 拒绝。 | 朱雅琪 | 2026-09-06 | △ |  |
+| 38 |  |  | 服务器支持电桩列表的联表查询、筛选和分页。 | 接口 {type:'admin_pile_list', token, data:{...筛选可选}}：先校验管理员 token，再联表查询并聚合累计次数/时长；筛选用绑定参数（station_id/type/status/code）；分页 page/page_size（上限 50）。无 token 拒绝。 | 朱雅琪 | 2026-09-06 | ○ |  |
 | 39 |  |  | 管理员可选择电桩并发起远程重启操作。 | 选中行后确认发送 {type:'admin_pile_restart', token, data:{pile_id}}。成功刷新该行状态；充电中默认禁止重启。 | 牛昀轶 | 2026-09-06 | ○ |  |
 | 40 |  |  | 服务器向电桩模拟程序发送重启指令并记录执行结果。 | 校验管理员 token 与电桩状态后写 device_commands，发送 restart；结果写 operation_logs（adminId 取自会话，非客户端自报）。无独立桩进程时指令在同一事务内 pending→success。充电中拒绝。 | 翟梓涵 | 2026-09-07 | ○ |  |
 | 41 |  | 充电站管理 | 列表展示电站 ID、站名、地址、经纬度、总桩数和在线率。 | 加载时发送 {type:'admin_station_list', token, data:{}}；QTableView 展示站名、地址、坐标、总桩数、在线率等。须管理员 token。 | 牛昀轶 | 2026-09-05 | ○ |  |
-| 42 |  |  | 点击电站行可查看站内全部电桩的实时状态明细。 | 双击或点击“详情”后以 stationId 请求站内电桩，服务器返回 pileCode、类型、功率、状态、当前订单号、最后心跳时间。详情页每 10 秒刷新，使用 pileId 对现有模型做增量更新；若电站已被删除返回 STATION_NOT_FOUND。页面保留返回入口，并可从某一电桩继续跳转到电桩管理模块。 | 牛昀轶 | 2026-09-06 | × |  |
+| 42 |  |  | 点击电站行可查看站内全部电桩的实时状态明细。 | `StationManagerWidget` 选中电站后带 station_id 请求 `admin_pile_list`（必要时翻页拼齐），右侧「站内电桩」表展示桩编号、类型、功率、状态。电站不存在返回 STATION_NOT_FOUND。可从电站管理继续对照电桩管理模块。 | 牛昀轶 | 2026-09-06 | ○ |  |
 | 43 |  |  | 管理员可填写站名、地址、经纬度和电桩数量新增电站。 | 对话框校验字段后发送 {type:'admin_station_add', token, data:{name,address,longitude,latitude,price,...}}；须管理员 token。成功关闭窗口并刷新列表。 | 牛昀轶 | 2026-09-06 | ○ |  |
 | 44 |  |  | 服务器在一个事务中创建电站及其初始电桩。 | 校验管理员 token 与字段后，事务内插入 station 及初始 piles；失败回滚；成功写 operation_logs（操作者 adminId 来自会话）。 | 翟梓涵 | 2026-09-07 | ○ |  |
 | 45 |  | 用户管理 | 列表展示用户 ID、手机号、昵称、余额、注册时间和账号状态。 | 进入页面发送 {type:'admin_user_list', token, data:{keyword?}}；表格展示脱敏手机号、昵称、余额、状态等。须管理员 token。 | 牛昀轶 | 2026-09-06 | ○ |  |
 | 46 |  |  | 服务器按手机号进行参数化模糊搜索并分页返回用户。 | 接口 admin_user_list：先校验管理员 token，再参数化 LIKE 搜索（ESCAPE，防 %/_ 注入）；无匹配返回空数组。回 list/total/page/page_size。界面只展示脱敏号码。 | 翟梓涵 | 2026-09-07 | ○ |  |
-| 47 |  |  | 管理员可对选中的用户执行冻结或解冻。 | 确认后发送 {type:'admin_user_freeze', token, data:{user_id,frozen:bool}}。此处 data.user_id 是**操作对象**（被冻结用户），操作者身份仍来自 token，二者不可混淆。成功只刷新对应行。 | 牛昀轶 | 2026-09-06 | △ |  |
+| 47 |  |  | 管理员可对选中的用户执行冻结或解冻。 | `UserManagerWidget` 右键菜单确认后发送 {type:'admin_user_freeze', token, data:{user_id,frozen:bool}}。此处 data.user_id 是**操作对象**（被冻结用户），操作者身份仍来自 token。成功只刷新对应行，顶部统计同步更新冻结人数。 | 牛昀轶 | 2026-09-06 | ○ |  |
 | 48 |  |  | 冻结状态在登录和充电业务中即时生效并记录审计日志。 | 更新 user.status 并写 operation_logs；冻结后 SessionManager::revokeByUser 使该用户全部 token 立即失效。后续登录返回冻结；预约/开始充电也校验状态。正在充电不强制断电，但禁止新订单。 | 翟梓涵 | 2026-09-08 | ○ |  |
 | 49 | 数据库端 | 数据库连接与初始化 | 设计并创建覆盖用户、电站、电桩、订单、管理员和流水的关系模型。 | 先绘制 ER 关系：users 1:N orders，stations 1:N piles，piles 1:N orders，users 1:N wallet_transactions，admins 1:N operation_logs。编写版本化 schema.sql（MySQL/InnoDB）创建 users、stations、piles、orders、admins、wallet_transactions、device_commands、operation_logs，统一使用 BIGINT AUTO_INCREMENT 主键、DATETIME 时间戳、DECIMAL(10,2) 金额，字符集 utf8mb4；配置主键、外键、UNIQUE、NOT NULL、CHECK/ENUM 约束及常用索引，并写 schema_version 便于升级。 | 翟梓涵 | 2026-09-01 | ○ |  |
 | 50 |  |  | 封装 MySQL 连接、事务和参数化查询的统一访问层。 | 使用 QSqlDatabase(QMYSQL 驱动) 建立命名连接，每个服务器工作线程创建并只使用自己的连接，程序退出前按正确顺序关闭并 removeDatabase。连接时统一使用 InnoDB 引擎（支持外键与事务）、utf8mb4 字符集，并按需设置 innodb_lock_wait_timeout；DAO 层统一使用 QSqlQuery::prepare/bindValue，返回业务对象或明确错误，不把 SQL 散落在界面代码中。启动时检测 schema_version，缺表则按脚本初始化。 | 邓雅心 | 2026-09-02 | ○ |  |
@@ -184,16 +187,14 @@
 | 58 |  |  | 记录远程重启、用户冻结和电站新增等关键操作及设备指令。 | operation_logs 保存 admin_id、action、target_type、target_id、before_value、after_value、result、reason、created_at；device_commands 保存 command_no、pile_id、command、status、request_at、response_at、error_code。command_no UNIQUE，按 admin_id/created_at、pile_id/status 建索引。日志只追加不在界面提供修改，详细值采用 JSON 文本并过滤密码、token、API Key 等敏感字段。 | 邓雅心 | 2026-09-06 | ○ |  |
 | 59 |  | 数据安全、并发与备份 | 使用事务、外键、幂等键与 token 会话保证并发与身份安全。 | 预约/充值/结算均经 `runInTransaction`（死锁 1213 / 锁等待 1205 有限重试）+ 条件 UPDATE；身份一律由 token→SessionManager 解析，拒绝客户端伪造 user_id。`reserve` 未完成订单与 `unfinished_order` 对齐，含 `pending_payment`。启用 InnoDB 外键。并发测：双预约仅一人成功；伪造他人 user_id 不能操作其钱包/订单；并发充值余额累加正确。 | 邓雅心 | 2026-09-07 | ○ |  |
 | 60 |  |  | 实现数据库备份、恢复验证、权限控制和异常审计。 | 每天收尾或发布前使用 mysqldump 生成带日期的备份文件，备份前后执行 CHECK TABLE 校验关键表，并在临时库中恢复抽查关键表数量；仅保留最近若干版本并记录备份日志。数据库文件和头像目录设置为应用账号可读写、其他用户不可写，配置/API Key 与数据库分离；捕获查询和事务异常时记录错误码、模块和 requestId，不记录密码或完整 token，并准备恢复演练步骤。 | 邓雅心 | 2026-09-09 | × |  |
+| 60a |  | 演示数据 | 扩展种子电站、电桩与历史订单供答辩演示。 | 在 `sql/schema.sql` 与 `sql/seed_expand_stations.sql` 中扩容演示数据（INSERT IGNORE 可重复执行）：约 72 座启用电站、约 399 根电桩（idle/busy/fault 混合）、300+ 条多状态订单。不物理删除已有站编码。用于附近查询、地图 Marker、管理端列表与营收图演示。 | 邓雅心 | 2026-09-09 | ○ |  |
 | 61 | 服务端业务处理 | 收发框架（贯穿全部消息） | TCP 收包、分帧、按 type 分发的统一入口 | 【贯穿全部消息】【客户端发】任意 type。【服务端收】`TcpServer` 每连接派生线程；`ClientHandler` 累积字节，按 4 字节大端长度分帧，`Protocol::tryDecode` 解出 JSON；`dispatch` 先读 type，再走鉴权门（登录类豁免，其余 validate token 与角色），最后进各业务分支。【库操作】每线程独立 `Database` 连接。【服务端回】`makeResponse(type,code,msg,data)` 原样封帧回写。这是老师说的「后端收到消息先判断是什么业务类型再处理」的落点。 | 翟梓涵 | 2026-09-03 | ○ |  |
 | 62 |  | 会话与安全（贯穿全部消息） | token 会话、身份反查、并发与幂等 | 【贯穿全部消息，对应数据安全 NO.59】【服务端】`SessionManager` 内存表 token→(userId/adminId, role, lastActive)，30 分钟滑动过期，`QMutex` 保护；身份一律由 token 反查，拒绝报文伪造 user_id；预约/充值/结算显式事务 + 条件 UPDATE，结算用 pay_request_id 幂等，双预约仅一人成功。【库操作】读写均经 DAO 参数化。【服务端回】失效统一 code=9。已用 `tests/test_session_security.py` 端到端并发/安全测试覆盖：无/无效 token→code=9、伪造 data.user_id 无效（充值记会话用户而非目标用户）、冻结后旧 token 立即失效（revokeByUser）、并发双预约仅一人成功且仅生成一条订单、同 token 高并发只读全部成功，11 项断言全部通过。 | 翟梓涵 | 2026-09-04 | ○ |  |
-| 63 |  | 对应NO.1 附近查询-定位 | 接收用户位置（客户端预处理，无独立报文） | 【对应用户端NO.1】【消息】无独立 type。【客户端发】不向充电服务器发定位包；本地完成区域/地址选择写入 LocationModel。【服务端收】本步无包。【库操作】无。【服务端回】无。【说明】坐标由 NO.65 的 station_list 带 lat/lng 进后端；用户端禁止直连 MySQL。 | 朱雅琪 | 2026-09-04 | N/A |  |
-| 64 |  | 对应NO.2 附近查询-地理编码 | 不转发地图 Key，只接收数值坐标 | 【对应用户端NO.2】【消息】无独立 type。【客户端发】客户端自行调地图 Web API 得 lat/lng，不把 API Key 发给充电服务器。【服务端收】本步无包。【库操作】无。【服务端回】无。【说明】后端只认后续 station_list 里的 double 经纬度，不调用外部地图。 | 朱雅琪 | 2026-09-04 | N/A |  |
 | 65 |  | 对应NO.3 附近查询-请求附近站 | 处理附近充电站查询消息 station_list | 【对应用户端NO.3】【消息】type=station_list。【客户端发】顶层 token；data.lat(double)、data.lng(double)。【服务端收】dispatch 读 type；validate token 且 role=user；校验 lat∈[-90,90]、lng∈[-180,180]，缺字段或越界 code=2。【库操作】读 station(id,name,address,longitude,latitude,price) WHERE enabled=1；按 pile.station_id 统计 total 与 idle(status=idle)；用站坐标与请求坐标算 distance 并升序。【服务端回】code=0 时 data.list=[{id,name,address,price,total,idle,distance}]；token 无效 code=9。【客户端展示】首页卡片。这是老师要求的「位置请求→后端查库→结果封装→客户端显示」完整链路。 | 朱雅琪 | 2026-09-04 | ○ |  |
 | 66 |  | 对应NO.4 附近查询-条数切换 | 按距离排序结果供客户端截取 5/10 条 | 【对应用户端NO.4】【消息】复用 type=station_list。【客户端发】首次/刷新时发送 lat/lng；切换 5/10 条不再请求，直接从缓存截取。【服务端收】同 NO.65。【库操作】同 NO.65，返回按 distance 排好的列表（含 latitude/longitude 供兜底）。【服务端回】按距离排序的 list，distance≥0。【客户端展示】按 station id 去重、稳定排序后截取 5 或 10 条；服务端未给 distance 时客户端用 Haversine 兜底。 | 翟梓涵 | 2026-09-04 | ○ |  |
 | 67 |  | 对应NO.5 附近查询-卡片字段 | 打包站名、电价、桩数、空闲、距离 | 【对应用户端NO.5】【消息】复用 type=station_list。【客户端发】同 NO.65。【服务端收】同 NO.65。【库操作】station.name、station.price；pile 计数 total/idle；distance 由坐标计算。【服务端回】list 必带 id,name,price,total,idle,distance。【客户端展示】卡片绑定 station.id，缺字段展示 -- 但后端不省略 id。 | 朱雅琪 | 2026-09-04 | ○ |  |
 | 68 |  | 对应NO.6 附近查询-站内电桩 | 处理电桩列表消息 pile_list | 【对应用户端NO.6】【消息】type=pile_list。【客户端发】顶层 token；data.station_id(电站主键)。【服务端收】validate token 且 role=user；解析 station_id。【库操作】SELECT pile.id,code,type,power_kw,status WHERE station_id=?；站不存在或无桩返回空 list 或 code=4。【服务端回】data.list=[{id,code,type,power_kw,status}]；未登录 code=9。【客户端展示】闲置/在用/故障配色，仅 idle 可预约。 | 朱雅琪 | 2026-09-05 | ○ |  |
 | 69 |  | 对应NO.7 附近查询-超时断网 | 统一错误码与超时响应 | 【对应用户端NO.7】【消息】无新 type，仍为 station_list/pile_list。【客户端发】NetClient.request 默认等 5 秒。【服务端收】正常 dispatch，不另定义超时包。【库操作】查询失败 code=3。【服务端回】0 成功/2 格式错/3 库错/9 会话无效。【客户端展示】loading/empty/error；断线由 NetClient 重连，缓存须标注，充电写操作禁止只用缓存。 | 朱雅琪 | 2026-09-05 | ○ |  |
-| 70 |  | 对应NO.8-12 一键导航 | 导航整段不经充电服务器 | 【对应用户端NO.8～12】【消息】无独立 type。【客户端发】导航起终点取自已缓存的 station 经纬度，路线由 QWebEngineView 直接加载地图 Web，充电服务器不参与。【服务端收】无。【库操作】无（站坐标已在 station_list 返回）。【服务端回】无。【说明】API Key、完整 token 不得写入任何业务报文或日志。 | 朱雅琪 | 2026-09-06 | N/A |  |
 | 71 |  | 对应NO.13 用户-发起登录 | 接收登录/注册消息 login | 【对应用户端NO.13】【消息】type=login。【客户端发】不带 token；data.phone 为 11 位字符串，正则 ^1\\d{10}$。【服务端收】dispatch 识别 login，跳过鉴权门；校验 phone 格式，非法 code=2。【库操作】见 NO.72/73。【服务端回】见下两行。【说明】实训免密，不校验短信验证码。 | 朱雅琪 | 2026-09-03 | ○ |  |
 | 72 |  | 对应NO.14 用户-已有账号登录 | 登录处理（已存在用户，注册与登录区分见 NO.73） | 【对应用户端NO.14】【消息】type=login。【客户端发】data.phone。【服务端收】解析 phone。【库操作】SELECT user.id,phone,nickname,avatar,balance,status WHERE phone=?；status=frozen 则 code=6 且不建会话；normal 则 UPDATE last_login_at，SessionManager.create(userId, user) 生成 36 位 UUID token。【服务端回】code=0 时 data={id,phone,nickname,avatar,balance,token}。【说明】管理员走 admin_login，本消息只处理普通用户。 | 朱雅琪 | 2026-09-03 | ○ |  |
 | 73 |  | 对应NO.15 用户-注册 | 注册处理（data.register=true 且 phone 不存在则插入） | 【对应用户端NO.15】【消息】仍为 type=login（无单独 register 报文）。【客户端发】data.phone；data.register=true。【服务端收】register 非 true 且用户不存在则 code=4、data.can_register=true，不建号。【库操作】register=true 时 INSERT user(phone,nickname=用户+后4位,balance=0,status=normal,last_login_at)；已存在则按登录发 token。【服务端回】结构同 NO.72。【说明】管理端账号在 admin 表预置，不走本注册。 | 朱雅琪 | 2026-09-03 | ○ |  |
@@ -208,6 +209,7 @@
 | 82 |  | 对应NO.24 充电-过程展示 | 充电中界面本地计时，无独立状态消息 | 【对应用户端NO.24】【消息】当前无独立 charge_status type；展示用本地 QTimer 与 start_charge / unfinished_order 返回的功率、单价。【客户端发】过程中不强制轮询。【服务端收】无独立处理。【库操作】充电中不改订单直至 finish_charge。【服务端回】无。【说明】预估金额=本地 kwh×订单 unit_price。 | 朱雅琪 | 2026-09-06 | ○ |  |
 | 83 |  | 对应NO.25 充电-结束计费 | 结束充电后的费用计算（闭环第 4 步前半：出账） | 【对应用户端NO.25】【消息】type=finish_charge。【客户端发】token；data.order_no（不传 kwh）。【服务端收】validate；校验订单属于会话用户且 status=charging（已 pending_payment 则幂等返回原账单）。【库操作】`runInTransaction`：kwh=power_kw×duration/3600，amount=kwh×unit_price（均 2 位）；写 end_time、duration_seconds、kwh、amount；订单→pending_payment；桩非 fault 则 idle 并累加 total_count/total_hours。【服务端回】data 含 end_time、duration_seconds、kwh、amount、unit_price、power_kw。 | 翟梓涵 | 2026-09-07 | ○ |  |
 | 84 |  | 对应NO.26 充电-扣款释放订单 | 确认支付+订单记录（闭环第 4/5 步后半：余额与订单） | 【对应用户端NO.26】【消息】type=pay_charge。【客户端发】token；data.order_no。【服务端收】validate；订单须属于会话用户。【库操作】`runInTransaction`：仅 pending_payment 可扣款；读 user.balance FOR UPDATE；足则扣款、INSERT wallet_transactions(type=charge_pay)、订单 settled、写 pay_request_id；不足 code=7 且保持 pending_payment。已 settled 幂等返回原金额与余额。本步不再改桩。【服务端回】code=0 时 data.amount、balance、duration_seconds、kwh。旧 settle 返回 code=2。 | 朱雅琪 | 2026-09-07 | ○ |  |
+| 84a |  | 对应NO.26a–26c 智能客服 | 处理智能客服消息 ai_chat（问答 + 代预约） | 【对应用户端NO.26a～26c】【消息】type=ai_chat。【客户端发】顶层 token；data.question；可选 data.lat/lng。【服务端收】validate role=user；问题为空 code=2。先 `tryAiAction(sess.userId)`（站名索引、最近站、锁桩预约，与页面 reserve 同一 DAO）；命中则回 data.answer 及 action=reserve_ok。未命中再 `AiService::ask`，Key 仅 `AI_API_KEY`。【库操作】代预约走 reserve 事务；纯问答不写业务表。【服务端回】code=0 时 data.answer；预约成功附 order_no 等。【说明】不把 Key 写入代码或日志。 | 邓雅心 | 2026-09-09 | ○ |  |
 | 85 |  | 对应NO.27 管理-登录界面 | 接收管理员登录消息 admin_login | 【对应管理端NO.27】【消息】type=admin_login。【客户端发】不带 token；data.username、data.password；密码不写客户端日志。【服务端收】dispatch 按登录例外豁免鉴权门（虽以 admin_ 开头）。【库操作】见 NO.86。【服务端回】见 NO.86。【客户端展示】setToken 后进主界面。 | 朱雅琪 | 2026-09-03 | ○ |  |
 | 86 |  | 对应NO.28 管理-账号校验 | 管理员登录处理（区分于普通用户登录） | 【对应管理端NO.28】【消息】type=admin_login。【客户端发】username、password。【服务端收】解析字段。【库操作】SELECT admin.id,username,password_hash,salt,status WHERE username=?；status=disabled 或密码哈希不符统一 code=5；成功 UPDATE last_login_at，SessionManager.create(adminId, admin) 下发 token。默认 admin/123456 仅初始化入库，无明文。【服务端回】data={id,username,token}。 | 朱雅琪 | 2026-09-03 | ○ |  |
 | 87 |  | 对应NO.29 管理-会话权限 | 分发层强制校验 admin_* | 【对应管理端NO.29】【消息】除 admin_login 外所有 admin_ 前缀 type。【客户端发】顶层必须带 token。【服务端收】validate token；role 必须为 admin 否则 code=9；30 分钟滑动过期。【库操作】本步不改表，写操作的 adminId 取自会话。【服务端回】未过门不进业务。【说明】按 token 会话而非连接级会话；operation_logs 在各写接口记录。 | 朱雅琪 | 2026-09-03 | ○ |  |
@@ -219,7 +221,7 @@
 | 93 |  | 对应NO.35 管理-状态数量占比 | 统计各状态电桩数量 | 【对应管理端NO.35】【消息】复用 admin_pile_list，响应附带 data.stats（不新增 type）。【客户端发】token。【服务端收】validate admin。【库操作】SELECT pile.status,COUNT(*) WHERE enabled=1 GROUP BY status；idle/busy/fault；占比保留 1 位，total=0 全 0。【服务端回】list 成功时尽量附带 stats；统计失败不改 list 的 code。【客户端展示】健康度数字；无 stats 时仍刷新表格。 | 朱雅琪 | 2026-09-05 | ○ |  |
 | 94 |  | 对应NO.36 管理-状态自动刷新 | 复用状态查询，服务端无推送 | 【对应管理端NO.36】【消息】复用 admin_pile_list（或 stats）。【客户端发】QTimer 每 10 秒再发请求须带 token，上次未完成则跳过。【服务端收】与 NO.92 相同，无推送。【库操作】同 NO.92。【服务端回】最新 list。【客户端展示】按 pile.id 增量更新。 | 朱雅琪 | 2026-09-06 | ○ |  |
 | 95 |  | 对应NO.37 管理-电桩管理列表 | 管理端电桩列表用同一查询 | 【对应管理端NO.37】【消息】type=admin_pile_list。【客户端发】token。【服务端收】admin 鉴权。【库操作】同 NO.92，累计次数/时长用 pile.total_count、total_hours（结算时维护）。【服务端回】list 字段供表格。【客户端展示】筛选搜索为界面行为，筛选条件可放入 data。 | 朱雅琪 | 2026-09-05 | ○ |  |
-| 96 |  | 对应NO.38 管理-电桩联表查询 | 电桩列表的服务端查询与筛选 | 【对应管理端NO.38】【消息】type=admin_pile_list。【客户端发】token；data 可含筛选可选字段。【服务端收】validate；绑定参数防注入。【库操作】pile JOIN station；条件 WHERE。【服务端回】list；无 token 拒绝。【说明】勿删 total_count/total_hours 字段。 | 朱雅琪 | 2026-09-06 | △ |  |
+| 96 |  | 对应NO.38 管理-电桩联表查询 | 电桩列表的服务端查询与筛选 | 【对应管理端NO.38】【消息】type=admin_pile_list。【客户端发】token；data 可含 station_id/type/status/code 及 page/page_size。【服务端收】validate；绑定参数防注入。【库操作】pile JOIN station；条件 WHERE；分页返回 total/page/page_size。【服务端回】list；无 token 拒绝。【说明】含 total_count/total_hours、当前订单号、last_online_at。 | 朱雅琪 | 2026-09-06 | ○ |  |
 | 97 |  | 对应NO.39 管理-发起重启 | 接收远程重启消息 admin_pile_restart | 【对应管理端NO.39】【消息】type=admin_pile_restart。【客户端发】token；data.pile_id。【服务端收】见 NO.98。【库操作】见 NO.98。【服务端回】data.id、status。【客户端展示】确认框后刷新该行。 | 翟梓涵 | 2026-09-06 | ○ |  |
 | 98 |  | 对应NO.40 管理-重启写指令与日志 | 重启处理（改桩状态+设备指令+审计） | 【对应管理端NO.40】【消息】type=admin_pile_restart。【客户端发】token + pile_id。【服务端收】validate admin；pile_id≤0 code=2；存在 charging 订单则 code=2 且不改桩、不写指令。【库操作】事务内 FOR UPDATE 锁桩；INSERT device_commands(command=restart,status=pending)；UPDATE pile SET status=idle；指令改 success 并写 response_at；写 operation_logs(admin_id=会话, action=pile_restart, target_type=pile, target_id)。无独立桩进程，指令落库即模拟下发。【服务端回】成功 status=idle，附 command_no。 | 翟梓涵 | 2026-09-07 | ○ |  |
 | 99 |  | 对应NO.41 管理-电站列表 | 处理电站列表消息 admin_station_list | 【对应管理端NO.41】【消息】type=admin_station_list。【客户端发】token；data 可空。【服务端收】validate admin。【库操作】读 station(id,name,address,longitude,latitude)；子查询 pile 得 total；非 fault 数为 online，online_rate=online/total。【服务端回】data.list=[{id,name,address,longitude,latitude,total,online_rate}]。 | 朱雅琪 | 2026-09-05 | ○ |  |
@@ -230,4 +232,4 @@
 | 104 |  | 对应NO.46 管理-用户搜索 | 参数化模糊搜索用户 | 【对应管理端NO.46】【消息】type=admin_user_list。【客户端发】token；data.keyword。【服务端收】validate。【库操作】phone LIKE 或 nickname LIKE 绑定参数；无匹配返回空数组非错误。【服务端回】list。【客户端展示】只展示脱敏号码。 | 翟梓涵 | 2026-09-07 | ○ |  |
 | 105 |  | 对应NO.47 管理-发起冻结 | 接收冻结/解冻消息 admin_user_freeze | 【对应管理端NO.47】【消息】type=admin_user_freeze。【客户端发】token；data.user_id 为**操作对象**（被冻用户），data.frozen 为 bool；操作者身份在 token。【服务端收】见 NO.106。【库操作】见 NO.106。【服务端回】data.id、status。【客户端展示】只刷新该行。 | 翟梓涵 | 2026-09-07 | ○ |  |
 | 106 |  | 对应NO.48 管理-冻结生效与日志 | 冻结处理（改状态+作废 token+日志） | 【对应管理端NO.48】【消息】type=admin_user_freeze。【客户端发】同 NO.105。【服务端收】validate admin。【库操作】UPDATE user.status 为 frozen 或 normal；INSERT operation_logs(action=user_freeze, target_type=user, target_id, admin_id=会话)。冻结成功后 SessionManager.revokeByUser(target, user)，其 token 立即 code=9。预约/开始充电读 user.status。【服务端回】新 status。正在充电不强制断电，禁止新订单。 | 翟梓涵 | 2026-09-08 | ○ |  |
-| 107 |  | 对应管理端NO.-（订单管理） | 处理订单列表/详情 admin_order_list、admin_order_detail | 【对应管理端订单管理】【消息】type=admin_order_list / admin_order_detail。【客户端发】token；list 的 data 可含 order_no、phone、user_id、station_id、pile_id、pile_code、keyword、status、start_time、end_time、page、page_size（空/`0` 不筛）；detail 的 data 为 `{order_no}`。【服务端收】validate admin；绑定参数；status 非法 code=2。【库操作】charge_order JOIN user/station/pile；list 按 created_at DESC 分页返回 total/page/page_size；时间筛用 COALESCE(start_time,reserve_time,created_at)；detail 按 order_no 精确查，无则 code=4。【服务端回】金额/电量/时长取库中值。不做删单/改金额/退款。【客户端展示】订单表格+筛选+详情（界面待补）。 | 翟梓涵 | 2026-09-06 | ○ |  |
+| 107 |  | 对应管理端NO.-（订单管理） | 处理订单列表/详情 admin_order_list、admin_order_detail | 【对应管理端订单管理】【消息】type=admin_order_list / admin_order_detail。【客户端发】token；list 的 data 可含 order_no、phone、user_id、station_id、pile_id、pile_code、keyword、status、start_time、end_time、page、page_size（空/`0` 不筛）；detail 的 data 为 `{order_no}`。【服务端收】validate admin；绑定参数；status 非法 code=2。【库操作】charge_order JOIN user/station/pile；list 按 created_at DESC 分页返回 total/page/page_size；时间筛用 COALESCE(start_time,reserve_time,created_at)；detail 按 order_no 精确查，无则 code=4。【服务端回】金额/电量/时长取库中值。不做删单/改金额/退款。【客户端展示】`OrderManagerWidget` 已有筛选、分页列表与详情侧栏。 | 翟梓涵 | 2026-09-06 | ○ |  |

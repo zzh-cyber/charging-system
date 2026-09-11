@@ -15,6 +15,7 @@
 #include <QString>
 #include <QtGlobal>
 
+//会话表：存储用户信息和 token
 struct Session {
     qint64    userId = 0;
     QString   role;          // "user" / "admin"
@@ -39,7 +40,7 @@ private:
     SessionManager() = default;
     Q_DISABLE_COPY_MOVE(SessionManager)
 
-    QHash<QString, Session> m_sessions;
+    QHash<QString, Session> m_sessions;//token → Session  key 是 token 字符串，value 是上面的 Session。超时 30 分钟无请求 才失效；有请求会刷新 lastActive，所以一直在充电不会被踢。
     QMutex m_mutex;
 
     static constexpr int kTimeoutSec = 30 * 60;  // 30 分钟滑动过期

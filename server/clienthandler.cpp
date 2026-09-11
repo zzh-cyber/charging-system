@@ -117,11 +117,11 @@ void ClientHandler::start()
     m_socket = new QTcpSocket(this);
     if (!m_socket->setSocketDescriptor(m_descriptor)) {
         qWarning() << "setSocketDescriptor failed:" << m_socket->errorString();
-        emit finished();
+        emit finished();//setSocketDescriptor：把已经 accept 的连接接到这个线程的 socket 上
         return;
     }
-    connect(m_socket, &QTcpSocket::readyRead, this, &ClientHandler::onReadyRead);
-    connect(m_socket, &QTcpSocket::disconnected, this, &ClientHandler::onDisconnected);
+    connect(m_socket, &QTcpSocket::readyRead, this, &ClientHandler::onReadyRead);//readyRead：有数据可读时触发
+    connect(m_socket, &QTcpSocket::disconnected, this, &ClientHandler::onDisconnected);//disconnected：连接断开时触发
 
     // 每个线程一个独立数据库连接
     const QString connName =
@@ -133,7 +133,7 @@ void ClientHandler::start()
     qInfo() << "client connected, thread:" << QThread::currentThread();
 }
 
-void ClientHandler::onReadyRead()
+void ClientHandler::onReadyRead()//有数据可读时触发
 {
     m_buffer.append(m_socket->readAll());
     QJsonObject req;
@@ -141,7 +141,7 @@ void ClientHandler::onReadyRead()
         dispatch(req);
 }
 
-void ClientHandler::onDisconnected()
+void ClientHandler::onDisconnected()//连接断开时触发
 {
     qInfo() << "client disconnected, thread:" << QThread::currentThread();
     emit finished();
@@ -161,7 +161,7 @@ void ClientHandler::reply(const QJsonObject &resp)
     }
 }
 
-void ClientHandler::dispatch(const QJsonObject &req)
+void ClientHandler::dispatch(const QJsonObject &req)//分发请求，后端消息处理
 {
     using namespace Protocol;
 
@@ -179,7 +179,7 @@ void ClientHandler::dispatch(const QJsonObject &req)
         reply(makeResponse(type, InvalidRequest, "缺少 type 字段"));
         return;
     }
-
+    //鉴权门：验证 token 是否有效，并获取用户信息
     Session sess;
     const bool isLogin = (type == MsgType::Login || type == MsgType::AdminLogin);
     if (!isLogin) {
@@ -212,8 +212,10 @@ void ClientHandler::dispatch(const QJsonObject &req)
     QString msg = "未知错误";
 
     // ================= 登录链路样板（已实现，供其他接口照抄） =================
+    // 登录：登录或注册，这里才发 token
+    //只有 login、admin_login 不带 token。
     if (type == MsgType::Login) {
-        QJsonObject out = m_db->loginOrRegister(
+        QJsonObject out = m_db->loginOrRegister(//loginOrRegister：查/建 user 表，冻结返回 code=6，不建会话。
             data.value("phone").toString(),
             data.value("register").toBool(),
             code, msg);
@@ -402,6 +404,7 @@ void ClientHandler::dispatch(const QJsonObject &req)
     // 身份取自会话，忽略报文里的 user_id。可只传 nickname、只传 avatar，或两者都传。
     // avatar 为路径/标识字符串（库字段 VARCHAR(255)），不接收图片二进制。
     // ------------------------------------------------------------------------
+    //改资料：改昵称和/或头像
     if (type == MsgType::UpdateProfile) {
         const bool hasNickname = data.contains(QStringLiteral("nickname"));
         const bool hasAvatar = data.contains(QStringLiteral("avatar"));
@@ -456,6 +459,7 @@ void ClientHandler::dispatch(const QJsonObject &req)
     }
 
     // ================= 管理端：用户管理 =================
+        //列表类：把整个 data 交给 DAO（分页、keyword 在里面），例如 adminUserList(data)、adminPileList(data)、adminOrderList(data)
     if (type == MsgType::AdminUserList) {
         const QJsonObject out = m_db->adminUserList(data, code, msg);
         reply(makeResponse(type, code, msg, out));

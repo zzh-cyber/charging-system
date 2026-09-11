@@ -17,7 +17,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    // 启动时检测数据库结构，缺表则自动初始化
+    // 临时建库、对齐表结构，启动时检测数据库结构，缺表则自动初始化
     {
         Database db(QStringLiteral("schema_init"));
         if (!db.open()) {
