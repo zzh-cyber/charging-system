@@ -2,36 +2,48 @@
 
 > **项目名称**：新能源汽车充电管理系统（接第一阶段 Qt + MySQL）  
 > **节点**：9/12 环境就绪 · **9/15 两项验收**  
-> **编制日期**：2026-09-12  
+> **编制日期**：2026-09-12　**修订**：2026-09-12 晚（预测引擎改为 Spark MLlib，不再用 sklearn 作演示主路径）  
 > **状态图例**：○ 完成　△ 进行中　× 未着手  
 
 第一阶段四项（用户端 / 管理端 / 服务端 / 数据库）不变。本文件只覆盖老师文档 **（4）大数据可视化大屏**、**（5）机器学习智能分析 · 充电负荷预测**。  
-故障诊断、需求调度、智能风控、实时天气 API、Spark、三节点 Hadoop：**9/15 不做**。
+故障诊断、需求调度、智能风控、实时天气 API、三节点 Hadoop、YARN 上跑 Spark：**9/15 不做**。  
+**预测必须用 Spark**（本机 `local[*]` + MLlib），数据仍是订单聚合/补齐的小表（MB 级），模拟分布式训练过程。
+
+---
+
+## （4）（5）总思路
+
+两项是同一条链路的两端，不是两套系统。
+
+业务库订单 → 做成「每站每小时」小表（自己生成/补齐，几 MB）→ 进 HDFS → **`spark-submit` 本机模式跑 MLlib** 得到未来 1h/6h/24h 负荷和空闲桩 → 写回 MySQL 并生成 JSON → **（4）ECharts 大屏**给运营看预警，**（5）用户端**按预测推荐空站。
+
+被问「为何不集群」：课设数据量是 MB 级、单节点伪分布式；Spark 用 `local[*]` 模拟分布式 API，算法与上集群时相同，数据变大只需改 `spark.master`。
 
 ---
 
 ## 实现总览（先看这个，再看表）
 
-数据仍以 MySQL `charging_system` 为准。Hadoop 只承担「导出文件进 HDFS」这一层存储，给答辩讲采集→存储→预处理→分析→可视化→模型部署。预测结果必须写回 MySQL，用户端才能走现有 TCP:9000，大屏读 JSON，互不抢 9000 端口。
+数据仍以 MySQL `charging_system` 为准。Hadoop 负责把小时 CSV 放进 HDFS；Spark 负责读 HDFS、MLlib 回归。预测结果必须写回 MySQL，用户端才能走现有 TCP:9000，大屏读 JSON，互不抢 9000 端口。
 
 ```text
 charge_order / pile / station / wallet_transactions
         │  etl_export.py（邓雅心）
         ▼
-station_load_hourly（MySQL） + CSV
+station_load_hourly（MySQL） + CSV          ← 几 MB，允许补齐时序
         │  hdfs dfs -put（邓雅心）
         ▼
 HDFS /user/charging/load_hourly.csv
-        │  train_forecast.py（翟梓涵）
+        │  spark-submit local[*]  train_forecast.py（翟梓涵 / Spark MLlib）
         ▼
 load_forecast（MySQL） + dashboard/data/latest.json
-        │
-        ├─► ECharts 大屏只读 JSON（牛昀轶）        python3 -m http.server
+        │                    │
+        │                    └─►（4）ECharts 大屏只读 JSON（牛昀轶）
         └─► station_list 附加预测字段（朱雅琪）
-                    └─► 用户端卡片推荐（马晓钰）
+                    └─►（5）用户端卡片推荐（马晓钰）
 ```
 
-HDFS：`hdfs://localhost:8020`（不要用 9000）。充电后台继续 `charging-server:9000`。
+HDFS：`hdfs://localhost:8020`（不要用 9000）。充电后台继续 `charging-server:9000`。  
+Spark：3.4.1（预编译 Hadoop 3），`JAVA_HOME` 指向 JDK 8u261，`HADOOP_CONF_DIR` 指向本机 Hadoop conf；`spark.master=local[*]`，`spark.driver.memory=1g`。训练时浏览器打开 **http://localhost:4040** 作为「用了 Spark」的截图。
 
 ### 新增表（schema_version = 4，邓雅心建，启动走 upgradeSchema 增量 ALTER，禁止 DROP）
 
@@ -121,7 +133,7 @@ HDFS：`hdfs://localhost:8020`（不要用 9000）。充电后台继续 `chargin
 | 模块 | 主负责人 | 主要文件 | 说明 |
 |------|----------|----------|------|
 | 数据采集/存储/预处理 | 邓雅心 | `sql/patch_v4_load_forecast.sql`、`sql/schema.sql` 增表、`bigdata/etl_export.py` | 不改 Qt 界面；不训练模型 |
-| 模型训练/HDFS/JSON/联调 | 翟梓涵 | `bigdata/train_forecast.py`、`bigdata/hdfs_sync.sh`、`dashboard/data/latest.json`（由脚本生成）、合 PR | 不改卡片 UI；不画 ECharts |
+| 模型训练/HDFS/JSON/联调 | 翟梓涵 | Spark 安装与 `spark-env.sh`、`bigdata/train_forecast.py`（**spark-submit**）、`bigdata/hdfs_sync.sh`、`dashboard/data/latest.json`（由作业生成）、合 PR | 不改卡片 UI；不画 ECharts；演示主路径不用 sklearn |
 | 运营大屏 Web | 牛昀轶 | `dashboard/index.html`、`dashboard/js/dashboard.js`、`dashboard/css/` | 只 fetch `data/latest.json`；不直连 MySQL；不进 `client-admin/` |
 | 预测接入服务端 | 朱雅琪 | `server/database.cpp` 的 `stationList`、`server/clienthandler.cpp`（仅当 dispatch 要改） | 不改用户端卡片；不跑 Python |
 | 用户端推荐 | 马晓钰 | `client-user/stationlistpage.*`、`client-user/stationcardwidget.*` | 不直连 MySQL；不读 JSON |
@@ -137,8 +149,8 @@ HDFS：`hdfs://localhost:8020`（不要用 9000）。充电后台继续 `chargin
 | 108 | 数据库端 | 负荷时序表 | 新增 station_load_hourly / load_forecast，schema_version=4 | 写 `sql/patch_v4_load_forecast.sql`：CREATE 两表（字段见上文），`INSERT schema_version (4, '负荷时序与预测表')`。在 `Database::upgradeSchema()` 按 v3 同样模式：表不存在则 CREATE，version&lt;4 则插入版本行。禁止 DROP。现有 charge_order 数据保留。 | 邓雅心 | 2026-09-12 | × | 须与翟梓涵当晚对完字段再建，避免 13 号改表 |
 | 109 | 数据库端 | 小时负荷聚合 | 从 charge_order 滚出每站每小时 kwh / 占用 | `etl_export.py` 读 MySQL：对 settled/charging/pending_payment 且 start_time 非空的订单，按 `[start_time, end_time)` 拆到整点（充电中订单 end 用 NOW()）。该小时 kwh = 订单 kwh ×（重叠秒数/duration_seconds），duration=0 则跳过。busy_piles = 该小时内该站重叠订单数上限截断为 total_piles。idle_piles = total_piles - busy_piles。写入 `station_load_hourly`。现网约 300 单会很稀，允许按「该站已有小时均值 × 日内曲线（早高峰 8–9、晚高峰 17–20）」补 14 天 × 24h × 各站，补齐行 `is_holiday` 用内置日期表（国庆/周末），**不调用天气 API**。 | 邓雅心 | 2026-09-13 | × | 补齐种子须可复现，脚本带 `--seed` 固定随机数 |
 | 110 | 数据库端 | 导出 HDFS | CSV 上传证明大数据存储 | 脚本把 `station_load_hourly` 导出为 `bigdata/out/load_hourly.csv`（表头与表字段一致）。调用 `hdfs dfs -mkdir -p /user/charging` 与 `hdfs dfs -put -f ... /user/charging/load_hourly.csv`。验收：`hdfs dfs -ls /user/charging` 看得到文件。Hadoop 未启动时脚本报错退出码非 0，不写半份。 | 邓雅心 | 2026-09-13 | × | WSL 需先 `source ~/.hadoop_env.sh`；HDFS 是 8020 |
-| 111 | 机器学习 | 特征与训练 | 时序回归预测 1h/6h/24h 负荷与空闲桩 | `train_forecast.py` 优先 `hdfs dfs -cat /user/charging/load_hourly.csv`，失败则读本地 CSV。特征：hour_of_day、weekday、is_weekend、is_holiday、以及该站过去 24h 的 kwh/idle 均值与 lag-1。标签：未来第 1/6/24 个整点的 kwh、idle_piles。算法：`sklearn.ensemble.HistGradientBoostingRegressor`（或 RandomForest），kwh 与 idle **各一个模型**，全站共用一套模型、station_id 做类别特征（不足则分站点均值兜底）。输出写入 `load_forecast`（先删该 generated_at 之前的旧批次，只留最新一批）以及 `dashboard/data/latest.json`。占用率 = 1 - pred_idle/total；≥80% 标 is_peak。无 sklearn 时 `python3 -m pip install scikit-learn pandas pymysql`（WSL）。 | 翟梓涵 | 2026-09-13 | × | 样本少时预测会平，答辩说明「演示级回归 + 站点小时画像」即可 |
-| 112 | 机器学习 | 模型部署 | 一键：HDFS 同步 + 训练 + 出 JSON | `bigdata/hdfs_sync.sh`：检查 `jps` 有 NameNode，没有则 `start-hadoop-local.sh`；再调 etl（若表空）和 train。训练成功后打印 `load_forecast` 行数与 JSON 路径。**禁止再次 namenode -format**。 | 翟梓涵 | 2026-09-13 | × | 与充电 9000 同时开；只占用 8020/9870 |
+| 111 | 机器学习 | 特征与训练 | Spark MLlib 预测 1h/6h/24h 负荷与空闲桩 | 安装 Spark 3.4.1-bin-hadoop3 到 `~/opt/module/`（单机 Hadoop 包里没有，需另下）。`train_forecast.py` 必须用 `spark-submit` 启动：`SparkSession` 读 `hdfs://localhost:8020/user/charging/load_hourly.csv`（HDFS 不可用时再读本地 CSV，答辩以 HDFS 为准）。`VectorAssembler` 特征：hour_of_day、weekday、is_weekend、is_holiday、近 24h kwh/idle 均值、lag-1，**horizon（1/6/24）作为一列**。标签：对应整点的 kwh、idle_piles。算法：Spark MLlib `RandomForestRegressor` 或 `GBTRegressor`，kwh 与 idle **各一个模型**，全站共用，station_id 作数值/类别列（样本不足则该站小时均值兜底）。预测占用率 = 1 - pred_idle/total，裁剪到 0–100%；idle 裁剪到 [0,total]；≥80% 标 is_peak。写出 `load_forecast`（只留最新 `generated_at` 批次）和 `dashboard/data/latest.json`。训练过程中打开 http://localhost:4040。 | 翟梓涵 | 2026-09-13 | × | 数据仅 MB 级，用 local[*] 模拟即可；不要配 YARN。口播：存储 Hadoop、预测 Spark MLlib |
+| 112 | 机器学习 | 模型部署 | 一键：HDFS + spark-submit + 出 JSON | `bigdata/hdfs_sync.sh`：检查 `jps` 有 NameNode，没有则 `start-hadoop-local.sh`；再调 etl（若表空）和 `spark-submit ... train_forecast.py`。成功后打印 `load_forecast` 行数、JSON 路径、Spark UI 地址。**禁止再次 namenode -format**。 | 翟梓涵 | 2026-09-13 | × | 与充电 9000 同时开；HDFS 8020/9870；Spark UI 4040 |
 | 113 | 大数据大屏 | 页面骨架 | Web 看板 6 区布局 | `dashboard/index.html` 深色运营风：顶栏标题「充电运营健康度看板」+ 刷新时间；第一行 4 张 KPI（今日电量/营收/空闲桩/预警数）；第二行 今日负荷折线 + 未来 24h 预测折线；第三行 各站占用率柱状 + 桩状态饼图（idle/busy/fault）；第四行 高峰预警列表。图表用 ECharts 5 CDN（`cdn.jsdelivr.net/npm/echarts@5`），不引入 Vue/React、不用 HBuilderX。本地 `python3 -m http.server 8080 --directory dashboard`，浏览器 `http://localhost:8080`。 | 牛昀轶 | 2026-09-13 | × | 13 号用仓库内 `data/latest.mock.json` 画通，字段与真 JSON 完全一致 |
 | 114 | 大数据大屏 | 绑定真实 JSON | fetch latest.json 渲染 | `dashboard.js`：`fetch('./data/latest.json', {cache:'no-store'})`，校验 `kpis/stations/alerts` 存在。KPI 用 `kpis.*`；折线 x 为 hour/offset、y 为 kwh；柱状用 `stations[].forecast.h1.util`；饼图用 kpis 的 idle/busy/fault；预警表渲染 `alerts[]`，`is_peak` 行标红。JSON 404 或字段缺失显示「预测未生成」空状态，不白屏。14 号换成训练脚本覆盖的 `data/latest.json`。 | 牛昀轶 | 2026-09-14 | × | file:// 打不开 fetch，必须用 http.server |
 | 115 | 大数据大屏 | 运营预警 | 标出 1h/6h/24h 高峰站 | 预警列表按 horizon 分组；点击一行高亮柱状图对应 station_id。顶栏「预警数」= `kpis.alert_count`。文案写清「预测占用率≥80%」，避免写成已发生故障。 | 牛昀轶 | 2026-09-14 | × | — |
@@ -146,7 +158,7 @@ HDFS：`hdfs://localhost:8020`（不要用 9000）。充电后台继续 `chargin
 | 117 | 服务端业务处理 | 预测查询可测 | 登录后 station_list 能看到新字段 | 用现有演示号 `13800138001` 登录拿 token，发 `station_list`（lat/lng 与首页一致）。至少 1 个站含 `congestion` 与 `forecast_idle_1h`。把请求/响应样例补进 `docs/api-contract.md` 本节附录。 | 朱雅琪 | 2026-09-14 | × | 须等 load_forecast 有数据；可用 sql 插 2 行自测 |
 | 118 | 充电用户端 | 智能推荐开关 | 首页可切换距离 / 预测推荐 | `StationListPage` 在 5/10 条切换旁加「智能推荐」开关，默认关（保持 NO.4 距离序）。打开后对**已缓存**的完整列表 `stable_sort`：congestion 权重 low=0/mid=1/high=2 升序，同档 recommend_score 降序，再 distance 升序；再按 5/10 截取。无预测字段的站 congestion 视为 mid、score 视为 0。关闭开关恢复距离序。不重新请求也可以切（与 NO.4 条数切换同一缓存）。 | 马晓钰 | 2026-09-13 | × | 13 号用假字段就能排，14 号接真接口 |
 | 119 | 充电用户端 | 卡片拥堵标记 | 低拥堵 / 高峰将至 | `StationCardWidget` 在价格/空闲旁增加标签：`congestion==low` 显示绿色「低拥堵」；`is_peak_1h==true` 显示橙色「高峰将至」；high 显示红色「易排队」。缺字段不显示标签、不崩溃。空闲数仍用现有 `idle`（实时），预测空闲可用小字「1h后约 N 桩」。 | 马晓钰 | 2026-09-13 | × | 不要改导航按钮逻辑（朱雅琪） |
-| 120 | 联调与演示 | 15 号验收链路 | 三条演示必须通 | ① `jps` 有 NameNode/DataNode，`hdfs dfs -ls /user/charging` 有 csv。② 浏览器打开大屏 6 区有数，能指出至少 1 个 6h 高峰站。③ 用户端开「智能推荐」后，低拥堵站排到距离较近的高拥堵站前面（准备 2 个站对比）。录屏按此三段。 | 翟梓涵（组织）全员 | 2026-09-15 | × | 演示号余额保持约 92.50，不在联调里乱充值 |
+| 120 | 联调与演示 | 15 号验收链路 | 三条演示必须通 | ① `jps` 有 NameNode/DataNode，`hdfs dfs -ls /user/charging` 有 csv；`spark-submit` 能跑完，浏览器 4040 能看到作业。② 大屏 6 区有数，能指出至少 1 个 6h 高峰站。③ 用户端开「智能推荐」后，低拥堵站排到距离较近的高拥堵站前面（准备 2 个站对比）。录屏按「HDFS → spark-submit → 大屏 → 用户端」四段。 | 翟梓涵（组织）全员 | 2026-09-15 | × | 演示号余额保持约 92.50，不在联调里乱充值 |
 
 ---
 
@@ -167,7 +179,7 @@ HDFS：`hdfs://localhost:8020`（不要用 9000）。充电后台继续 `chargin
 | 人员 | 当天要实现的功能 | 具体实现方法 | 当晚验收 |
 |------|------------------|--------------|----------|
 | 邓雅心 | NO.109 + NO.110 | 跑通 `etl_export.py`：聚合 + 补 14 天时序 + 导出 CSV + `hdfs dfs -put` | `SELECT COUNT(*) FROM station_load_hourly` 明显大于原订单数；HDFS 有文件 |
-| 翟梓涵 | NO.111 + NO.112 | 装 sklearn；训练写出 `load_forecast` 与 `latest.json`；`hdfs_sync.sh` 能一键跑 | JSON 能被浏览器打开；表里有 1/6/24 三档 |
+| 翟梓涵 | NO.111 + NO.112 | 装 Spark 3.4.1；`spark-submit` 读 HDFS、MLlib 训练，写出 `load_forecast` 与 `latest.json`；`hdfs_sync.sh` 能一键跑 | 4040 能打开；JSON 能被浏览器打开；表里有 1/6/24 三档 |
 | 牛昀轶 | NO.113 | `dashboard/index.html` + ECharts，fetch mock JSON | `python3 -m http.server 8080` 六区都有图 |
 | 朱雅琪 | NO.116（可 mock） | `stationList` 每条对象写入 congestion 等字段；无表数据时用 mid/0 兜底 | token 调 station_list，JSON 里能看到新键 |
 | 马晓钰 | NO.118 + NO.119 | 开关 + 排序 + 卡片标签；先信接口里已有字段 | 开关开/关列表顺序变化；缺字段不崩 |
@@ -177,7 +189,7 @@ HDFS：`hdfs://localhost:8020`（不要用 9000）。充电后台继续 `chargin
 | 人员 | 当天要实现的功能 | 具体实现方法 | 当晚验收 |
 |------|------------------|--------------|----------|
 | 邓雅心 | 修 ETL 空洞/重复小时 | 同一 (station_id, hour_ts) 唯一键；重跑可 `--replace` | 无重复主键；抽样一站 24 点曲线像高峰 |
-| 翟梓涵 | 真 JSON 覆盖 mock；修预测异常 | 训练读 HDFS；util 裁剪到 0–100；idle 裁剪到 [0,total] | 大屏刷新后数字与 SQL 对得上 |
+| 翟梓涵 | 真 JSON 覆盖 mock；修预测异常 | `spark-submit` 读 HDFS；util 裁剪到 0–100；idle 裁剪到 [0,total] | 大屏刷新后数字与 SQL 对得上 |
 | 牛昀轶 | NO.114 + NO.115 | fetch 真 `latest.json`；预警列表可点 | 预警数、高峰站与 JSON 一致 |
 | 朱雅琪 | NO.117 查真表 | `stationList` LEFT JOIN 最新批次 load_forecast | 用户端标签与库里 congestion 一致 |
 | 马晓钰 | 推荐与距离对比 | 准备两个站：近而 high、稍远而 low，开推荐后 low 在前 | 截图能讲清「减少排队」 |
@@ -186,7 +198,7 @@ HDFS：`hdfs://localhost:8020`（不要用 9000）。充电后台继续 `chargin
 
 | 人员 | 当天要实现的功能 | 具体实现方法 | 当晚验收 |
 |------|------------------|--------------|----------|
-| 全员 | NO.120 三段演示 | 按「HDFS → 大屏 → 用户端推荐」录屏；各人只讲自己文件 | 三项都能现场点开 |
+| 全员 | NO.120 演示 | 按「HDFS → spark-submit/4040 → 大屏 → 用户端推荐」录屏；各人只讲自己文件 | 四段都能现场点开 |
 | 翟梓涵 | 合 PR、看冲突 | 只合能编译、能跑的；冲突按文件边界裁 | main 可编译；9000 与 8020 同时活 |
 | 邓雅心 | 备份一句口播 | 说明小时表来自订单拆分 + 补齐，不是手造乱数 | 老师问数据从哪来能答 |
 
@@ -195,6 +207,7 @@ HDFS：`hdfs://localhost:8020`（不要用 9000）。充电后台继续 `chargin
 ## 15 号砍掉（问到就说「下一迭代」）
 
 - 实时气象 API、故障诊断、需求调度、风控评分  
-- Spark / Hive / 三节点  
+- 三节点 Hadoop、YARN 上跑 Spark、Hive  
+- 用 sklearn 代替 Spark 作验收主路径（Spark 起不来时只能口头说明，不能当交卷方案）  
 - 新开 `MsgType`、新开 Flask 网关、改充电 9000  
 - 把 ECharts 塞进 Qt 管理端（大屏就是独立 Web）
