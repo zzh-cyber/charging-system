@@ -1,0 +1,6 @@
+id,station_id,code,type,power_kw,status,enabled
+1,1,SZ001-01,fast,120.0,idle,1
+2,1,SZ001-02,slow,7.0,idle,1
+5,2,SZ002-01,fast,120.0,idle,1
+6,2,SZ002-02,slow,7.0,idle,1
+11,3,SZ003-01,fast,120.0,idle,1

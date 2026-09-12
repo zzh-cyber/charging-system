@@ -1,0 +1,12 @@
+{
+  "generated_at": "2026-09-12T16:31:03+08:00",
+  "ods_rows": 16,
+  "null_start_time": 1,
+  "negative_kwh": 1,
+  "end_before_start": 1,
+  "dup_order_no": 1,
+  "orphan_station": 1,
+  "orphan_pile": 1,
+  "status_contradiction": 2,
+  "note": "迷你 ODS 自测；邓雅心足量数据到位后改读 HDFS /user/charging/ods/"
+}
