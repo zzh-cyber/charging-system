@@ -4,6 +4,9 @@ build-*/
 cmake-build-*/
 out/
 
+# Spark coalesce 临时目录（保留 qa/report.json 与 dwd csv）
+bigdata/work/**/_spark/
+
 # ---- CMake 中间文件 ----
 CMakeCache.txt
 CMakeFiles/
