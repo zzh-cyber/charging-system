@@ -46,6 +46,12 @@ charging-admin
 .DS_Store
 Thumbs.db
 
+# ---- Python（第二阶段 bigdata/ 脚本）----
+__pycache__/
+*.pyc
+# bigdata/out/ 的导出产物；其实上面的 out/ 规则已覆盖，这里显式写出来便于阅读
+bigdata/out/
+
 # ---- 备份 ----
 backup/
 

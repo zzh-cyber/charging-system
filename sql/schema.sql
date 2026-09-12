@@ -14,6 +14,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS wallet_transactions;
 DROP TABLE IF EXISTS device_commands;
 DROP TABLE IF EXISTS operation_logs;
+DROP TABLE IF EXISTS load_forecast;
 DROP TABLE IF EXISTS recharge;
 DROP TABLE IF EXISTS charge_order;
 DROP TABLE IF EXISTS pile;
@@ -190,10 +191,34 @@ CREATE TABLE operation_logs (
     CONSTRAINT fk_oplog_admin FOREIGN KEY (admin_id) REFERENCES admin (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 负荷预测结果（第二阶段：Spark MLlib 写入，station_list 与大屏只读）
+-- 列含义：station_id 电站；generated_at 本批训练时间（整批同值）；horizon_hours 1/6/24；
+--         pred_kwh 预测电量；pred_idle 预测空闲桩；pred_util 占用率%；is_peak util>=80；congestion 拥堵档
+CREATE TABLE IF NOT EXISTS load_forecast (
+    id            BIGINT        NOT NULL AUTO_INCREMENT,
+    station_id    BIGINT        NOT NULL,
+    generated_at  DATETIME      NOT NULL,
+    horizon_hours INT           NOT NULL,
+    pred_kwh      DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    pred_idle     INT           NOT NULL DEFAULT 0,
+    pred_util     DECIMAL(5,2)  NOT NULL DEFAULT 0.00,
+    is_peak       TINYINT(1)    NOT NULL DEFAULT 0,
+    congestion    ENUM('low','mid','high') NOT NULL DEFAULT 'mid',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_forecast_batch (station_id, generated_at, horizon_hours),
+    KEY idx_forecast_latest (generated_at),
+    KEY idx_forecast_station (station_id, horizon_hours),
+    CONSTRAINT fk_forecast_station FOREIGN KEY (station_id) REFERENCES station (id),
+    CONSTRAINT chk_forecast_horizon CHECK (horizon_hours IN (1, 6, 24)),
+    CONSTRAINT chk_forecast_util    CHECK (pred_util BETWEEN 0 AND 100),
+    CONSTRAINT chk_forecast_idle    CHECK (pred_idle >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 INSERT INTO schema_version (version, description) VALUES
 (1, 'PR#11 基线：核心表 + wallet_transactions + 管理员加盐哈希'),
 (2, '补齐 device_commands / operation_logs，pile 占用与心跳字段，charge_order pending_payment'),
-(3, 'charge_order 增加模拟 SOC：start_soc / battery_capacity_kwh / target_soc');
+(3, 'charge_order 增加模拟 SOC：start_soc / battery_capacity_kwh / target_soc'),
+(4, '新增 load_forecast：负荷预测结果（1/6/24h），供 station_list 与大屏读取');
 
 -- ===================== 初始 / 测试数据 =====================
 
