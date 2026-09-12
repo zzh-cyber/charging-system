@@ -87,7 +87,7 @@ charging-system/
 ├── client-user/                充电用户端（Qt Widgets + WebEngine）
 ├── client-admin/               PC 管理端（Qt Widgets + Charts）
 ├── sql/
-│   ├── schema.sql              表结构 + 演示种子（约 72 站 / 399 桩 / 300+ 单）
+│   ├── schema.sql              表结构 + 演示种子（种子 72 站 / 399 桩 / 319 单）
 │   └── seed_expand_stations.sql  可重复执行的增量补站
 ├── config/
 │   ├── runtime.ini             WSL 下 Qt / WebEngine 运行参数
@@ -205,7 +205,7 @@ mysql -u charging_user -p123456 charging_system < sql/schema.sql
 | 用户 | `charging_user` |
 | 密码 | `123456`（可用环境变量 `CHARGING_DB_PASSWORD` 覆盖） |
 
-应有表：`user`、`admin`、`station`、`pile`、`charge_order`、`wallet_transactions`、`device_commands`、`operation_logs`、`schema_version`。
+应有表：`user`、`admin`、`station`、`pile`、`charge_order`、`wallet_transactions`、`device_commands`、`operation_logs`、`load_forecast`、`schema_version`。
 
 ```bash
 mysql -u charging_user -p123456 charging_system -e "SHOW TABLES;"
@@ -248,7 +248,7 @@ cd /path/to/charging-system
 成功时应看到类似：
 
 ```text
-数据库结构版本: 3
+数据库结构版本: 4
 充电系统服务器已启动，端口: 9000
 ```
 
