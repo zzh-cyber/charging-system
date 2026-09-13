@@ -1973,6 +1973,18 @@ bool Database::columnExists(const QString &table, const QString &column)
     return q.value(0).toInt() > 0;
 }
 
+bool Database::tableExists(const QString &table)
+{
+    QSqlQuery q(m_db);
+    q.prepare(QStringLiteral(
+        "SELECT COUNT(*) FROM information_schema.tables "
+        "WHERE table_schema = DATABASE() AND table_name = ?"));
+    q.addBindValue(table);
+    if (!q.exec() || !q.next())
+        return false;
+    return q.value(0).toInt() > 0;
+}
+
 bool Database::upgradeSchema()
 {
     // v3：模拟 SOC 字段。已有库只 ALTER，绝不 DROP。
@@ -1993,6 +2005,48 @@ bool Database::upgradeSchema()
         ver.prepare(QStringLiteral(
             "INSERT INTO schema_version (version, description) VALUES "
             "(3, 'charge_order 增加模拟 SOC：start_soc / battery_capacity_kwh / target_soc')"));
+        if (!ver.exec()) {
+            m_lastError = ver.lastError().text();
+            return false;
+        }
+    }
+
+    // v4：负荷预测结果表。已有库只 CREATE，绝不 DROP。
+    // DDL 与 sql/schema.sql、sql/patch_v4_load_forecast.sql 三处保持逐字一致，
+    // 所以这里用 \n 换行拼接（而不是像 v3 那样挤成一行），方便直接 diff 比对。
+    // 注意：SQL 文本里不能出现行尾 -- 注释，否则拼成一行后会把后续内容全注释掉。
+    if (!tableExists(QStringLiteral("load_forecast"))) {
+        QSqlQuery create(m_db);
+        if (!create.exec(QStringLiteral(
+                "CREATE TABLE IF NOT EXISTS load_forecast (\n"
+                "    id            BIGINT        NOT NULL AUTO_INCREMENT,\n"
+                "    station_id    BIGINT        NOT NULL,\n"
+                "    generated_at  DATETIME      NOT NULL,\n"
+                "    horizon_hours INT           NOT NULL,\n"
+                "    pred_kwh      DECIMAL(10,2) NOT NULL DEFAULT 0.00,\n"
+                "    pred_idle     INT           NOT NULL DEFAULT 0,\n"
+                "    pred_util     DECIMAL(5,2)  NOT NULL DEFAULT 0.00,\n"
+                "    is_peak       TINYINT(1)    NOT NULL DEFAULT 0,\n"
+                "    congestion    ENUM('low','mid','high') NOT NULL DEFAULT 'mid',\n"
+                "    PRIMARY KEY (id),\n"
+                "    UNIQUE KEY uk_forecast_batch (station_id, generated_at, horizon_hours),\n"
+                "    KEY idx_forecast_latest (generated_at),\n"
+                "    KEY idx_forecast_station (station_id, horizon_hours),\n"
+                "    CONSTRAINT fk_forecast_station FOREIGN KEY (station_id) REFERENCES station (id),\n"
+                "    CONSTRAINT chk_forecast_horizon CHECK (horizon_hours IN (1, 6, 24)),\n"
+                "    CONSTRAINT chk_forecast_util    CHECK (pred_util BETWEEN 0 AND 100),\n"
+                "    CONSTRAINT chk_forecast_idle    CHECK (pred_idle >= 0)\n"
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"))) {
+            m_lastError = create.lastError().text();
+            return false;
+        }
+    }
+
+    if (schemaVersion() < 4) {
+        QSqlQuery ver(m_db);
+        ver.prepare(QStringLiteral(
+            "INSERT INTO schema_version (version, description) VALUES "
+            "(4, '新增 load_forecast：负荷预测结果（1/6/24h），供 station_list 与大屏读取')"));
         if (!ver.exec()) {
             m_lastError = ver.lastError().text();
             return false;

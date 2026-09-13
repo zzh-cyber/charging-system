@@ -122,6 +122,7 @@ private:
     bool executeScript(const QString &sql);  // 逐条执行 SQL 脚本
     bool upgradeSchema();                    // 已有库按版本增量升级（禁止 DROP）
     bool columnExists(const QString &table, const QString &column);
+    bool tableExists(const QString &table);
 
     // NO.59：事务包装，死锁(1213)/锁等待超时(1205)时有限重试
     bool runInTransaction(std::function<bool()> body, int maxRetries = 3);
