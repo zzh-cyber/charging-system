@@ -96,6 +96,28 @@ QString formatSqlDateTime(const QVariant &value)
     return value.toString();
 }
 
+double stationUtilization(int total, int idle)
+{
+    if (total <= 0)
+        return 0.0;
+    return (static_cast<double>(total - idle) /
+            static_cast<double>(total)) * 100.0;
+}
+
+QString stationCongestion(int total, int idle, double utilization)
+{
+    if (total <= 0)
+        return QStringLiteral("mid");
+
+    const double idleRatio = static_cast<double>(idle) /
+                              static_cast<double>(total);
+    if (idleRatio >= 0.5)
+        return QStringLiteral("low");
+    if (idleRatio < 0.2 || utilization >= 80.0)
+        return QStringLiteral("high");
+    return QStringLiteral("mid");
+}
+
 // 允许 yyyy-MM-dd HH:mm:ss、ISO、或仅 yyyy-MM-dd（endOfDay 时补 23:59:59）
 QString normalizeFilterTime(const QString &raw, bool endOfDay, bool *ok)
 {
@@ -619,6 +641,29 @@ QJsonArray Database::stationList(
         o["idle"] =
             q.value("idle")
                 .toInt();
+
+        const int total =
+            o["total"].toInt();
+
+        const int idle =
+            o["idle"].toInt();
+
+        const double utilization =
+            stationUtilization(total, idle);
+
+        const QString congestion =
+            stationCongestion(total, idle, utilization);
+
+        o["forecast_idle_1h"] = idle;
+        o["forecast_idle_6h"] = idle;
+        o["forecast_idle_24h"] = idle;
+        o["forecast_util_1h"] = utilization;
+        o["forecast_util_6h"] = utilization;
+        o["forecast_util_24h"] = utilization;
+        o["congestion"] = congestion;
+        o["recommend_score"] =
+            static_cast<double>(idle) * 10.0 - utilization;
+        o["is_peak_1h"] = utilization >= 80.0 ? 1 : 0;
 
         // 单位 km
         o["distance"] =
