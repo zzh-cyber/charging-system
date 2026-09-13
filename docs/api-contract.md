@@ -44,7 +44,7 @@
 | `user_info` | 获取用户信息 | `{user_id}` | `{id,phone,nickname,avatar,balance}` | 服务器A | ⬜ 待实现 |
 | `update_profile` | 修改昵称和/或头像 | 顶层必须带 `token`；`data` 为 `{nickname?,avatar?}`，至少一项。身份取自会话，忽略 `data.user_id`。`nickname` 2～20 字符；`avatar` 为路径/标识字符串，最长 255（对应 `user.avatar` VARCHAR，不是图片二进制） | 成功 `{nickname?,avatar?}`（只回本次改过的字段） | 服务器A / 用户端B | ✅ 已实现 |
 | `recharge` | 余额充值 | 顶层必须带 `token`；`data` 仅 `{amount}`。入账用户取自会话，忽略 `data.user_id` | `{balance}` | 服务器A / 用户端B | ✅ 已实现 |
-| `station_list` | 充电站列表 | `{}` | `{list:[{id,name,address,longitude,latitude,price,total,idle}]}` | 服务器A / 成员D | ✅ 已实现（样板） |
+| `station_list` | 充电站列表 | 顶层必须带 `token`；`data` 为 `{lat,lng}` | `{list:[{id,name,address,longitude,latitude,price,total,idle,distance,forecast_idle_1h,forecast_idle_6h,forecast_idle_24h,forecast_util_1h,forecast_util_6h,forecast_util_24h,congestion,recommend_score,is_peak_1h}]}`。这是在旧字段基础上的响应增量扩展；当前无真实预测时，服务端使用当前 `idle`/利用率稳定兜底。服务端仍按 `distance` 升序返回；智能推荐排序由客户端负责，不属于本接口步骤 | 服务器A / 成员D | ✅ 已实现 |
 | `pile_list` | 某站电桩列表 | `{station_id}` | `{list:[{id,code,type,power_kw,status}]}` | 服务器A / 成员D | ⬜ |
 | `pile_detail` | 电桩详情 | `{pile_id}` | `{id,code,type,power_kw,status,total_count,total_hours}` | 成员D | ⬜ |
 | `unfinished_order` | 查询未完成订单 | 顶层必须带 `token`；`data` 可为空。身份取自会话，忽略 `data.user_id` | `{order?:{order_no,pile_id,status,power_kw,unit_price,duration_seconds,kwh,amount,start_soc?,battery_capacity_kwh?,target_soc?,...}}`。`charging` 按时长现算电量金额；`pending_payment` 用库中已出账单。SOC 三字段为模拟展示，不参与结算；未开始充电或旧单可能缺省 | 用户端B | ✅ 已实现 |
@@ -53,6 +53,8 @@
 | `finish_charge` | 结束充电出账（不扣款） | 顶层必须带 `token`；`data` 为 `{order_no}`。服务端按功率×时长算 kwh/金额 | `{end_time,duration_seconds,kwh,amount,unit_price,power_kw}`。订单 `charging→pending_payment`，释放电桩 | 用户端B | ✅ 已实现 |
 | `pay_charge` | 确认支付扣款 | 顶层必须带 `token`；`data` 为 `{order_no}`。只处理 `pending_payment` | `{amount,balance,duration_seconds,kwh}`。成功 `settled`；余额不足 `code=7` 且订单仍待支付 | 用户端B | ✅ 已实现 |
 | `settle` | 旧结算（已停用） | — | `code=2`，提示改用 `finish_charge` + `pay_charge` | 用户端B | ⛔ 已停用 |
+
+`station_list` 的本次字段属于响应增量扩展，不改变消息 `type`、TCP“4 字节大端长度头 + JSON”包格式或 `token` 鉴权规则。客户端智能推荐的 `congestion → recommend_score → distance` 排序由马晓钰负责实现，不属于本步骤。
 
 ## 二、管理端接口
 
