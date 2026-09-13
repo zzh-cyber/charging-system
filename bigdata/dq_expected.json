@@ -1,0 +1,128 @@
+{
+  "params": {
+    "seed": 20260913,
+    "days": 30,
+    "rows": 20000,
+    "dirty_ratio": 0.08,
+    "start_date": "2026-08-15",
+    "end_date": "2026-09-13",
+    "sim_now": "2026-09-13 21:00:00",
+    "holidays": []
+  },
+  "injected": {
+    "NULL_START_TIME": 177,
+    "NULL_KWH": 177,
+    "NEG_KWH": 177,
+    "SOC_RANGE": 177,
+    "TIME_REVERSED": 177,
+    "DUP_ORDER_NO": 177,
+    "ORPHAN_STATION": 177,
+    "ORPHAN_PILE": 177,
+    "STATUS_CONFLICT": 177,
+    "_total_dirty_rows": 1593
+  },
+  "expected_probe": {
+    "ods_rows": 20000,
+    "null_start_time": 2009,
+    "null_kwh": 177,
+    "negative_kwh": 177,
+    "soc_range": 177,
+    "time_reversed": 177,
+    "dup_order_no": 177,
+    "dup_extra_rows": 177,
+    "orphan_station": 177,
+    "orphan_pile": 177,
+    "status_conflict": 177,
+    "_note": "expected_probe 是 NO.113 探查脚本应当返回的数字；其中 null_start_time 含业务天然的未开始订单"
+  },
+  "derived": {
+    "clean_rows": 18407,
+    "dirty_rows": 1593,
+    "dwd_rows": 16929,
+    "dwd_by_tag": {
+      "OK": 16575,
+      "SOC_RANGE": 177,
+      "STATUS_CONFLICT": 177
+    },
+    "dwd_rows_if_status_conflict_dropped": 16752,
+    "dwd_kwh_if_status_conflict_dropped": "602100.09",
+    "truncated_charging_rows": 56,
+    "truncated_charging_clean": 54,
+    "natural_null_start": 1832,
+    "ods_kwh_total": "633130.71",
+    "dwd_kwh_total": "608421.91"
+  },
+  "dimension": {
+    "stations": 72,
+    "piles": 399,
+    "station_id_range": [
+      1,
+      72
+    ],
+    "pile_id_range": [
+      1,
+      399
+    ],
+    "station_73_included": false
+  },
+  "hot_stations": {
+    "very_hot": [
+      31,
+      51,
+      15,
+      20
+    ],
+    "hot": [
+      8,
+      1,
+      32,
+      12
+    ],
+    "detail": {
+      "31": {
+        "station_name": "北京南站充电站",
+        "total_piles": 4
+      },
+      "51": {
+        "station_name": "黄埔科学城充电站",
+        "total_piles": 4
+      },
+      "15": {
+        "station_name": "杭州西湖充电站",
+        "total_piles": 4
+      },
+      "20": {
+        "station_name": "南京江宁充电站",
+        "total_piles": 4
+      },
+      "8": {
+        "station_name": "上海陆家嘴充电站",
+        "total_piles": 4
+      },
+      "1": {
+        "station_name": "深圳市民中心充电站",
+        "total_piles": 4
+      },
+      "32": {
+        "station_name": "奥林匹克公园充电站",
+        "total_piles": 4
+      },
+      "12": {
+        "station_name": "广州天河充电站",
+        "total_piles": 5
+      }
+    }
+  },
+  "contract": {
+    "timezone": "每个作业都设 spark.sql.session.timeZone=Asia/Shanghai。CSV 里是【无时区的裸时间串】，Spark 按会话时区解析、也按会话时区渲染 —— 同一个作业里两头一致，所以只读一次、同一次算，看不出差别。危险的是【跨作业不一致】：DWS 用一个时区写 parquet / 写 JDBC，ADS 用另一个时区读回来，时间就整体挪 8 小时（已实测：上海 8 点会渲染成 UTC 0 点），早高峰 8-9 的曲线整段错位；拿裸时间串去和 current_timestamp() 这类真实时刻比大小同理",
+    "read_csv": "header=True + 显式 schema，不要用 inferSchema",
+    "columns_by_name": "按列名取列；Spark 列名大小写敏感",
+    "anti_joins": "station 和 pile 两个 anti-join 都要写。只写 pile 的话 ORPHAN_STATION 会漏进 DWD，DWS 冒出 station_id=9001，而 load_forecast 对 station 有真 FK，写预测时会报错",
+    "time_reversed_op": "用严格 < ；写成 <= 会把 STATUS_CONFLICT 数两次",
+    "drop_dq_tag": "DWD 之后必须 drop 掉 dq_tag，且不许拿它当清洗依据",
+    "dwd_soc_range_kept": "SOC_RANGE 那些行【不丢弃】—— 矩阵口径是「裁剪或置空」不是丢。丢掉的话 DWD 行数与 kwh 总量都会对不上契约的 dwd_rows / dwd_kwh_total",
+    "dwd_composition": "DWD 里留了哪些行看 derived.dwd_by_tag：干净行 + SOC_RANGE + STATUS_CONFLICT。后两类只违反「范围/自洽」检查，不在四条丢弃规则里，所以【必须】留着",
+    "status_conflict_ambiguity": "⚠️ 矩阵两处对 STATUS_CONFLICT 口径不一致：60-72 行场景表的「清洗规则（DWD）」列写「本阶段丢弃」，而 NO.114 详细说明的丢弃清单里没列它。本实现按 NO.114 的清单【保留】，dwd_rows / dwd_kwh_total 就是保留后的数；若组长裁定要丢，用 derived.dwd_rows_if_status_conflict_dropped 与 dwd_kwh_if_status_conflict_dropped。两边都算好了，9/14 别因为记账口径不同判成不一致",
+    "truncated_charging": "derived.truncated_charging_rows 是 status=charging 且 end_time == sim_now 的行 —— 跨过模拟当前时刻、按已充时长折算过的会话，不满足 kwh == (target-start)/100*capacity 这条整段关系式，断言时要排掉。其中干净行是 derived.truncated_charging_clean 条，两者别混用"
+  }
+}
