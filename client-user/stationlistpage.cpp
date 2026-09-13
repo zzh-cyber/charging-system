@@ -137,6 +137,14 @@ StationListPage::StationListPage(
     m_limitCombo->setCursor(
         Qt::PointingHandCursor);
 
+    m_recommendButton = new QPushButton(QStringLiteral("智能推荐"), headerCard);
+    m_recommendButton->setCheckable(true);
+    m_recommendButton->setObjectName(QStringLiteral("stationRecommendButton"));
+    connect(m_recommendButton, &QPushButton::toggled, this, [this](bool checked) {
+        m_recommendEnabled = checked;
+        if (!m_cachedList.isEmpty()) renderStations();
+    });
+
 
     connect(
         m_limitCombo,
@@ -184,6 +192,8 @@ StationListPage::StationListPage(
 
     header->addWidget(
         m_limitCombo);
+
+    header->addWidget(m_recommendButton);
 
     header->addWidget(
         refreshBtn);
@@ -2067,7 +2077,7 @@ QJsonArray StationListPage::sortStations(
     std::stable_sort(
         items.begin(),
         items.end(),
-        [](const QJsonObject &a,
+        [this](const QJsonObject &a,
            const QJsonObject &b) {
 
             const double distanceA =
@@ -2083,6 +2093,18 @@ QJsonArray StationListPage::sortStations(
                          "distance"))
                     .toDouble();
 
+
+            if (m_recommendEnabled) {
+                const auto congestionRank = [](const QJsonObject &o) {
+                    const QString c = o.value(QStringLiteral("congestion")).toString(QStringLiteral("mid"));
+                    return c == QStringLiteral("low") ? 0 : (c == QStringLiteral("mid") ? 1 : 2);
+                };
+                const int ca = congestionRank(a), cb = congestionRank(b);
+                if (ca != cb) return ca < cb;
+                const double sa = a.value(QStringLiteral("recommend_score")).toDouble(0.0);
+                const double sb = b.value(QStringLiteral("recommend_score")).toDouble(0.0);
+                if (!qFuzzyCompare(sa + 1.0, sb + 1.0)) return sa > sb;
+            }
 
             if (!qFuzzyCompare(
                     distanceA + 1.0,
