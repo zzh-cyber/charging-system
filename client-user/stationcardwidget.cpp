@@ -437,6 +437,20 @@ StationCardWidget::StationCardWidget(
     nameLabel->setWordWrap(
         true);
 
+    const QString congestion = station.value(QStringLiteral("congestion")).toString().trimmed().toLower();
+    const bool peak = station.value(QStringLiteral("is_peak_1h")).toInt(0) != 0;
+    if (!congestion.isEmpty() || peak) {
+        const bool high = congestion == QStringLiteral("high");
+        const QString labelText = peak ? QStringLiteral("高峰将至")
+                                       : (high ? QStringLiteral("高拥堵") : QStringLiteral("低拥堵"));
+        const QString labelColor = peak ? QStringLiteral("#E6A23C")
+                                        : (high ? QStringLiteral("#E26868") : QStringLiteral("#2FBF71"));
+        auto *recommendLabel = new QLabel(labelText, this);
+        recommendLabel->setObjectName(QStringLiteral("stationRecommendLabel"));
+        recommendLabel->setStyleSheet(QStringLiteral("color:%1; font-weight:700;").arg(labelColor));
+        titleRow->addWidget(recommendLabel);
+    }
+
 
     QString priceText =
         QStringLiteral(
@@ -1345,7 +1359,7 @@ void StationCardWidget::applyResponsiveStyle()
 
             "QLabel#stationPriceLabel{"
             "background:transparent;"
-            "color:%9;"
+            "color:#F3EBDD;"
             "font-size:%10px;"
             "font-weight:800;"
             "}"
