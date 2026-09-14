@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>用户群体运营数据大屏</title>
+  <!-- 第二个大屏使用项目内置依赖，避免验收环境无法访问 CDN -->
+  <script src="/vendor/vue.global.prod.js"></script>
+  <script src="/vendor/echarts.min.js"></script>
+  <link rel="stylesheet" href="/user-groups.css">
+</head>
+<body>
+<div id="user-groups-app" v-cloak>
+  <div v-if="loading" class="loading-mask"><span></span><b>正在加载用户群体数据</b></div>
+  <div v-if="error" class="toast" @click="error=''">{{ error }}<small>点击关闭</small></div>
+  <header class="screen-header">
+    <div class="brand"><span class="brand-mark">⚡</span><span>智慧充电运营平台</span></div>
+    <div class="title-wrap"><h1>用户群体运营数据大屏</h1><i></i></div>
+    <div class="clock"><b>{{ clock }}</b><small>数据时间 {{ generatedAt }}</small></div>
+  </header>
+
+  <section class="kpi-row">
+    <article v-for="item in kpis" :key="item.label" class="kpi-card">
+      <small>{{ item.label }} <em v-if="item.unit">({{ item.unit }})</em></small>
+      <strong :class="item.color">{{ item.value }}</strong>
+      <span v-if="item.change">{{ item.change }}</span>
+    </article>
+  </section>
+
+  <main class="dashboard-grid">
+    <aside class="left-column">
+      <section class="panel frequency-panel"><h2>用户充电频率分层</h2><div ref="frequency" class="chart"></div></section>
+      <section class="panel attribute-panel">
+        <h2>用户属性分布 <nav><button v-for="tab in attributeTabs" :class="{active:attributeTab===tab.key}" @click="switchAttribute(tab.key)">{{ tab.name }}</button></nav></h2>
+        <div ref="attribute" class="chart"></div>
+      </section>
+      <section class="panel period-panel"><h2>充电时段偏好</h2><div ref="period" class="chart"></div></section>
+    </aside>
+
+    <section class="center-column">
+      <section class="panel trend-panel">
+        <h2>用户增长与消费趋势 <nav><button v-for="p in periods" :class="{active:period===p}" @click="changePeriod(p)">{{ p }}</button></nav></h2>
+        <div ref="trend" class="chart"></div>
+      </section>
+      <section class="panel behavior-panel">
+        <h2>不同用户群体行为对比 <nav><button :class="{active:dimension==='frequency'}" @click="dimension='frequency';drawBehavior()">按频率</button><button :class="{active:dimension==='value'}" @click="dimension='value';drawBehavior()">按价值</button></nav></h2>
+        <div ref="behavior" class="chart"></div>
+      </section>
+      <section class="panel users-panel">
+        <h2>用户群体明细 <span>共 {{ userTotal }} 人</span></h2>
+        <div class="user-filters"><span v-if="activeFilter">当前筛选：{{ activeFilter }}</span><span v-else>点击分层图表查看对应用户</span><button v-if="activeFilter" @click="clearFilter">清除筛选</button></div>
+        <div class="table-wrap"><table><thead><tr><th>用户</th><th>群体</th><th>订单</th><th>充电量</th><th>累计消费</th><th>偏好</th><th>最近活跃</th></tr></thead>
+        <tbody><tr v-for="u in users" :key="u.phone"><td><b>{{u.name}}</b><small>{{u.phone}}</small></td><td><i :class="'tag '+u.levelClass">{{u.level}}</i></td><td>{{u.orders}}</td><td>{{u.kwh}} kWh</td><td>¥{{u.amount}}</td><td>{{u.preference}}</td><td>{{u.active}}</td></tr><tr v-if="!users.length"><td colspan="7" class="table-empty">当前条件下暂无用户数据</td></tr></tbody></table></div>
+        <footer class="pager"><button @click="changePage(-1)" :disabled="page<=1">上一页</button><span>第 {{page}} / {{totalPages}} 页</span><button @click="changePage(1)" :disabled="page>=totalPages">下一页</button></footer>
+      </section>
+    </section>
+
+    <aside class="right-column">
+      <section class="panel value-panel"><h2>用户价值分层</h2><div ref="value" class="chart"></div></section>
+      <section class="panel insight-panel"><h2>群体运营建议 <b>{{ insights.length }}</b></h2><div class="insights"><article v-for="(x,i) in insights" :class="'priority-'+x.priority"><i>{{x.icon}}</i><div><b>{{x.title}}</b><p>{{x.content}}</p><small>{{x.reason}}</small></div></article></div></section>
+      <section class="panel station-panel"><h2>常用充电站 TOP 6</h2><div ref="station" class="chart"></div></section>
+      <section class="panel status-panel"><span :title="error"><i :class="{mock:dataSource==='mock'}"></i>{{ statusText }}</span><span>画像更新 {{ generatedAt }}</span><button @click="refresh" :disabled="loading">{{ loading ? '刷新中…' : '刷新数据' }}</button></section>
+    </aside>
+  </main>
+</div>
+<script src="/user-groups.js"></script>
+</body>
+</html>

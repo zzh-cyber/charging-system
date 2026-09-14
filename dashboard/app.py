@@ -221,6 +221,11 @@ def index():
     return send_from_directory(FRONTEND, "index.html")
 
 
+@app.get("/user-groups")
+def user_groups():
+    return send_from_directory(FRONTEND, "user-groups.html")
+
+
 if __name__ == "__main__":
     app.run(
         host="0.0.0.0",
