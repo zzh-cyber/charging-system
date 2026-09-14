@@ -52,8 +52,13 @@ Thumbs.db
 # ---- Python（第二阶段 bigdata/ 脚本）----
 __pycache__/
 *.pyc
-# bigdata/out/ 的导出产物；其实上面的 out/ 规则已覆盖，这里显式写出来便于阅读
-bigdata/out/
+# 上面的 out/ 会忽略任意名为 out 的目录。全组统一的 ODS 夹具要入库：
+# 先放开目录，再只取消忽略三份 csv（与 dq_expected.json 对齐，答辩机生成）。
+!bigdata/out/
+bigdata/out/*
+!bigdata/out/ods_station.csv
+!bigdata/out/ods_pile.csv
+!bigdata/out/ods_charge_order.csv
 
 # ---- 备份 ----
 backup/

@@ -1,0 +1,2308 @@
+{
+  "generated_at": "2026-09-13T21:00:00",
+  "kpis": {
+    "today_kwh": 15620.04,
+    "today_revenue": 20292.01,
+    "idle_piles": 302,
+    "busy_piles": 61,
+    "fault_piles": 36,
+    "peak_hour": "11:00",
+    "alert_count": 0
+  },
+  "quality": {
+    "ods_rows": 20000,
+    "null_start_time": 2014,
+    "negative_kwh": 177,
+    "dup_order_no": 177,
+    "orphan_station": 177,
+    "dwd_rows": 16924
+  },
+  "load_today": [
+    {
+      "hour": 0,
+      "kwh": 516.18
+    },
+    {
+      "hour": 1,
+      "kwh": 229.24
+    },
+    {
+      "hour": 2,
+      "kwh": 238.2
+    },
+    {
+      "hour": 3,
+      "kwh": 155.98
+    },
+    {
+      "hour": 4,
+      "kwh": 98.05
+    },
+    {
+      "hour": 5,
+      "kwh": 95.52
+    },
+    {
+      "hour": 6,
+      "kwh": 219.42
+    },
+    {
+      "hour": 7,
+      "kwh": 346.3
+    },
+    {
+      "hour": 8,
+      "kwh": 561.73
+    },
+    {
+      "hour": 9,
+      "kwh": 725.77
+    },
+    {
+      "hour": 10,
+      "kwh": 1137.2
+    },
+    {
+      "hour": 11,
+      "kwh": 1439.9
+    },
+    {
+      "hour": 12,
+      "kwh": 1264.06
+    },
+    {
+      "hour": 13,
+      "kwh": 947.99
+    },
+    {
+      "hour": 14,
+      "kwh": 1196.21
+    },
+    {
+      "hour": 15,
+      "kwh": 966.16
+    },
+    {
+      "hour": 16,
+      "kwh": 1171.28
+    },
+    {
+      "hour": 17,
+      "kwh": 921.83
+    },
+    {
+      "hour": 18,
+      "kwh": 1166.05
+    },
+    {
+      "hour": 19,
+      "kwh": 1430.85
+    },
+    {
+      "hour": 20,
+      "kwh": 792.12
+    },
+    {
+      "hour": 21,
+      "kwh": 0.0
+    },
+    {
+      "hour": 22,
+      "kwh": 0.0
+    },
+    {
+      "hour": 23,
+      "kwh": 0.0
+    }
+  ],
+  "load_forecast_24h": [
+    {
+      "offset": 1,
+      "kwh": 803.03
+    },
+    {
+      "offset": 2,
+      "kwh": 614.68
+    },
+    {
+      "offset": 3,
+      "kwh": 426.47
+    },
+    {
+      "offset": 4,
+      "kwh": 372.48
+    },
+    {
+      "offset": 5,
+      "kwh": 227.3
+    },
+    {
+      "offset": 6,
+      "kwh": 163.76
+    },
+    {
+      "offset": 7,
+      "kwh": 133.02
+    },
+    {
+      "offset": 8,
+      "kwh": 167.7
+    },
+    {
+      "offset": 9,
+      "kwh": 181.98
+    },
+    {
+      "offset": 10,
+      "kwh": 367.51
+    },
+    {
+      "offset": 11,
+      "kwh": 831.34
+    },
+    {
+      "offset": 12,
+      "kwh": 1128.39
+    },
+    {
+      "offset": 13,
+      "kwh": 1165.99
+    },
+    {
+      "offset": 14,
+      "kwh": 1052.05
+    },
+    {
+      "offset": 15,
+      "kwh": 1031.6
+    },
+    {
+      "offset": 16,
+      "kwh": 1048.55
+    },
+    {
+      "offset": 17,
+      "kwh": 1032.37
+    },
+    {
+      "offset": 18,
+      "kwh": 1065.17
+    },
+    {
+      "offset": 19,
+      "kwh": 1119.91
+    },
+    {
+      "offset": 20,
+      "kwh": 1302.62
+    },
+    {
+      "offset": 21,
+      "kwh": 1531.35
+    },
+    {
+      "offset": 22,
+      "kwh": 1650.0
+    },
+    {
+      "offset": 23,
+      "kwh": 1558.47
+    },
+    {
+      "offset": 24,
+      "kwh": 1209.42
+    }
+  ],
+  "stations": [
+    {
+      "station_id": 1,
+      "name": "深圳市民中心充电站",
+      "idle": 2,
+      "total": 4,
+      "forecast": {
+        "h1": {
+          "kwh": 36.58,
+          "idle": 3,
+          "util": 25.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 28.89,
+          "idle": 3,
+          "util": 25.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 6.44,
+          "idle": 3,
+          "util": 25.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 2,
+      "name": "福田CBD充电站",
+      "idle": 6,
+      "total": 6,
+      "forecast": {
+        "h1": {
+          "kwh": 6.44,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 15.76,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 7.84,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 3,
+      "name": "南山科技园充电站",
+      "idle": 3,
+      "total": 4,
+      "forecast": {
+        "h1": {
+          "kwh": 6.44,
+          "idle": 3,
+          "util": 25.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 19.59,
+          "idle": 2,
+          "util": 50.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 6.44,
+          "idle": 3,
+          "util": 25.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 4,
+      "name": "北京国贸充电站",
+      "idle": 3,
+      "total": 5,
+      "forecast": {
+        "h1": {
+          "kwh": 9.89,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 18.14,
+          "idle": 3,
+          "util": 40.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 9.89,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 5,
+      "name": "中关村充电站",
+      "idle": 4,
+      "total": 6,
+      "forecast": {
+        "h1": {
+          "kwh": 35.36,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 17.38,
+          "idle": 4,
+          "util": 33.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 3.81,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 6,
+      "name": "北京西单充电站",
+      "idle": 5,
+      "total": 6,
+      "forecast": {
+        "h1": {
+          "kwh": 32.3,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 34.5,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 30.28,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 7,
+      "name": "北京望京充电站",
+      "idle": 2,
+      "total": 6,
+      "forecast": {
+        "h1": {
+          "kwh": 6.44,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 11.61,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 10.77,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 8,
+      "name": "上海陆家嘴充电站",
+      "idle": 3,
+      "total": 4,
+      "forecast": {
+        "h1": {
+          "kwh": 79.48,
+          "idle": 1,
+          "util": 75.0,
+          "is_peak": 0,
+          "congestion": "mid"
+        },
+        "h6": {
+          "kwh": 46.18,
+          "idle": 2,
+          "util": 50.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 13.34,
+          "idle": 3,
+          "util": 25.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 9,
+      "name": "上海虹桥充电站",
+      "idle": 4,
+      "total": 4,
+      "forecast": {
+        "h1": {
+          "kwh": 12.88,
+          "idle": 3,
+          "util": 25.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 7.5,
+          "idle": 3,
+          "util": 25.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 6.44,
+          "idle": 3,
+          "util": 25.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 10,
+      "name": "上海人民广场充电站",
+      "idle": 5,
+      "total": 5,
+      "forecast": {
+        "h1": {
+          "kwh": 6.44,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 11.37,
+          "idle": 3,
+          "util": 40.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 9.49,
+          "idle": 3,
+          "util": 40.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 11,
+      "name": "上海张江充电站",
+      "idle": 3,
+      "total": 5,
+      "forecast": {
+        "h1": {
+          "kwh": 3.71,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 34.85,
+          "idle": 3,
+          "util": 40.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 3.71,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 12,
+      "name": "广州天河充电站",
+      "idle": 2,
+      "total": 5,
+      "forecast": {
+        "h1": {
+          "kwh": 47.27,
+          "idle": 3,
+          "util": 40.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 31.18,
+          "idle": 3,
+          "util": 40.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 45.85,
+          "idle": 3,
+          "util": 40.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 13,
+      "name": "广州珠江新城充电站",
+      "idle": 6,
+      "total": 7,
+      "forecast": {
+        "h1": {
+          "kwh": 5.1,
+          "idle": 6,
+          "util": 14.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 11.1,
+          "idle": 5,
+          "util": 28.6,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 5.82,
+          "idle": 6,
+          "util": 14.3,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 14,
+      "name": "广州白云充电站",
+      "idle": 4,
+      "total": 6,
+      "forecast": {
+        "h1": {
+          "kwh": 16.63,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 25.44,
+          "idle": 4,
+          "util": 33.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 34.11,
+          "idle": 4,
+          "util": 33.3,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 15,
+      "name": "杭州西湖充电站",
+      "idle": 2,
+      "total": 4,
+      "forecast": {
+        "h1": {
+          "kwh": 40.99,
+          "idle": 1,
+          "util": 75.0,
+          "is_peak": 0,
+          "congestion": "mid"
+        },
+        "h6": {
+          "kwh": 20.69,
+          "idle": 2,
+          "util": 50.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 6.44,
+          "idle": 3,
+          "util": 25.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 16,
+      "name": "杭州滨江充电站",
+      "idle": 5,
+      "total": 7,
+      "forecast": {
+        "h1": {
+          "kwh": 47.0,
+          "idle": 6,
+          "util": 14.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 46.02,
+          "idle": 5,
+          "util": 28.6,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 36.19,
+          "idle": 6,
+          "util": 14.3,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 17,
+      "name": "杭州未来科技城充电站",
+      "idle": 6,
+      "total": 6,
+      "forecast": {
+        "h1": {
+          "kwh": 31.14,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 14.62,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 25.15,
+          "idle": 4,
+          "util": 33.3,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 18,
+      "name": "南京新街口充电站",
+      "idle": 2,
+      "total": 5,
+      "forecast": {
+        "h1": {
+          "kwh": 11.59,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 9.5,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 28.18,
+          "idle": 3,
+          "util": 40.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 19,
+      "name": "南京河西充电站",
+      "idle": 6,
+      "total": 6,
+      "forecast": {
+        "h1": {
+          "kwh": 23.38,
+          "idle": 4,
+          "util": 33.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 28.33,
+          "idle": 4,
+          "util": 33.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 6.44,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 20,
+      "name": "南京江宁充电站",
+      "idle": 3,
+      "total": 4,
+      "forecast": {
+        "h1": {
+          "kwh": 43.19,
+          "idle": 2,
+          "util": 50.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 58.06,
+          "idle": 1,
+          "util": 75.0,
+          "is_peak": 0,
+          "congestion": "mid"
+        },
+        "h24": {
+          "kwh": 44.94,
+          "idle": 1,
+          "util": 75.0,
+          "is_peak": 0,
+          "congestion": "mid"
+        }
+      }
+    },
+    {
+      "station_id": 21,
+      "name": "深圳宝安机场充电站",
+      "idle": 1,
+      "total": 5,
+      "forecast": {
+        "h1": {
+          "kwh": 6.44,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 20.08,
+          "idle": 3,
+          "util": 40.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 21.92,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 22,
+      "name": "罗湖万象城充电站",
+      "idle": 5,
+      "total": 6,
+      "forecast": {
+        "h1": {
+          "kwh": 5.88,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 24.79,
+          "idle": 4,
+          "util": 33.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 6.44,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 23,
+      "name": "龙岗大运中心充电站",
+      "idle": 7,
+      "total": 7,
+      "forecast": {
+        "h1": {
+          "kwh": 63.06,
+          "idle": 5,
+          "util": 28.6,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 21.08,
+          "idle": 5,
+          "util": 28.6,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 6.44,
+          "idle": 6,
+          "util": 14.3,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 24,
+      "name": "龙华深圳北站充电站",
+      "idle": 1,
+      "total": 5,
+      "forecast": {
+        "h1": {
+          "kwh": 6.44,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 12.07,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 25.26,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 25,
+      "name": "光明科学城充电站",
+      "idle": 7,
+      "total": 7,
+      "forecast": {
+        "h1": {
+          "kwh": 49.78,
+          "idle": 6,
+          "util": 14.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 29.92,
+          "idle": 6,
+          "util": 14.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 6.44,
+          "idle": 6,
+          "util": 14.3,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 26,
+      "name": "坪山比亚迪充电站",
+      "idle": 7,
+      "total": 7,
+      "forecast": {
+        "h1": {
+          "kwh": 32.7,
+          "idle": 6,
+          "util": 14.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 26.09,
+          "idle": 6,
+          "util": 14.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 4.8,
+          "idle": 6,
+          "util": 14.3,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 27,
+      "name": "盐田海鲜街充电站",
+      "idle": 5,
+      "total": 5,
+      "forecast": {
+        "h1": {
+          "kwh": 6.44,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 13.81,
+          "idle": 3,
+          "util": 40.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 6.44,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 28,
+      "name": "大鹏较场尾充电站",
+      "idle": 5,
+      "total": 7,
+      "forecast": {
+        "h1": {
+          "kwh": 4.55,
+          "idle": 6,
+          "util": 14.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 17.05,
+          "idle": 5,
+          "util": 28.6,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 4.1,
+          "idle": 6,
+          "util": 14.3,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 29,
+      "name": "前海自贸区充电站",
+      "idle": 3,
+      "total": 6,
+      "forecast": {
+        "h1": {
+          "kwh": 36.71,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 19.73,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 36.71,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 30,
+      "name": "三里屯充电站",
+      "idle": 6,
+      "total": 6,
+      "forecast": {
+        "h1": {
+          "kwh": 54.08,
+          "idle": 4,
+          "util": 33.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 32.56,
+          "idle": 4,
+          "util": 33.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 6.44,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 31,
+      "name": "北京南站充电站",
+      "idle": 1,
+      "total": 4,
+      "forecast": {
+        "h1": {
+          "kwh": 23.27,
+          "idle": 2,
+          "util": 50.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 36.79,
+          "idle": 1,
+          "util": 75.0,
+          "is_peak": 0,
+          "congestion": "mid"
+        },
+        "h24": {
+          "kwh": 28.96,
+          "idle": 2,
+          "util": 50.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 32,
+      "name": "奥林匹克公园充电站",
+      "idle": 4,
+      "total": 4,
+      "forecast": {
+        "h1": {
+          "kwh": 6.44,
+          "idle": 3,
+          "util": 25.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 26.2,
+          "idle": 2,
+          "util": 50.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 6.44,
+          "idle": 3,
+          "util": 25.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 33,
+      "name": "五道口充电站",
+      "idle": 7,
+      "total": 7,
+      "forecast": {
+        "h1": {
+          "kwh": 27.08,
+          "idle": 6,
+          "util": 14.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 38.69,
+          "idle": 5,
+          "util": 28.6,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 53.45,
+          "idle": 4,
+          "util": 42.9,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 34,
+      "name": "王府井充电站",
+      "idle": 6,
+      "total": 6,
+      "forecast": {
+        "h1": {
+          "kwh": 100.13,
+          "idle": 4,
+          "util": 33.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 81.41,
+          "idle": 4,
+          "util": 33.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 100.13,
+          "idle": 4,
+          "util": 33.3,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 35,
+      "name": "西二旗充电站",
+      "idle": 7,
+      "total": 7,
+      "forecast": {
+        "h1": {
+          "kwh": 6.44,
+          "idle": 6,
+          "util": 14.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 25.83,
+          "idle": 5,
+          "util": 28.6,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 45.02,
+          "idle": 6,
+          "util": 14.3,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 36,
+      "name": "通州万达充电站",
+      "idle": 5,
+      "total": 5,
+      "forecast": {
+        "h1": {
+          "kwh": 12.88,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 8.78,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 12.88,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 37,
+      "name": "大兴机场充电站",
+      "idle": 3,
+      "total": 5,
+      "forecast": {
+        "h1": {
+          "kwh": 12.88,
+          "idle": 3,
+          "util": 40.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 14.29,
+          "idle": 3,
+          "util": 40.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 12.88,
+          "idle": 3,
+          "util": 40.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 38,
+      "name": "外滩充电站",
+      "idle": 7,
+      "total": 7,
+      "forecast": {
+        "h1": {
+          "kwh": 12.88,
+          "idle": 6,
+          "util": 14.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 24.31,
+          "idle": 5,
+          "util": 28.6,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 12.88,
+          "idle": 6,
+          "util": 14.3,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 39,
+      "name": "徐家汇充电站",
+      "idle": 4,
+      "total": 4,
+      "forecast": {
+        "h1": {
+          "kwh": 14.47,
+          "idle": 2,
+          "util": 50.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 21.34,
+          "idle": 2,
+          "util": 50.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 14.47,
+          "idle": 2,
+          "util": 50.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 40,
+      "name": "静安寺充电站",
+      "idle": 6,
+      "total": 6,
+      "forecast": {
+        "h1": {
+          "kwh": 31.29,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 17.03,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 31.29,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 41,
+      "name": "五角场充电站",
+      "idle": 5,
+      "total": 5,
+      "forecast": {
+        "h1": {
+          "kwh": 6.17,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 17.03,
+          "idle": 3,
+          "util": 40.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 12.88,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 42,
+      "name": "上海迪士尼充电站",
+      "idle": 6,
+      "total": 7,
+      "forecast": {
+        "h1": {
+          "kwh": 30.89,
+          "idle": 6,
+          "util": 14.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 28.4,
+          "idle": 6,
+          "util": 14.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 6.44,
+          "idle": 6,
+          "util": 14.3,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 43,
+      "name": "上海火车站充电站",
+      "idle": 5,
+      "total": 5,
+      "forecast": {
+        "h1": {
+          "kwh": 79.89,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 79.89,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 22.51,
+          "idle": 3,
+          "util": 40.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 44,
+      "name": "莘庄充电站",
+      "idle": 3,
+      "total": 6,
+      "forecast": {
+        "h1": {
+          "kwh": 9.74,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 27.34,
+          "idle": 4,
+          "util": 33.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 9.74,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 45,
+      "name": "长寿路充电站",
+      "idle": 2,
+      "total": 4,
+      "forecast": {
+        "h1": {
+          "kwh": 37.58,
+          "idle": 3,
+          "util": 25.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 43.65,
+          "idle": 2,
+          "util": 50.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 14.34,
+          "idle": 2,
+          "util": 50.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 46,
+      "name": "广州塔充电站",
+      "idle": 5,
+      "total": 7,
+      "forecast": {
+        "h1": {
+          "kwh": 36.12,
+          "idle": 5,
+          "util": 28.6,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 14.9,
+          "idle": 5,
+          "util": 28.6,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 23.33,
+          "idle": 6,
+          "util": 14.3,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 47,
+      "name": "北京路步行街充电站",
+      "idle": 5,
+      "total": 7,
+      "forecast": {
+        "h1": {
+          "kwh": 22.14,
+          "idle": 6,
+          "util": 14.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 25.44,
+          "idle": 5,
+          "util": 28.6,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 22.14,
+          "idle": 6,
+          "util": 14.3,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 48,
+      "name": "琶洲会展中心充电站",
+      "idle": 3,
+      "total": 5,
+      "forecast": {
+        "h1": {
+          "kwh": 52.82,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 53.97,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 17.26,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 49,
+      "name": "广州南站充电站",
+      "idle": 4,
+      "total": 5,
+      "forecast": {
+        "h1": {
+          "kwh": 12.88,
+          "idle": 3,
+          "util": 40.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 18.23,
+          "idle": 2,
+          "util": 60.0,
+          "is_peak": 0,
+          "congestion": "mid"
+        },
+        "h24": {
+          "kwh": 27.27,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 50,
+      "name": "白云机场充电站",
+      "idle": 3,
+      "total": 6,
+      "forecast": {
+        "h1": {
+          "kwh": 27.75,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 44.48,
+          "idle": 4,
+          "util": 33.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 27.75,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 51,
+      "name": "黄埔科学城充电站",
+      "idle": 4,
+      "total": 4,
+      "forecast": {
+        "h1": {
+          "kwh": 23.7,
+          "idle": 2,
+          "util": 50.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 40.59,
+          "idle": 2,
+          "util": 50.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 42.91,
+          "idle": 2,
+          "util": 50.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 52,
+      "name": "沙面岛充电站",
+      "idle": 7,
+      "total": 7,
+      "forecast": {
+        "h1": {
+          "kwh": 53.34,
+          "idle": 6,
+          "util": 14.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 34.05,
+          "idle": 6,
+          "util": 14.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 3.87,
+          "idle": 6,
+          "util": 14.3,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 53,
+      "name": "大学城充电站",
+      "idle": 4,
+      "total": 5,
+      "forecast": {
+        "h1": {
+          "kwh": 73.56,
+          "idle": 3,
+          "util": 40.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 47.47,
+          "idle": 3,
+          "util": 40.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 73.56,
+          "idle": 3,
+          "util": 40.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 54,
+      "name": "花都广场充电站",
+      "idle": 4,
+      "total": 6,
+      "forecast": {
+        "h1": {
+          "kwh": 19.32,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 15.31,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 6.44,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 55,
+      "name": "武林广场充电站",
+      "idle": 5,
+      "total": 6,
+      "forecast": {
+        "h1": {
+          "kwh": 33.77,
+          "idle": 4,
+          "util": 33.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 33.77,
+          "idle": 4,
+          "util": 33.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 33.77,
+          "idle": 4,
+          "util": 33.3,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 56,
+      "name": "钱江新城充电站",
+      "idle": 5,
+      "total": 5,
+      "forecast": {
+        "h1": {
+          "kwh": 42.15,
+          "idle": 3,
+          "util": 40.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 21.8,
+          "idle": 3,
+          "util": 40.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 2.31,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 57,
+      "name": "萧山机场充电站",
+      "idle": 5,
+      "total": 5,
+      "forecast": {
+        "h1": {
+          "kwh": 6.44,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 5.58,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 6.44,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 58,
+      "name": "良渚文化村充电站",
+      "idle": 5,
+      "total": 5,
+      "forecast": {
+        "h1": {
+          "kwh": 48.81,
+          "idle": 3,
+          "util": 40.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 33.25,
+          "idle": 3,
+          "util": 40.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 27.45,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 59,
+      "name": "西溪湿地充电站",
+      "idle": 5,
+      "total": 5,
+      "forecast": {
+        "h1": {
+          "kwh": 51.67,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 37.51,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 51.67,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 60,
+      "name": "临平银泰充电站",
+      "idle": 5,
+      "total": 6,
+      "forecast": {
+        "h1": {
+          "kwh": 6.44,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 9.6,
+          "idle": 4,
+          "util": 33.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 37.35,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 61,
+      "name": "富阳鹿山充电站",
+      "idle": 4,
+      "total": 6,
+      "forecast": {
+        "h1": {
+          "kwh": 6.44,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 8.77,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 4.36,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 62,
+      "name": "桐庐富春江充电站",
+      "idle": 3,
+      "total": 5,
+      "forecast": {
+        "h1": {
+          "kwh": 19.32,
+          "idle": 3,
+          "util": 40.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 14.02,
+          "idle": 3,
+          "util": 40.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 19.32,
+          "idle": 3,
+          "util": 40.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 63,
+      "name": "九堡客运中心充电站",
+      "idle": 1,
+      "total": 4,
+      "forecast": {
+        "h1": {
+          "kwh": 42.02,
+          "idle": 3,
+          "util": 25.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 13.65,
+          "idle": 2,
+          "util": 50.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 7.52,
+          "idle": 2,
+          "util": 50.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 64,
+      "name": "夫子庙充电站",
+      "idle": 6,
+      "total": 6,
+      "forecast": {
+        "h1": {
+          "kwh": 22.55,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 14.75,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 10.86,
+          "idle": 4,
+          "util": 33.3,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 65,
+      "name": "玄武湖充电站",
+      "idle": 1,
+      "total": 5,
+      "forecast": {
+        "h1": {
+          "kwh": 12.89,
+          "idle": 3,
+          "util": 40.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 37.45,
+          "idle": 3,
+          "util": 40.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 12.88,
+          "idle": 3,
+          "util": 40.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 66,
+      "name": "南京南站充电站",
+      "idle": 3,
+      "total": 5,
+      "forecast": {
+        "h1": {
+          "kwh": 9.66,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 8.75,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 6.95,
+          "idle": 4,
+          "util": 20.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 67,
+      "name": "中山陵充电站",
+      "idle": 4,
+      "total": 6,
+      "forecast": {
+        "h1": {
+          "kwh": 1.09,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 17.23,
+          "idle": 4,
+          "util": 33.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 1.09,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 68,
+      "name": "鼓楼广场充电站",
+      "idle": 1,
+      "total": 4,
+      "forecast": {
+        "h1": {
+          "kwh": 47.28,
+          "idle": 3,
+          "util": 25.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 20.42,
+          "idle": 3,
+          "util": 25.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 25.19,
+          "idle": 2,
+          "util": 50.0,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 69,
+      "name": "长江大桥充电站",
+      "idle": 4,
+      "total": 7,
+      "forecast": {
+        "h1": {
+          "kwh": 40.94,
+          "idle": 6,
+          "util": 14.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 33.06,
+          "idle": 6,
+          "util": 14.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 40.94,
+          "idle": 6,
+          "util": 14.3,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 70,
+      "name": "栖霞山充电站",
+      "idle": 4,
+      "total": 7,
+      "forecast": {
+        "h1": {
+          "kwh": 6.44,
+          "idle": 6,
+          "util": 14.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 12.67,
+          "idle": 5,
+          "util": 28.6,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 6.44,
+          "idle": 6,
+          "util": 14.3,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 71,
+      "name": "溧水万达充电站",
+      "idle": 4,
+      "total": 6,
+      "forecast": {
+        "h1": {
+          "kwh": 66.57,
+          "idle": 3,
+          "util": 50.0,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 17.44,
+          "idle": 4,
+          "util": 33.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 6.44,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    },
+    {
+      "station_id": 72,
+      "name": "高淳老街充电站",
+      "idle": 4,
+      "total": 6,
+      "forecast": {
+        "h1": {
+          "kwh": 16.34,
+          "idle": 4,
+          "util": 33.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h6": {
+          "kwh": 30.45,
+          "idle": 4,
+          "util": 33.3,
+          "is_peak": 0,
+          "congestion": "low"
+        },
+        "h24": {
+          "kwh": 12.88,
+          "idle": 5,
+          "util": 16.7,
+          "is_peak": 0,
+          "congestion": "low"
+        }
+      }
+    }
+  ],
+  "alerts": [],
+  "note": "ADS 占位预测来自 DWS 最新/近6h/昨日同时段，MLlib 在 --stage train 替换"
+}
