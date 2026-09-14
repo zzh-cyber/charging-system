@@ -13,13 +13,31 @@
 全过返回 0，任一条不过返回 1。
 """
 import json
+import os
 import sys
 from decimal import Decimal
+from pathlib import Path
 
 from pyspark.sql import SparkSession, functions as F
 from pyspark.sql.window import Window
 
+# 契约与脚本永远在同一个目录里。别写成绝对路径 —— 换台机器或换个用户名就炸，
+# 而且报错会是 FileNotFoundError，看着像契约丢了，其实只是路径写死了。
+# 答辩机、组员机器上的用户名都不是 dyx，写死等于这个脚本只能在一台机器上跑。
+CONTRACT = Path(__file__).resolve().parent / "dq_expected.json"
+
 ODS = "hdfs://localhost:8020/user/charging/ods"
+# 允许用环境变量把 ODS 指到本地目录，Hadoop 没起时也能把校验跑完。
+# ⚠️ 目录层次要和 HDFS 上一致（{ODS}/{表名}/ods_{表名}.csv），不能直接指 out/ ——
+#    下面的路径是按这个层次拼的：
+#       mkdir -p /tmp/ods_mirror/{charge_order,station,pile}
+#       cp bigdata/out/ods_charge_order.csv /tmp/ods_mirror/charge_order/
+#       cp bigdata/out/ods_station.csv      /tmp/ods_mirror/station/
+#       cp bigdata/out/ods_pile.csv         /tmp/ods_mirror/pile/
+#       ODS_DIR=file:///tmp/ods_mirror \
+#         spark-submit --master 'local[2]' bigdata/check_ods_hdfs.py
+# 默认仍是 HDFS —— 验收要验的就是「传上去之后读回来的那份」。
+ODS = os.environ.get("ODS_DIR", ODS)
 
 # 显式 schema：不用 inferSchema（空字段会被当空串塞进 string 列，数值列可能整列推错）
 CHARGE_ORDER_SCHEMA = """
@@ -58,8 +76,7 @@ def check(ok, label, detail=""):
 
 
 def main():
-    expected = json.load(open(
-        "/home/dyx/charging-system/bigdata/dq_expected.json", encoding="utf-8"))
+    expected = json.load(open(CONTRACT, encoding="utf-8"))
 
     spark = (SparkSession.builder
              .appName("verify-ods-hdfs")
@@ -157,10 +174,14 @@ def main():
     # ---------------- 干净行自洽 ----------------
     print("\n[5] 干净行自洽（dq_tag='OK'，另排掉跨 sim_now 被截断的会话）")
     clean = order.filter(F.col("dq_tag") == "OK")
+    # sim_now 从契约定，别在这里硬编码：生成窗口默认跟着「今天」走，
+    # 写死某一天之后，一旦有人换了 --end-date，这三处断言会集体失效却看不出。
+    sim_now = expected["params"]["sim_now"]
+    print(f"     （契约里的 sim_now = {sim_now}）")
     # 跨过 sim_now 的会话按已充时长折算过 kwh，本来就不满足整段的关系式
-    truncated = clean.filter(F.col("end_time") == F.lit("2026-09-13 21:00:00"))
+    truncated = clean.filter(F.col("end_time") == F.lit(sim_now))
     nt = truncated.count()
-    full = clean.filter(F.col("end_time") != F.lit("2026-09-13 21:00:00"))
+    full = clean.filter(F.col("end_time") != F.lit(sim_now))
     print(f"     （排掉 {nt} 行被截断的 charging 会话，其 kwh 只算已充部分）")
     check(truncated.filter(F.col("status") != "charging").count() == 0,
           "被截断的行 status 都是 charging")
@@ -182,7 +203,7 @@ def main():
     check(bad3.count() == 0, "duration_seconds == end_time - start_time",
           f"对不上 {bad3.count()} 行")
 
-    bad4 = clean.filter(F.col("end_time") > F.lit("2026-09-13 21:00:00"))
+    bad4 = clean.filter(F.col("end_time") > F.lit(sim_now))
     check(bad4.count() == 0, "end_time <= sim_now（无未来的负荷）",
           f"越界 {bad4.count()} 行")
 
@@ -228,8 +249,21 @@ def main():
     want_k = Decimal(expected["derived"]["dwd_kwh_total"])
     check(abs(Decimal(str(total)) - want_k) < Decimal("0.5"),
           f"DWD kwh 合计 {total}", f"(契约 {want_k})")
-    print("     ⚠️ SOC_RANGE 的 177 行【必须留在这里】—— 矩阵口径是「裁剪或置空」，")
-    print("        不是丢弃；丢掉的话 DWD 会少 177 行、少约 12457 度，对不上契约。")
+    # ⚠️ 这几句里的数字【从数据里算】，不许写死。换一份数据（比如演示库的
+    #    user 表行数变了）整份文件都会不同，写死的数会静默变成错的 ——
+    #    9/14 换基准那次，这里写的 12457 就跟实测算出的 6067.29 对不上。
+    soc = dwd.filter(F.col("dq_tag") == "SOC_RANGE")
+    n_soc = soc.count()
+    kwh_soc = soc.agg(F.sum("kwh")).collect()[0][0]
+    sc = dwd.filter(F.col("dq_tag") == "STATUS_CONFLICT")
+    n_sc = sc.count()
+    kwh_sc = sc.agg(F.sum("kwh")).collect()[0][0]
+    print(f"     ⚠️ SOC_RANGE 的 {n_soc} 行【必须留在这里】—— 矩阵口径是「裁剪或置空」，")
+    print(f"        不是丢弃；丢掉的话 DWD 会少 {n_soc} 行、少约 {kwh_soc} 度，对不上契约。")
+    print(f"     ⚠️ 状态矛盾的 {n_sc} 行同样【必须留在这里】，它们带着约 {kwh_sc} 度。")
+    print("        这一条是遗留歧义：NO.114 的丢弃清单里没列它（=不丢），但矩阵场景表")
+    print("        「清洗规则（DWD）」那一栏写的是「本阶段丢弃」。9/14 按 NO.114 裁定为")
+    print("        【保留】，与 pipeline.apply_clean 一致 —— 别照场景表把它删掉。")
 
     # dq_tag 在 DWD 之后必须 drop（这里只是证明它没参与清洗）
     check("dq_tag" in dwd.columns, "dq_tag 此刻还在（DWD 收尾要 drop 掉它）")

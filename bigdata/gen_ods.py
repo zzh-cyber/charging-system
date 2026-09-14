@@ -10,11 +10,25 @@
     python3 bigdata/gen_ods.py --tables station
     python3 bigdata/gen_ods.py --keep-all-stations   # 不排除站 73
 
-可复现：同一组 (--seed --end-date --sim-now --days --rows --dirty-ratio) 下
-输出逐字节相同。解析后的参数会写进 bigdata/dq_expected.json 备查。
+⚠️ 可复现是【有条件的】：同一组 (--seed --end-date --sim-now --days --rows
+--dirty-ratio) 下输出逐字节相同，但前提是**演示库的 station / pile / user
+三张表也和上次一模一样**。`load_dimensions()` 是拿 `SELECT` 现读这三张表的，
+不是从仓库读的 —— 只要有人注册一个用户、或用管理员端建一个站/桩，
+返回的 stations / piles / users 就变了，同一组参数会生成出**完全不同的文件**。
+实测：两个人的演示库 `user` 表一个是 40 行、一个是 21 行，其余参数全同，
+结果 20000 行里 dwd_rows 一个 16752、一个 16747，kwh 也差了一千多度。
+而且是**雪崩式**的，不是局部差异 —— 所有抽取共用一个 `random.Random(seed)`
+流，前面错一位后面全错位。
+
+另外 `--end-date` 默认「今天」，所以**不给这个参数就等于把「今天几号」当输入**。
+
+⇒ 换台机器、或隔几天再跑，复现不出原文件。产物的 sha256 见契约的
+`file_sha256`，拿到文件可以先自证是不是同一份。
+解析后的参数会写进 bigdata/dq_expected.json 备查。
 """
 
 import argparse
+import hashlib
 import json
 import sys
 from datetime import date, datetime
@@ -39,6 +53,27 @@ DEFAULT_EXCLUDE_STATIONS = [73]
 #: 契约文件放在 bigdata/ 而不是 out/ —— out/ 被 .gitignore 整个忽略，
 #: 放那儿两位队友就看不到这份接口约定了。
 CONTRACT_PATH = common.ROOT / "dq_expected.json"
+
+
+def sha256_of(path):
+    """分块算 sha256，别一次读进内存 —— 维表小，订单 CSV 有几 MB。"""
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def file_hashes(out_dir):
+    """给这次生成的三份产物打指纹，随契约一起写出去。
+
+    作用是「拿到文件先自证是不是同一份」：生成器**不是**跨机器可复现的
+    （维表现读、--end-date 默认今天），所以光靠参数对不出同不同；
+    但对 sha256 是一秒的事。也是 HDFS 上那份和仓库里那份是否一致的判据。
+    """
+    names = [f"ods_{t}.csv" for t in TABLES] + ["ods_charge_order.csv"]
+    return {n: sha256_of(out_dir / n)
+            for n in names if (out_dir / n).exists()}
 
 #: 默认窗口 30 天而不是矩阵下限的 14 天，是实测调出来的：
 #: 72 站 / 399 桩 / 14 天的容量装不下 2 万单 —— 实测 14 天时有 17.7% 的
@@ -230,7 +265,12 @@ def generate_orders(conn, args, out_dir, excluded):
     print(f"✅ 订单 {written} 行, {len(simulate.COLUMNS)} 列 -> {path.name}")
     print(f"   列: {', '.join(simulate.COLUMNS)}")
     print()
+    report["file_sha256"] = file_hashes(out_dir)
     print_injection_table(report)
+    print()
+    print("  产物 sha256（写进契约 file_sha256，用来核对拿到的是不是同一份）")
+    for name, digest in report["file_sha256"].items():
+        print(f"    {digest}  {name}")
 
     CONTRACT_PATH.write_text(
         json.dumps(report, ensure_ascii=False, indent=2, default=str) + "\n",
