@@ -8,10 +8,7 @@
 
   python3 bigdata/gen_ods.py --orders
   source ~/.hadoop_env.sh
-  spark-submit bigdata/pipeline.py --stage qa
-  spark-submit bigdata/pipeline.py --stage clean
-  spark-submit bigdata/pipeline.py --stage dws
-  spark-submit bigdata/pipeline.py --stage ads
+  ./bigdata/hdfs_sync.sh                    # NO.118：冻结 ODS 上 HDFS 后 qa→train
   spark-submit --driver-memory 2g bigdata/pipeline.py --stage train
   spark-submit bigdata/pipeline.py --stage qa --ods hdfs   # 已 put 到 HDFS 时
 """

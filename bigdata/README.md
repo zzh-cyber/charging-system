@@ -16,6 +16,7 @@ python3 bigdata/gen_ods.py                    # 只导维表（NO.108）
 python3 bigdata/gen_ods.py --orders           # 维表 + 模拟订单 + 脏数据（NO.109/110）
 ./bigdata/put_ods.sh                          # 三个 CSV 上传 HDFS（NO.111）
 ./bigdata/put_ods.sh --status                 # 只探活 NameNode，不上传
+./bigdata/hdfs_sync.sh                        # NO.118：put 冻结 ODS 后 qa→clean→dws→ads→train
 
 # 验收：Spark 回读 HDFS，逐条核对 dq_expected.json 契约（NO.111）
 source ~/.hadoop_env.sh
@@ -289,8 +290,9 @@ Spark 读整个目录会把行数翻倍（也不会读 `.` / `_` 开头的隐藏
 HDFS 走 **8020**（`hdfs://localhost:8020`），**不要用 9000** —— 那是充电业务的地盘。
 Hadoop 不随 WSL 开机自启，重启后先 `~/hadoopctl.sh start`。
 
-> `put_ods.sh` 刻意**不叫** `hdfs_sync.sh` —— 那个文件名在需求矩阵里划给翟梓涵的
-> 全流水线脚本（qa→clean→dws→ads→train），不占他的位置。
+> `put_ods.sh` 只负责 ODS 上传。`hdfs_sync.sh` 是翟梓涵的全流水线（NO.118）：
+> 先 put **冻结的** `bigdata/out/ods_*.csv`（禁止迷你 `bigdata/ods/`），再
+> `spark-submit` qa→clean→dws→ads→train。脚本**不会** `namenode -format`。
 
 ## `check_ods_hdfs.py` 验收脚本
 

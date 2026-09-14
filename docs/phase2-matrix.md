@@ -2,11 +2,11 @@
 
 > **项目名称**：新能源汽车充电管理系统（接第一阶段 Qt + MySQL）  
 > **节点**：9/12 环境就绪 · **9/15 两项验收**  
-> **编制日期**：2026-09-12　**修订**：2026-09-14（DWS/ADS 已在答辩机跑通）  
+> **编制日期**：2026-09-12　**修订**：2026-09-14 午（补 NO.127–129 调度建议/故障列表/预警口径）  
 > **状态图例**：○ 完成　△ 进行中　× 未着手  
 
 第一阶段四项（用户端 / 管理端 / 服务端 / 数据库）不变。本文件覆盖老师文档 **（4）大数据可视化大屏**、**（5）充电负荷智能预测**，并按老师给出的作业步骤落地。  
-故障诊断、需求调度、智能风控、实时天气 API、三节点 Hadoop、YARN、Hive：**9/15 不做**。  
+独立模型级的故障诊断、需求调度优化器、智能风控、**实时天气 API**、三节点 Hadoop、YARN、Hive：**9/15 不做**。大屏可用规则做浅版调度建议与故障列表（NO.127–128）；天气只允许自己造 CSV，禁止接 API（NO.129）。  
 **禁止**把脏数据和大量模拟订单写入演示库 `charging_system`（Qt / TCP:9000 / 演示号余额约 92.50 保持干净）。
 
 老师六步与本项目对应：
@@ -131,6 +131,8 @@ Flask 大屏以 HDFS ADS / 导出 JSON 为准，不直连业务库。
 | GET | `/api/load` | `load_today`、`load_forecast_24h` |
 | GET | `/api/stations` | 各站占用率与 h1/h6/h24 |
 | GET | `/api/alerts` | 高峰预警列表 |
+| GET | `/api/dispatch` | 调度建议：高峰站 → 附近空闲站（NO.127，可叠在 `/api/dashboard`） |
+| GET | `/api/faults` | 故障桩规则列表（NO.128，来自 ODS `pile.status=fault`） |
 
 JSON 字段与下面结构对齐（便于先 mock）：
 
@@ -169,6 +171,12 @@ JSON 字段与下面结构对齐（便于先 mock）：
   }],
   "alerts": [
     {"station_id": 1, "name": "市民中心充电站", "horizon": 6, "reason": "6小时后预测占用率 83%"}
+  ],
+  "dispatch": [
+    {"from_id": 31, "from_name": "北京南站充电站", "to_id": 1, "to_name": "深圳市民中心充电站", "reason": "1小时后占用偏高，导向空闲更多的站"}
+  ],
+  "faults": [
+    {"pile_id": 4, "code": "BJ001-01", "station_id": 4, "station_name": "北京国贸充电站", "status": "fault"}
   ]
 }
 ```
@@ -189,7 +197,7 @@ JSON 字段与下面结构对齐（便于先 mock）：
 |------|----------|----------|------|
 | （1）模拟数据+脏数据+上 ODS | 邓雅心 | `bigdata/gen_ods.py`、维表导出、`sql/patch_v4_load_forecast.sql` | 不写脏数据进 `charging_system`；不跑 MLlib |
 | （2）（3）（4）（6）探查/清洗/分层/预测 | 翟梓涵 | `bigdata/dq_clean.py`、`bigdata/warehouse.sql.py`（或同一 `pipeline.py` 分阶段）、`bigdata/train_forecast.py`、`bigdata/hdfs_sync.sh` | 全部 `spark-submit`；演示不用 sklearn |
-| （5）Flask+Vue+ECharts | 牛昀轶 | `dashboard/app.py`、`dashboard/frontend/`（Vue CDN + ECharts） | 只调 Flask `/api`；不直连 MySQL；不进 `client-admin/` |
+| （5）Flask+Vue+ECharts | 牛昀轶 | `dashboard/app.py`、`dashboard/frontend/`（Vue CDN + ECharts） | 只调 Flask `/api`；不直连 MySQL；不进 `client-admin/`。加分：NO.127–128 |
 | 预测接入服务端 | 朱雅琪 | `server/database.cpp` 的 `stationList` | 只读 `load_forecast` |
 | 用户端推荐 | 马晓钰 | `client-user/stationlistpage.*`、`stationcardwidget.*` | 不直连 MySQL；不读 HDFS |
 
@@ -213,7 +221,7 @@ JSON 字段与下面结构对齐（便于先 mock）：
 | 115 | 老师（4）SparkSQL | DWD→DWS | 站×小时负荷 | TempView + SparkSQL 按整点分摊 kwh、统计占用/空闲。写出 `/user/charging/dws/station_hour/`。节假日用内置日历，不调天气 API。 | 翟梓涵 | 2026-09-13 | ○ | SQL 要能在答辩打开讲解 |
 | 116 | 老师（4）SparkSQL | DWS→ADS | KPI、预警、训练宽表 | SparkSQL 汇总今日 kwh/营收（amount 分摊或按日）、桩状态可用演示库 pile 快照或 DWS 最新小时。预警：占用率≥80%。训练宽表含 lag-1、近 24h 均值、horizon 展开 1/6/24。写出 `/user/charging/ads/`。 | 翟梓涵 | 2026-09-14 | ○ | Flask 只读 ADS |
 | 117 | 老师（6）预测 | Spark MLlib | 1h/6h/24h 负荷与空闲桩 | `spark-submit` 读 ADS 宽表。`VectorAssembler`：hour、weekday、is_weekend、is_holiday、lag、24h 均值、**horizon**。MLlib `RandomForestRegressor` 或 `GBTRegressor`，kwh 与 idle 各一模型。裁剪 idle∈[0,total]、util∈[0,100]；≥80% 为高峰。写 ADS forecast + `load_forecast`（pymysql，station_id 映射演示库）+ Flask 用 JSON。 | 翟梓涵 | 2026-09-14 | ○ | 演示主路径不用 sklearn；local[*] |
-| 118 | 老师（6）部署 | 一键流水线 | qa→clean→dws→ads→train | `hdfs_sync.sh`：NameNode 存活则 `spark-submit pipeline.py`；禁止 namenode -format。结束打印各层行数、4040、Flask JSON 路径。 | 翟梓涵 | 2026-09-14 | △ | 与充电 9000 同时开 |
+| 118 | 老师（6）部署 | 一键流水线 | qa→clean→dws→ads→train | `hdfs_sync.sh`：NameNode 存活则 `spark-submit pipeline.py`；禁止 namenode -format。结束打印各层行数、4040、Flask JSON 路径。答辩用默认（读 HDFS）；Hadoop 未起可用 `HDFS_SYNC_ODS=local`。 | 翟梓涵 | 2026-09-14 | ○ | 与充电 9000 同时开 |
 | 119 | 老师（5）大屏 | Flask API | 提供 /api/quality 与看板数据 | `dashboard/app.py` 读 ADS/qa JSON（或仓库 mock）。端口 8081。13 号 mock 与上文结构一致。 | 牛昀轶 | 2026-09-13 | ○ | 不直连业务 MySQL |
 | 120 | 老师（5）大屏 | Vue+ECharts | 6 区运营看板 | Vue 3 CDN + ECharts 5 CDN。KPI、质量摘要、今日负荷、24h 预测、各站占用、预警。`axios/fetch` 调 Flask。空数据不白屏。 | 牛昀轶 | 2026-09-13 | ○ | 不用 HBuilderX、不用 `http.server` 当验收主路径 |
 | 121 | 老师（5）大屏 | 接真 ADS | 流水线后刷新大屏 | 14 号改 fetch 真接口；质量区数字与 qa/report 一致；预警可点高亮站。 | 牛昀轶 | 2026-09-14 | △ | Flask 与 Spark 写文件的路径约定好 |
@@ -222,6 +230,9 @@ JSON 字段与下面结构对齐（便于先 mock）：
 | 124 | 用户端 | 智能推荐开关 | 距离序 / 预测序 | 默认关=NO.4。打开后排缓存：congestion → score → distance。缺字段当 mid/0。 | 马晓钰 | 2026-09-13 | ○ | 不改导航 |
 | 125 | 用户端 | 卡片标记 | 低拥堵 / 高峰将至 | low 绿、is_peak_1h 橙、high 红；缺字段不崩。 | 马晓钰 | 2026-09-13 | △ | — |
 | 126 | 联调 | 15 号验收 | 按老师六步演示 | ① ODS 脏数据 + qa 报告（（1）（2））。② DWD/DWS/ADS 路径与 SparkSQL（（3）（4））。③ Flask+Vue 大屏（（5））。④ spark-submit MLlib + 4040 + 用户端推荐（（6）+附加）。演示号余额约 92.50。 | 翟梓涵（组织）全员 | 2026-09-15 | × | 录屏按六步，不要只播大屏 |
+| 127 | 老师（5）加分 | 大屏 | 运营调度建议 | 不新开优化器。用已有预测的拥堵/空闲，大屏列若干条「高峰站 → 附近空闲站」（`dispatch[]`：`from_id/from_name/to_id/to_name/reason`）。数据来自 ADS `dashboard.json` 的 stations 预测，Flask 只读 JSON。用户端智能推荐（NO.124）是同一逻辑的 C 端，**不交给马晓钰改大屏**。 | 牛昀轶 | 2026-09-15 | × | 空列表不白屏 |
+| 128 | 老师（5）加分 | 大屏 | 故障桩规则列表 | 不做故障时序/诊断模型。ODS `pile.status==fault` 当前约 36 根，大屏一张列表（`faults[]`：`pile_id/code/station_id/station_name/status`）。可从 `bigdata/out/ods_pile.csv` 或 ADS JSON 带出；不直连演示库。 | 牛昀轶 | 2026-09-15 | × | 没有故障时序就不要上 MLlib |
+| 129 | 老师（6）加分 | 预警口径 | 占用率≥80% 才亮 | **禁止改 80% 阈值**。`is_peak` / 大屏预警仍是 util≥80%。当前 MLlib 最高约 50%，预警区允许为 0，不算接口坏。若要拉高占用：翟梓涵自造 `weather.csv`（阴雨/温度，按日或城市拼 DWS）后重训，**不接气象 API**、不重跑 `gen_ods.py`、不改清洗口径。加天气后仍不到 80%，口播「本窗口负荷偏低」。 | 翟梓涵 | 2026-09-15 | × | 不要为了亮预警改阈值 |
 
 ---
 
@@ -257,11 +268,14 @@ JSON 字段与下面结构对齐（便于先 mock）：
 | 朱雅琪 | NO.123 | JOIN 真表 | 标签与库一致 |
 | 马晓钰 | 对比站 | 近而 high / 稍远而 low | 开推荐后 low 在前 |
 
-### 9/15（二）— 只按六步录屏，不新开功能
+### 9/15（二）— 六步录屏；加分三项不阻塞主路径
 
 | 人员 | 当天功能 | 实现方法 | 当晚验收 |
 |------|----------|----------|----------|
 | 全员 | NO.126 | 录：（1）脏数据（2）探查（3）清洗（4）四层路径（5）大屏（6）MLlib+推荐 | 老师六步都能指到文件 |
+| 牛昀轶 | NO.127–128 | 大屏调度建议 + 故障桩列表；空数据不白屏 | 能指到 `dispatch`/`faults` |
+| 翟梓涵 | NO.118 已收口；NO.129 可选 | 一键流水线已能 qa→train；预警不改 80%。模拟天气才允许重训 | 阈值仍是 80%；没亮就承认负荷偏低 |
+| 马晓钰 | 只验收用户端 | 真 `station_list` 下推荐开关与卡片标签 | **不改大屏、不改 Spark** |
 | 翟梓涵 | 合 PR | 冲突按文件边界 | 9000 与 8020 同时活 |
 | 邓雅心 | 口播 | 「业务库干净；ODS 才是模拟脏数据」 | 问数据从哪来能答 |
 
@@ -269,9 +283,12 @@ JSON 字段与下面结构对齐（便于先 mock）：
 
 ## 15 号砍掉（问到就说「下一迭代」）
 
-- 实时气象 API、故障诊断、需求调度、风控评分  
+- **实时气象 API**（模拟天气 CSV 见 NO.129，仍不接网）  
+- **故障诊断模型**、**需求调度优化器**（浅版规则见 NO.127–128，不上新算法）  
+- 智能风控评分、逐桩负荷预测、用户出行画像  
 - 三节点 Hadoop、YARN 上跑 Spark、Hive 建仓  
 - 用 sklearn 代替 Spark MLlib 作验收主路径  
 - 把脏数据写入 `charging_system.charge_order`  
 - 把 ECharts 塞进 Qt 管理端；用 HBuilderX 代替 Vue  
 - 新开充电 TCP `MsgType`、改充电端口 9000  
+- 为了让预警亮起来而把高峰阈值改到 80% 以下  
