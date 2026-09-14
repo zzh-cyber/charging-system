@@ -1,1 +1,64 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>充电运营数据大屏</title><script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script><script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script><link rel="stylesheet" href="/style.css"></head><body><div id="app"><header><h1>新能源汽车充电运营大屏</h1><button @click="refresh">刷新数据</button><span :class="error?'bad':''">{{error||'数据已更新'}}</span></header><main><section class="kpis"><article v-for="(v,k) in kpi" :key="k"><small>{{labels[k]||k}}</small><strong>{{format(v,k)}}</strong></article></section><div class="grid"><section class="panel"><h2>数据质量摘要</h2><div class="quality"><div v-for="(v,k) in quality" :key="k"><b>{{v}}</b><small>{{qualityLabels[k]||k}}</small></div></div></section><section class="panel"><h2>预警列表</h2><div v-if="!alerts.length" class="empty">暂无预警</div><div v-for="a in alerts" class="alert" @click="highlight(a.station_id)">⚠ {{a.name}}：{{a.reason}}</div></section><section class="panel chart"><h2>今日充电负荷</h2><div ref="load"></div></section><section class="panel chart"><h2>未来 24 小时预测</h2><div ref="forecast"></div></section><section class="panel chart wide"><h2>各站点占用率</h2><div ref="stations"></div></section></div></main></div><script src="/app.js"></script></body></html>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>充电运营数据大屏</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>新能源汽车充电运营大屏</h1>
+      <button type="button" @click="refresh">刷新数据</button>
+      <span :class="error ? 'bad' : ''">{{ error || ('数据已更新 ' + (generated_at || '')) }}</span>
+    </header>
+    <main>
+      <section class="kpis">
+        <article v-for="key in kpiOrder" :key="key">
+          <small>{{ labels[key] || key }}</small>
+          <strong>{{ format(kpis[key], key) }}</strong>
+        </article>
+      </section>
+      <div class="grid">
+        <section class="panel">
+          <h2>数据质量摘要</h2>
+          <div class="quality">
+            <div v-for="key in qualityOrder" :key="key">
+              <b>{{ quality[key] ?? '--' }}</b>
+              <small>{{ qualityLabels[key] || key }}</small>
+            </div>
+          </div>
+        </section>
+        <section class="panel">
+          <h2>预警列表</h2>
+          <div v-if="!alerts.length" class="empty">暂无预警</div>
+          <div
+            v-for="(a, i) in alerts"
+            :key="i"
+            class="alert"
+            @click="highlight(a.station_id)"
+          >
+            ⚠ {{ a.name }}：{{ a.reason }}
+          </div>
+        </section>
+        <section class="panel chart">
+          <h2>今日充电负荷</h2>
+          <div ref="load"></div>
+        </section>
+        <section class="panel chart">
+          <h2>未来 24 小时预测</h2>
+          <div ref="forecast"></div>
+        </section>
+        <section class="panel chart wide">
+          <h2>各站点占用率</h2>
+          <div ref="stations"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>
