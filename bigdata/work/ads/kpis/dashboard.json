@@ -7,7 +7,11 @@
     "busy_piles": 61,
     "fault_piles": 36,
     "peak_hour": "11:00",
-    "alert_count": 0
+    "alert_count": 0,
+    "order_count": 16924,
+    "total_kwh": 609996.23,
+    "total_revenue": 787325.59,
+    "active_stations": 72
   },
   "quality": {
     "ods_rows": 20000,
@@ -211,6 +215,163 @@
     {
       "offset": 24,
       "kwh": 1545.75
+    }
+  ],
+  "load_hour_avg": [
+    {
+      "hour": 0,
+      "kwh": 372.48
+    },
+    {
+      "hour": 1,
+      "kwh": 227.3
+    },
+    {
+      "hour": 2,
+      "kwh": 163.76
+    },
+    {
+      "hour": 3,
+      "kwh": 133.02
+    },
+    {
+      "hour": 4,
+      "kwh": 167.7
+    },
+    {
+      "hour": 5,
+      "kwh": 181.98
+    },
+    {
+      "hour": 6,
+      "kwh": 367.51
+    },
+    {
+      "hour": 7,
+      "kwh": 831.34
+    },
+    {
+      "hour": 8,
+      "kwh": 1128.39
+    },
+    {
+      "hour": 9,
+      "kwh": 1165.99
+    },
+    {
+      "hour": 10,
+      "kwh": 1052.05
+    },
+    {
+      "hour": 11,
+      "kwh": 1031.6
+    },
+    {
+      "hour": 12,
+      "kwh": 1048.55
+    },
+    {
+      "hour": 13,
+      "kwh": 1032.37
+    },
+    {
+      "hour": 14,
+      "kwh": 1065.17
+    },
+    {
+      "hour": 15,
+      "kwh": 1119.91
+    },
+    {
+      "hour": 16,
+      "kwh": 1302.62
+    },
+    {
+      "hour": 17,
+      "kwh": 1531.35
+    },
+    {
+      "hour": 18,
+      "kwh": 1650.0
+    },
+    {
+      "hour": 19,
+      "kwh": 1558.47
+    },
+    {
+      "hour": 20,
+      "kwh": 1209.42
+    },
+    {
+      "hour": 21,
+      "kwh": 803.03
+    },
+    {
+      "hour": 22,
+      "kwh": 614.68
+    },
+    {
+      "hour": 23,
+      "kwh": 426.47
+    }
+  ],
+  "weekday_weekend": {
+    "weekday_kwh": 423647.05,
+    "weekend_kwh": 180063.34,
+    "note": "DWS 分摊电量；weekday=周一至周五，weekend=周六日"
+  },
+  "regions": [
+    {
+      "city": "北京市",
+      "kwh": 112550.29,
+      "amount": 143727.58,
+      "yuan_per_kwh": 1.28
+    },
+    {
+      "city": "广州市",
+      "kwh": 106695.86,
+      "amount": 134860.04,
+      "yuan_per_kwh": 1.26
+    },
+    {
+      "city": "杭州市",
+      "kwh": 101719.8,
+      "amount": 129637.59,
+      "yuan_per_kwh": 1.27
+    },
+    {
+      "city": "上海市",
+      "kwh": 91662.71,
+      "amount": 127412.06,
+      "yuan_per_kwh": 1.39
+    },
+    {
+      "city": "深圳市",
+      "kwh": 97638.77,
+      "amount": 126587.41,
+      "yuan_per_kwh": 1.3
+    },
+    {
+      "city": "南京市",
+      "kwh": 99728.8,
+      "amount": 125100.91,
+      "yuan_per_kwh": 1.25
+    }
+  ],
+  "pile_types": [
+    {
+      "type": "直流",
+      "idle": 220,
+      "busy": 41,
+      "fault": 27,
+      "util": 15.7
+    },
+    {
+      "type": "交流",
+      "idle": 82,
+      "busy": 20,
+      "fault": 9,
+      "util": 19.6
     }
   ],
   "stations": [

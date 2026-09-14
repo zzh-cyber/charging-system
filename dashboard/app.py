@@ -55,6 +55,10 @@ def mock_data() -> dict:
             "fault_piles": 29,
             "peak_hour": "18:00",
             "alert_count": 3,
+            "order_count": 16924,
+            "total_kwh": 609996.23,
+            "total_revenue": 792000.0,
+            "active_stations": 72,
         },
         "quality": {
             "ods_rows": 20000,
@@ -134,6 +138,20 @@ def mock_data() -> dict:
                 "horizon": 6,
                 "reason": "6小时后预测占用率 92%",
             },
+        ],
+        "load_hour_avg": load_today,
+        "weekday_weekend": {
+            "weekday_kwh": 420000.0,
+            "weekend_kwh": 180000.0,
+            "note": "DWS 分摊电量；weekday=周一至周五，weekend=周六日",
+        },
+        "regions": [
+            {"city": "深圳市", "kwh": 100000.0, "amount": 130000.0, "yuan_per_kwh": 1.3},
+            {"city": "北京市", "kwh": 98000.0, "amount": 147000.0, "yuan_per_kwh": 1.5},
+        ],
+        "pile_types": [
+            {"type": "直流", "idle": 220, "busy": 41, "fault": 27, "util": 15.7},
+            {"type": "交流", "idle": 82, "busy": 20, "fault": 9, "util": 19.6},
         ],
     }
 

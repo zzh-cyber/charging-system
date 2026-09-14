@@ -594,11 +594,154 @@ def quality_from_disk() -> dict:
     return out
 
 
+def collect_ops_panels(spark: SparkSession) -> tuple[dict, dict]:
+    """范例大屏可补块（不改清洗、不重训）：全窗口 KPI、小时均负荷、工作日/周末、分城、快慢桩。"""
+    kpi_extra = {
+        "order_count": 0,
+        "total_kwh": 0.0,
+        "total_revenue": 0.0,
+        "active_stations": 0,
+    }
+    panels = {
+        "load_hour_avg": [{"hour": h, "kwh": 0.0} for h in range(24)],
+        "weekday_weekend": {"weekday_kwh": 0.0, "weekend_kwh": 0.0},
+        "regions": [],
+        "pile_types": [],
+    }
+
+    hod_rows = spark.sql(
+        """
+        SELECT hour_of_day AS hour,
+               ROUND(
+                 SUM(kwh) / COUNT(DISTINCT date_format(hour_ts, 'yyyy-MM-dd')),
+                 2
+               ) AS kwh
+        FROM dws
+        GROUP BY hour_of_day
+        """
+    ).collect()
+    by_hod = {int(r["hour"]): float(r["kwh"] or 0.0) for r in hod_rows}
+    panels["load_hour_avg"] = [
+        {"hour": h, "kwh": round(by_hod.get(h, 0.0), 2)} for h in range(24)
+    ]
+
+    ww = {
+        int(r["is_weekend"] or 0): float(r["kwh"] or 0.0)
+        for r in spark.sql(
+            """
+            SELECT CAST(is_weekend AS INT) AS is_weekend,
+                   ROUND(SUM(kwh), 2) AS kwh
+            FROM dws
+            GROUP BY CAST(is_weekend AS INT)
+            """
+        ).collect()
+    }
+    panels["weekday_weekend"] = {
+        "weekday_kwh": round(ww.get(0, 0.0), 2),
+        "weekend_kwh": round(ww.get(1, 0.0), 2),
+        "note": "DWS 分摊电量；weekday=周一至周五，weekend=周六日",
+    }
+
+    pile_rows = spark.sql(
+        """
+        SELECT
+          CASE
+            WHEN lower(type) = 'fast' THEN '直流'
+            WHEN lower(type) = 'slow' THEN '交流'
+            ELSE type
+          END AS type,
+          SUM(CASE WHEN status = 'idle' THEN 1 ELSE 0 END) AS idle,
+          SUM(CASE WHEN status = 'busy' THEN 1 ELSE 0 END) AS busy,
+          SUM(CASE WHEN status = 'fault' THEN 1 ELSE 0 END) AS fault
+        FROM ods_pile
+        GROUP BY
+          CASE
+            WHEN lower(type) = 'fast' THEN '直流'
+            WHEN lower(type) = 'slow' THEN '交流'
+            ELSE type
+          END
+        """
+    ).collect()
+    types_out = []
+    for r in pile_rows:
+        idle = int(r["idle"] or 0)
+        busy = int(r["busy"] or 0)
+        fault = int(r["fault"] or 0)
+        denom = idle + busy
+        util = 0.0 if denom <= 0 else round(100.0 * busy / denom, 1)
+        types_out.append(
+            {
+                "type": r["type"] or "其他",
+                "idle": idle,
+                "busy": busy,
+                "fault": fault,
+                "util": util,
+            }
+        )
+    order = {"直流": 0, "交流": 1}
+    types_out.sort(key=lambda x: order.get(x["type"], 9))
+    panels["pile_types"] = types_out
+
+    src = dwd_path()
+    if not src.is_file():
+        print("ADS 运营块：无 DWD，跳过全窗口 KPI 与分城", src)
+        return kpi_extra, panels
+
+    dwd = (
+        read_csv(spark, src)
+        .withColumn("station_id", F.col("station_id").cast("long"))
+        .withColumn("kwh", F.col("kwh").cast("double"))
+        .withColumn("amount", F.col("amount").cast("double"))
+    )
+    dwd.createOrReplaceTempView("dwd_ops")
+    tot = spark.sql(
+        """
+        SELECT COUNT(*) AS order_count,
+               ROUND(SUM(kwh), 2) AS total_kwh,
+               ROUND(SUM(amount), 2) AS total_revenue,
+               COUNT(DISTINCT station_id) AS active_stations
+        FROM dwd_ops
+        """
+    ).collect()[0]
+    kpi_extra = {
+        "order_count": int(tot["order_count"] or 0),
+        "total_kwh": float(tot["total_kwh"] or 0.0),
+        "total_revenue": float(tot["total_revenue"] or 0.0),
+        "active_stations": int(tot["active_stations"] or 0),
+    }
+    region_rows = spark.sql(
+        """
+        SELECT substring(s.address, 1, 3) AS city,
+               ROUND(SUM(o.kwh), 2) AS kwh,
+               ROUND(SUM(o.amount), 2) AS amount
+        FROM dwd_ops o
+        JOIN ods_station s ON o.station_id = CAST(s.id AS BIGINT)
+        GROUP BY substring(s.address, 1, 3)
+        ORDER BY amount DESC
+        """
+    ).collect()
+    regions = []
+    for r in region_rows:
+        kwh = float(r["kwh"] or 0.0)
+        amount = float(r["amount"] or 0.0)
+        regions.append(
+            {
+                "city": r["city"] or "未知",
+                "kwh": round(kwh, 2),
+                "amount": round(amount, 2),
+                "yuan_per_kwh": round(amount / kwh, 2) if kwh > 0 else 0.0,
+            }
+        )
+    panels["regions"] = regions
+    return kpi_extra, panels
+
+
 def stage_ads(spark: SparkSession) -> int:
     """NO.116：SparkSQL 从 DWS 出大屏 JSON + MLlib 训练宽表。
 
     1h/6h/24h 用「最新时刻 / 近 6h 均值 / 昨日同时段」占位，
     真正的 MLlib 预测留给 --stage train。
+    另写范例大屏运营块：全窗口 KPI、load_hour_avg、weekday_weekend、regions、pile_types。
     """
     src = dws_path()
     if not src.is_file():
@@ -638,6 +781,7 @@ def stage_ads(spark: SparkSession) -> int:
     stations.createOrReplaceTempView("ods_station")
     piles.createOrReplaceTempView("ods_pile")
     print("ADS 用 DWS + ODS source:", kind)
+    kpi_extra, ops_panels = collect_ops_panels(spark)
 
     w = Window.partitionBy("station_id").orderBy("hour_ts")
     w24 = Window.partitionBy("station_id").orderBy("hour_ts").rowsBetween(-24, -1)
@@ -857,10 +1001,18 @@ def stage_ads(spark: SparkSession) -> int:
             "fault_piles": int(fault_piles),
             "peak_hour": peak_hour,
             "alert_count": len(alerts),
+            "order_count": kpi_extra["order_count"],
+            "total_kwh": kpi_extra["total_kwh"],
+            "total_revenue": kpi_extra["total_revenue"],
+            "active_stations": kpi_extra["active_stations"],
         },
         "quality": quality_from_disk(),
         "load_today": load_today,
         "load_forecast_24h": load_forecast_24h,
+        "load_hour_avg": ops_panels["load_hour_avg"],
+        "weekday_weekend": ops_panels["weekday_weekend"],
+        "regions": ops_panels["regions"],
+        "pile_types": ops_panels["pile_types"],
         "stations": stations_out,
         "alerts": alerts,
         "note": "ADS 占位预测来自 DWS 最新/近6h/昨日同时段，MLlib 在 --stage train 替换",

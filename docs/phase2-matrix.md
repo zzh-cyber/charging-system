@@ -146,7 +146,11 @@ JSON 字段与下面结构对齐（便于先 mock）：
     "busy_piles": 160,
     "fault_piles": 29,
     "peak_hour": "18:00",
-    "alert_count": 3
+    "alert_count": 3,
+    "order_count": 18500,
+    "total_kwh": 87342.0,
+    "total_revenue": 103064.0,
+    "active_stations": 48
   },
   "quality": {
     "ods_rows": 20000,
@@ -158,6 +162,10 @@ JSON 字段与下面结构对齐（便于先 mock）：
   },
   "load_today": [{"hour": 0, "kwh": 12.3}],
   "load_forecast_24h": [{"offset": 1, "kwh": 15.0}],
+  "load_hour_avg": [{"hour": 0, "kwh": 12.3}],
+  "weekday_weekend": {"weekday_kwh": 420000.0, "weekend_kwh": 180000.0, "note": "DWS 分摊电量；weekday=周一至周五"},
+  "regions": [{"city": "深圳市", "kwh": 100000.0, "amount": 130000.0, "yuan_per_kwh": 1.3}],
+  "pile_types": [{"type": "直流", "idle": 220, "busy": 41, "fault": 27, "util": 15.7}],
   "stations": [{
     "station_id": 1,
     "name": "市民中心充电站",
