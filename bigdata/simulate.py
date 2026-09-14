@@ -618,12 +618,19 @@ def qa_scan(rows: list[dict],
 
 def clean_to_dwd(rows: list[dict],
                  station_ids: set[int],
-                 pile_ids: set[int]) -> list[dict]:
-    """按 NO.114 的四条规则清洗，用于算出精确的 dwd_rows。
+                 pile_ids: set[int],
+                 drop_status_conflict: bool = True) -> list[dict]:
+    """按矩阵规则清洗，用于算出精确的 dwd_rows。
 
     规则来自需求矩阵：
-      丢弃 start_time 为空 / kwh 为空 / kwh<0 / 时间颠倒 / 孤儿；重复单号留最新一条。
+      丢弃 start_time 为空 / kwh 为空 / kwh<0 / 时间颠倒 / 孤儿 / 状态矛盾；
+      重复单号留最新一条。
     注意 SOC 越界【不丢弃】（矩阵口径是「裁剪或置空」），所以它不减行数。
+
+    状态矛盾这条（settled 但 duration_seconds=0 而 kwh>0）在矩阵里曾经有两处
+    不一致的说法，9/14 已按 60-72 行场景表的「清洗规则（DWD）」列裁定为【丢弃】。
+    空 kwh 与它必须一起丢：DWD 是清洗层，带空 kwh 到了 DWS 会被 sum 静默当 0，
+    占用率却照算，属于「数看着对、口径说不清」。
     """
     kept = []
     for r in rows:
@@ -636,6 +643,10 @@ def clean_to_dwd(rows: list[dict],
         if r["station_id"] not in station_ids:
             continue
         if r["pile_id"] not in pile_ids:
+            continue
+        if (drop_status_conflict
+                and r["status"] == "settled" and r["duration_seconds"] == 0
+                and float(r["kwh"]) > 0):
             continue
         kept.append(r)
 
@@ -671,8 +682,8 @@ def _build_report(rows, injected, quota, params, usable, station_ids,
     def _kwh_sum(rs):
         return str(q2(sum(float(r["kwh"] or 0) for r in rs)))
 
-    #: DWD 各 dq_tag 的行数。用来把「哪些脏类进了 DWD」摊开 —— 只违反
-    #: 范围/自洽检查的 SOC_RANGE / STATUS_CONFLICT 不被丢弃，会留在这里。
+    #: DWD 各 dq_tag 的行数。用来把「哪些脏类进了 DWD」摊开 —— 现在只剩
+    #: SOC_RANGE 一类：它的矩阵口径是「裁剪或置空」不是丢，所以必须留着。
     dwd_by_tag: dict[str, int] = {}
     for r in dwd:
         dwd_by_tag[r["dq_tag"]] = dwd_by_tag.get(r["dq_tag"], 0) + 1
@@ -687,15 +698,15 @@ def _build_report(rows, injected, quota, params, usable, station_ids,
                  if r["status"] == "charging" and r["end_time"] == params.sim_now]
     truncated_clean = sum(1 for r in truncated if r["dq_tag"] == TAG_OK)
 
-    # 矩阵对 STATUS_CONFLICT 的清洗口径【自相矛盾】，两个数都算出来备查：
-    #   60-72 行场景表「清洗规则（DWD）」列 → 状态矛盾「丢弃或按规则重算
-    #                                          （本阶段丢弃）」= 丢弃
-    #   NO.114 详细说明 → 「丢弃空 start/负 kwh/时间颠倒/孤儿；重复 order_no
-    #                       留最新」= 没列它 = 保留
-    # 本实现跟 NO.114 的行级清单（保留）。不管组长最后定哪个，两个数都在
-    # 契约里，9/14 对数字时不会因为记账口径不同而假失败。
-    alt_rows = len(dwd) - dwd_by_tag.get("STATUS_CONFLICT", 0)
-    alt_kwh = _kwh_sum([r for r in dwd if r["dq_tag"] != "STATUS_CONFLICT"])
+    # 状态矛盾已按矩阵场景表裁定为【丢弃】。把「丢掉的那部分」显式算出来记账，
+    # 免得 6321.82 这个差额在仓库里没有出处：用同一套清洗规则再跑一遍
+    # 【不丢状态矛盾】的版本，两个版本相减。刻意不按 dq_tag 筛 ——
+    # 清洗口径必须由规则决定，拿注入标签反推就是自证。
+    dwd_keep_status = clean_to_dwd(rows, station_ids, pile_ids,
+                                   drop_status_conflict=False)
+    dropped_status = len(dwd_keep_status) - len(dwd)
+    dropped_status_kwh = str(
+        q2(Decimal(_kwh_sum(dwd_keep_status)) - Decimal(_kwh_sum(dwd))))
 
     peak = {}
     for sid in very_hot + hot:
@@ -722,8 +733,8 @@ def _build_report(rows, injected, quota, params, usable, station_ids,
             "dirty_rows": sum(1 for r in rows if r["dq_tag"] != TAG_OK),
             "dwd_rows": len(dwd),
             "dwd_by_tag": dict(sorted(dwd_by_tag.items())),
-            "dwd_rows_if_status_conflict_dropped": alt_rows,
-            "dwd_kwh_if_status_conflict_dropped": alt_kwh,
+            "dwd_dropped_status_conflict": dropped_status,
+            "dwd_kwh_status_conflict": dropped_status_kwh,
             "truncated_charging_rows": len(truncated),
             "truncated_charging_clean": truncated_clean,
             "natural_null_start": natural_null_start,
@@ -756,22 +767,30 @@ def _build_report(rows, injected, quota, params, usable, station_ids,
             "anti_joins": "station 和 pile 两个 anti-join 都要写。只写 pile 的话"
                           " ORPHAN_STATION 会漏进 DWD，DWS 冒出 station_id=9001，"
                           "而 load_forecast 对 station 有真 FK，写预测时会报错",
-            "time_reversed_op": "用严格 < ；写成 <= 会把 STATUS_CONFLICT 数两次",
+            "time_reversed_op": "用严格 < 判时间颠倒。当前数据里 end == start 的行数"
+                                "为 0，所以 < 与 <= 的结果相同（都是 177）—— 但这不代表"
+                                "两个写法等价：STATUS_CONFLICT 那类刻意保持 end-start="
+                                "1200s 正常、只把 duration_seconds 归零，为的就是不跟"
+                                "时间颠倒撞车。若将来有行写成 start == end，用 <= 会让它"
+                                "同时命中「时间颠倒」和「状态矛盾」两类，重复计数",
             "drop_dq_tag": "DWD 之后必须 drop 掉 dq_tag，且不许拿它当清洗依据",
             "dwd_soc_range_kept": "SOC_RANGE 那些行【不丢弃】—— 矩阵口径是「裁剪或"
                                   "置空」不是丢。丢掉的话 DWD 行数与 kwh 总量都会对"
                                   "不上契约的 dwd_rows / dwd_kwh_total",
             "dwd_composition": "DWD 里留了哪些行看 derived.dwd_by_tag：干净行 + "
-                               "SOC_RANGE + STATUS_CONFLICT。后两类只违反「范围/自洽」"
-                               "检查，不在四条丢弃规则里，所以【必须】留着",
-            "status_conflict_ambiguity": "⚠️ 矩阵两处对 STATUS_CONFLICT 口径不一致："
-                                         "60-72 行场景表的「清洗规则（DWD）」列写「本阶段"
-                                         "丢弃」，而 NO.114 详细说明的丢弃清单里没列它。"
-                                         "本实现按 NO.114 的清单【保留】，dwd_rows / "
-                                         "dwd_kwh_total 就是保留后的数；若组长裁定要丢，"
-                                         "用 derived.dwd_rows_if_status_conflict_dropped "
-                                         "与 dwd_kwh_if_status_conflict_dropped。两边都"
-                                         "算好了，9/14 别因为记账口径不同判成不一致",
+                               "SOC_RANGE。SOC_RANGE 只违反「范围」检查，不在丢弃规则"
+                               "里，所以【必须】留着；STATUS_CONFLICT 已按场景表丢弃",
+            "status_conflict_rule": "状态矛盾（settled + duration_seconds=0 + kwh>0）"
+                                    "【丢弃】。矩阵两处说法原本不一致：60-72 行场景表的"
+                                    "「清洗规则（DWD）」列写「本阶段丢弃」，而 NO.114 的"
+                                    "丢弃清单没列它。9/14 按场景表裁定为丢弃 —— 那一列的"
+                                    "标题就是「清洗规则（DWD）」，比 NO.114 的概述性"
+                                    "清单更具体。丢掉的量与 kwh 见 derived."
+                                    "dwd_dropped_status_conflict / dwd_kwh_status_conflict",
+            "null_kwh_rule": "kwh 为空的行【丢弃】，与负 kwh 一起处理。旧实现有过"
+                             "「保留空 kwh」的写法，会让 DWD 里带 177 行空值：到 DWS "
+                             "按整点分摊 kwh 时被 sum 静默当 0，占用率却照算，"
+                             "属于「数看着对、口径说不清」",
             "truncated_charging": "derived.truncated_charging_rows 是 status="
                                   "charging 且 end_time == sim_now 的行 —— 跨过模拟"
                                   "当前时刻、按已充时长折算过的会话，不满足 kwh == "
@@ -812,6 +831,19 @@ def verify(rows: list[dict], report: dict) -> list[str]:
                         f"期望 {injected['DUP_ORDER_NO']}")
     if probe["dup_extra_rows"] != injected["DUP_ORDER_NO"]:
         problems.append("重复组数 != 多出来的行数（应每对恰好 2 行）")
+
+    # 1b. 清洗口径的账要平：状态矛盾被丢掉的量，应当正好等于探查数出来的量。
+    # 拿 derived 与 probe 对，而不是拿 dq_tag 反查 —— 清洗由规则决定，
+    # 用注入标签去反推就是自证。
+    derived = report["derived"]
+    if derived["dwd_dropped_status_conflict"] != probe["status_conflict"]:
+        problems.append(
+            f"被丢弃的状态矛盾行 {derived['dwd_dropped_status_conflict']} "
+            f"!= 探查到的 {probe['status_conflict']}")
+    if "STATUS_CONFLICT" in derived["dwd_by_tag"]:
+        problems.append("DWD 里仍有 STATUS_CONFLICT 行（口径是丢弃）")
+    if "NULL_KWH" in derived["dwd_by_tag"]:
+        problems.append("DWD 里仍有 NULL_KWH 行（口径是丢弃）")
 
     # 2. 每个重复组恰好 2 行
     groups: dict[str, int] = {}

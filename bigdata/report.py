@@ -107,10 +107,14 @@ def parse_dt(s):
 # ------------------------------------------------- 与 simulate 独立的第二实现
 
 def clean_like_dwd(rows, valid_station, valid_pile):
-    """按矩阵四条规则独立复刻一遍 DWD。
+    """按矩阵规则独立复刻一遍 DWD。
 
     刻意【不 import simulate】—— 独立实现之间能对上，才算证据；
     复用生成侧的函数就是自证了。返回 (kept_rows, 各类丢弃计数)。
+
+    状态矛盾那条（settled 但 duration_seconds=0 而 kwh>0）按 60-72 行场景表的
+    「清洗规则（DWD）」列丢弃；它和「时间颠倒」是两条独立规则 —— 这类行的
+    end−start 刻意保持正常，所以不会同时命中时间颠倒。
     """
     drop = defaultdict(int)
     kept = []
@@ -129,6 +133,10 @@ def clean_like_dwd(rows, valid_station, valid_pile):
             continue
         if r["station_id"] not in valid_station or r["pile_id"] not in valid_pile:
             drop["孤儿站/桩"] += 1
+            continue
+        if (r["status"] == "settled" and r["duration_seconds"] == 0
+                and r["kwh"] > 0):
+            drop["状态矛盾（settled + duration=0）"] += 1
             continue
         kept.append(r)
 
@@ -551,6 +559,10 @@ def build_html(contract, rows, stations, piles, dwd, drops, occ_avg, occ_max,
          c_der["dwd_by_tag"].get("SOC_RANGE", 0),
          sum(1 for r in dwd if r["dq_tag"] == "SOC_RANGE")
          == c_der["dwd_by_tag"].get("SOC_RANGE", 0)),
+        ("丢弃的状态矛盾行", drops["状态矛盾（settled + duration=0）"],
+         c_der["dwd_dropped_status_conflict"],
+         drops["状态矛盾（settled + duration=0）"]
+         == c_der["dwd_dropped_status_conflict"]),
     ]
     if any(not c[3] for c in checks):
         problems.extend(c[0] for c in checks if not c[3])
@@ -675,28 +687,30 @@ seed <code>{contract['params']['seed']}</code>　|　模拟当前时刻 <code>{s
 那样会以为多注入了 {c_der['natural_null_start']} 行。</div>
 
 <h2>5　清洗丢弃明细与站点单量</h2>
-<table><tr><th>丢弃原因（矩阵四条规则）</th><th class="n">行数</th></tr>
+<table><tr><th>丢弃原因（矩阵清洗规则）</th><th class="n">行数</th></tr>
 {drop_rows}</table>
-<p class="sub">注：<b>上面这张表没有 SOC_RANGE 和 STATUS_CONFLICT</b>，它们清洗后留在 DWD 里
-（共 {c_der['dwd_by_tag'].get('SOC_RANGE', 0)}
-+ {c_der['dwd_by_tag'].get('STATUS_CONFLICT', 0)} 行）。但这两类的性质<b>不一样</b>，
-别当成一回事：</p>
+<p class="sub">注：<b>上面这张表没有 SOC_RANGE</b> —— 它清洗后【留在 DWD 里】，
+共 {c_der['dwd_by_tag'].get('SOC_RANGE', 0)} 行。</p>
 <div class="note"><b>SOC_RANGE —— 两种读法一致，就是「留」。</b>
-矩阵场景表写的是「SOC 裁剪或置空」，NO.114 的丢弃清单里也没有它，所以保底是
-<b>留在 DWD</b>（本报告只标注、未做裁剪，裁剪与否不影响行数）。
+矩阵场景表写的是「SOC 裁剪或置空」不是丢弃，NO.114 的丢弃清单里也没有它，
+所以保底是<b>留在 DWD</b>（本报告只标注、未做裁剪，裁剪与否不影响行数）。
 丢掉它 <b>{c_der['dwd_by_tag'].get('SOC_RANGE', 0)} 行</b>是明确错的。</div>
 <div class="note" style="background:#fdf2f2;border-color:#f3c9c9;color:#8a2b2f">
-<b>⚠️ STATUS_CONFLICT —— 矩阵两处自相矛盾，需要组长定。</b>
-60–72 行场景表那一列的标题就是「清洗规则（DWD）」，写的是状态矛盾
-「丢弃或按规则重算（<b>本阶段丢弃</b>）」；而 NO.114 详细说明的丢弃清单
-「丢弃空 start / 负 kwh / 时间颠倒 / 孤儿；重复 order_no 留最新」<b>没列它</b>。
-本报告按 NO.114 的行级清单<b>保留</b>，所以
+<b>STATUS_CONFLICT —— 9/14 已裁定为「丢弃」。</b>
+这条原本是矩阵里唯一一处自相矛盾：60–72 行场景表那一列的标题就是
+「清洗规则（DWD）」，写的是状态矛盾「丢弃或按规则重算（<b>本阶段丢弃</b>）」；
+而 NO.114 详细说明的清单「丢弃空 start / 负 kwh / 时间颠倒 / 孤儿；重复 order_no
+留最新」<b>没列它</b>。
+<br>9/14 按场景表裁定为丢弃 —— 那一列的标题就是「清洗规则（DWD）」，比 NO.114
+的概述性清单更具体。所以本报告<b>丢弃</b>
+<b>{c_der['dwd_dropped_status_conflict']} 行</b>，它们带着
+<b>{c_der['dwd_kwh_status_conflict']} 度</b>；
 <code>dwd_rows = {c_der['dwd_rows']}</code>、
 <code>dwd_kwh_total = {c_der['dwd_kwh_total']}</code>。
-<br>若裁定改为丢弃，则是 <code>{c_der['dwd_rows_if_status_conflict_dropped']}</code> 行、
-<code>{c_der['dwd_kwh_if_status_conflict_dropped']}</code> 度 ——
-<b>两个数都已写进 <code>dq_expected.json</code></b>，9/14 对数字时按裁定的那个取，
-别因为记账口径不同判成「探查与注入不一致」。</div>
+<br>口径改动前后 DWD 行数都是 16929 附近纯属巧合 —— 旧的两种读法各 177 行
+一进一出正好抵消，只有 kwh 合计会差
+{c_der['dwd_kwh_status_conflict']} 度。所以<b>只对行数是发现不了这个分歧的</b>，
+必须连 kwh 一起对。</div>
 <div class="card">{chart_top}</div>
 
 <h2>6　契约核对</h2>

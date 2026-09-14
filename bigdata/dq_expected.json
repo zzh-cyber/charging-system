@@ -38,19 +38,18 @@
   "derived": {
     "clean_rows": 18407,
     "dirty_rows": 1593,
-    "dwd_rows": 16929,
+    "dwd_rows": 16752,
     "dwd_by_tag": {
       "OK": 16575,
-      "SOC_RANGE": 177,
-      "STATUS_CONFLICT": 177
+      "SOC_RANGE": 177
     },
-    "dwd_rows_if_status_conflict_dropped": 16752,
-    "dwd_kwh_if_status_conflict_dropped": "602100.09",
+    "dwd_dropped_status_conflict": 177,
+    "dwd_kwh_status_conflict": "6321.82",
     "truncated_charging_rows": 56,
     "truncated_charging_clean": 54,
     "natural_null_start": 1832,
     "ods_kwh_total": "633130.71",
-    "dwd_kwh_total": "608421.91"
+    "dwd_kwh_total": "602100.09"
   },
   "dimension": {
     "stations": 72,
@@ -118,11 +117,17 @@
     "read_csv": "header=True + 显式 schema，不要用 inferSchema",
     "columns_by_name": "按列名取列；Spark 列名大小写敏感",
     "anti_joins": "station 和 pile 两个 anti-join 都要写。只写 pile 的话 ORPHAN_STATION 会漏进 DWD，DWS 冒出 station_id=9001，而 load_forecast 对 station 有真 FK，写预测时会报错",
-    "time_reversed_op": "用严格 < ；写成 <= 会把 STATUS_CONFLICT 数两次",
+    "time_reversed_op": "用严格 < 判时间颠倒。当前数据里 end == start 的行数为 0，所以 < 与 <= 的结果相同（都是 177）—— 但这不代表两个写法等价：STATUS_CONFLICT 那类刻意保持 end-start=1200s 正常、只把 duration_seconds 归零，为的就是不跟时间颠倒撞车。若将来有行写成 start == end，用 <= 会让它同时命中「时间颠倒」和「状态矛盾」两类，重复计数",
     "drop_dq_tag": "DWD 之后必须 drop 掉 dq_tag，且不许拿它当清洗依据",
     "dwd_soc_range_kept": "SOC_RANGE 那些行【不丢弃】—— 矩阵口径是「裁剪或置空」不是丢。丢掉的话 DWD 行数与 kwh 总量都会对不上契约的 dwd_rows / dwd_kwh_total",
-    "dwd_composition": "DWD 里留了哪些行看 derived.dwd_by_tag：干净行 + SOC_RANGE + STATUS_CONFLICT。后两类只违反「范围/自洽」检查，不在四条丢弃规则里，所以【必须】留着",
-    "status_conflict_ambiguity": "⚠️ 矩阵两处对 STATUS_CONFLICT 口径不一致：60-72 行场景表的「清洗规则（DWD）」列写「本阶段丢弃」，而 NO.114 详细说明的丢弃清单里没列它。本实现按 NO.114 的清单【保留】，dwd_rows / dwd_kwh_total 就是保留后的数；若组长裁定要丢，用 derived.dwd_rows_if_status_conflict_dropped 与 dwd_kwh_if_status_conflict_dropped。两边都算好了，9/14 别因为记账口径不同判成不一致",
+    "dwd_composition": "DWD 里留了哪些行看 derived.dwd_by_tag：干净行 + SOC_RANGE。SOC_RANGE 只违反「范围」检查，不在丢弃规则里，所以【必须】留着；STATUS_CONFLICT 已按场景表丢弃",
+    "status_conflict_rule": "状态矛盾（settled + duration_seconds=0 + kwh>0）【丢弃】。矩阵两处说法原本不一致：60-72 行场景表的「清洗规则（DWD）」列写「本阶段丢弃」，而 NO.114 的丢弃清单没列它。9/14 按场景表裁定为丢弃 —— 那一列的标题就是「清洗规则（DWD）」，比 NO.114 的概述性清单更具体。丢掉的量与 kwh 见 derived.dwd_dropped_status_conflict / dwd_kwh_status_conflict",
+    "null_kwh_rule": "kwh 为空的行【丢弃】，与负 kwh 一起处理。旧实现有过「保留空 kwh」的写法，会让 DWD 里带 177 行空值：到 DWS 按整点分摊 kwh 时被 sum 静默当 0，占用率却照算，属于「数看着对、口径说不清」",
     "truncated_charging": "derived.truncated_charging_rows 是 status=charging 且 end_time == sim_now 的行 —— 跨过模拟当前时刻、按已充时长折算过的会话，不满足 kwh == (target-start)/100*capacity 这条整段关系式，断言时要排掉。其中干净行是 derived.truncated_charging_clean 条，两者别混用"
+  },
+  "file_sha256": {
+    "ods_station.csv": "a7ff62e1250154ee13c76f025437be3c7b847e339e95a458fd537c9399d2a86f",
+    "ods_pile.csv": "3ccaa31cdbd19e993699a0c03aad87c122f14a666aa8127796f73c784b8da6d8",
+    "ods_charge_order.csv": "964c021d39b4b8b2d8049811b88213239dc7576dd3c93d3753f3e07acf2e40cd"
   }
 }

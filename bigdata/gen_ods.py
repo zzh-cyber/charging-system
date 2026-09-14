@@ -10,11 +10,22 @@
     python3 bigdata/gen_ods.py --tables station
     python3 bigdata/gen_ods.py --keep-all-stations   # 不排除站 73
 
-可复现：同一组 (--seed --end-date --sim-now --days --rows --dirty-ratio) 下
-输出逐字节相同。解析后的参数会写进 bigdata/dq_expected.json 备查。
+⚠️ 可复现是【有条件的】：同一组 (--seed --end-date --sim-now --days --rows
+--dirty-ratio) 下输出逐字节相同，但前提是**演示库的 station / pile / user
+三张表也和上次一模一样**。维表是 `SELECT` 现读的（见 load_dimensions），
+不是从仓库读的 —— 只要有人注册一个用户、或用管理员端建一个站/桩，
+`usable` 列表就变了，同一组参数会生成出**完全不同的文件**。实测：只少一个站，
+20000 行的内容全变（雪崩式，不是局部差异），因为所有抽取共用一个
+`random.Random(seed)` 流，前面错一位后面全错位。
+
+另外 `--end-date` 默认「今天」，所以**不给这个参数就等于把「今天几号」当输入**。
+
+⇒ 换台机器、或隔几天再跑，复现不出原文件。产物的 sha256 见契约的
+`file_sha256`，拿到文件可以先自证是不是同一份。
 """
 
 import argparse
+import hashlib
 import json
 import sys
 from datetime import date, datetime
@@ -117,6 +128,26 @@ def load_dimensions(conn, excluded_stations):
     if not users:
         raise RuntimeError("演示库里没有用户，订单的 user_id 无从取起")
     return stations, piles, users
+
+
+def sha256_of(path):
+    """分块算 sha256，别一次读进内存 —— 维表小，订单 CSV 有几 MB。"""
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def file_hashes(out_dir):
+    """给这次生成的三份产物打指纹，随契约一起写出去。
+
+    有这个才能回答「你手里那份是不是我们验收用的那一份」。这份数据
+    在别的机器上复现不出来（见脚本头部说明），所以指纹比参数更有用。
+    """
+    names = [f"ods_{t}.csv" for t in TABLES] + ["ods_charge_order.csv"]
+    return {n: sha256_of(out_dir / n)
+            for n in names if (out_dir / n).exists()}
 
 
 def main():
@@ -229,8 +260,17 @@ def generate_orders(conn, args, out_dir, excluded):
 
     print(f"✅ 订单 {written} 行, {len(simulate.COLUMNS)} 列 -> {path.name}")
     print(f"   列: {', '.join(simulate.COLUMNS)}")
+
+    # 产物指纹。这份数据换台机器/换个库就复现不出来（见脚本头部），
+    # 所以「你手里那份是不是同一份」只能靠指纹回答，不能靠参数回答。
+    report["file_sha256"] = file_hashes(out_dir)
+
     print()
     print_injection_table(report)
+    print()
+    print("  产物 sha256（写进契约 file_sha256，用来核对拿到的是不是同一份）")
+    for name, digest in report["file_sha256"].items():
+        print(f"    {digest}  {name}")
 
     CONTRACT_PATH.write_text(
         json.dumps(report, ensure_ascii=False, indent=2, default=str) + "\n",
@@ -274,6 +314,8 @@ def print_injection_table(report):
     print(f"  脏行            {deriv['dirty_rows']}"
           f"  （占 {deriv['dirty_rows'] / probe['ods_rows']:.1%}）")
     print(f"  期望 DWD 行数   {deriv['dwd_rows']}")
+    print(f"    已按场景表丢弃的状态矛盾行 {deriv['dwd_dropped_status_conflict']} 条"
+          f"，它们带着 {deriv['dwd_kwh_status_conflict']} 度")
     print()
     print("  注：null_start_time 还含业务上天然未开始的行"
           f"（reserved / 未开始的 cancelled 共 {deriv['natural_null_start']} 行），")

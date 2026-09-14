@@ -3,7 +3,7 @@
 
 边界说明：这是**邓雅心这一侧（模拟数据 / 脏数据 / 上 HDFS）的验收脚本**，
 不是流水线。NO.113~115 的探查、清洗、DWS 归翟梓涵，文件名和入口都由他定。
-第 [7] 段在 Spark 里把矩阵的四条清洗规则跑了一遍，只是用来从下游方向
+第 [7] 段在 Spark 里把矩阵的清洗规则跑了一遍，只是用来从下游方向
 **反证契约自洽**（dwd_rows / dwd_kwh_total 对得上），不是替他实现 DWD。
 
     source ~/.hadoop_env.sh
@@ -13,13 +13,24 @@
 全过返回 0，任一条不过返回 1。
 """
 import json
+import os
 import sys
 from decimal import Decimal
+from pathlib import Path
 
 from pyspark.sql import SparkSession, functions as F
 from pyspark.sql.window import Window
 
+# 契约与脚本永远在同一个目录里。别写成绝对路径 —— 换台机器或换个用户名就炸，
+# 而且报错会是 FileNotFoundError，看着像契约丢了，其实只是路径写死了。
+CONTRACT = Path(__file__).resolve().parent / "dq_expected.json"
+
 ODS = "hdfs://localhost:8020/user/charging/ods"
+# 允许用环境变量把 ODS 指到本地目录，Hadoop 没起时也能把校验跑完：
+#     ODS_DIR=file:///home/dyx/charging-system/bigdata/out \
+#       spark-submit --master 'local[2]' bigdata/check_ods_hdfs.py
+# 默认仍是 HDFS —— 验收要验的就是「传上去之后读回来的那份」。
+ODS = os.environ.get("ODS_DIR", ODS)
 
 # 显式 schema：不用 inferSchema（空字段会被当空串塞进 string 列，数值列可能整列推错）
 CHARGE_ORDER_SCHEMA = """
@@ -58,8 +69,7 @@ def check(ok, label, detail=""):
 
 
 def main():
-    expected = json.load(open(
-        "/home/dyx/charging-system/bigdata/dq_expected.json", encoding="utf-8"))
+    expected = json.load(open(CONTRACT, encoding="utf-8"))
 
     spark = (SparkSession.builder
              .appName("verify-ods-hdfs")
@@ -157,10 +167,14 @@ def main():
     # ---------------- 干净行自洽 ----------------
     print("\n[5] 干净行自洽（dq_tag='OK'，另排掉跨 sim_now 被截断的会话）")
     clean = order.filter(F.col("dq_tag") == "OK")
+    # sim_now 从契约定，别在这里硬编码：生成窗口默认跟着「今天」走，
+    # 写死某一天之后，一旦有人换了 --end-date，这三处断言会集体失效却看不出。
+    sim_now = expected["params"]["sim_now"]
+    print(f"     （契约里的 sim_now = {sim_now}）")
     # 跨过 sim_now 的会话按已充时长折算过 kwh，本来就不满足整段的关系式
-    truncated = clean.filter(F.col("end_time") == F.lit("2026-09-13 21:00:00"))
+    truncated = clean.filter(F.col("end_time") == F.lit(sim_now))
     nt = truncated.count()
-    full = clean.filter(F.col("end_time") != F.lit("2026-09-13 21:00:00"))
+    full = clean.filter(F.col("end_time") != F.lit(sim_now))
     print(f"     （排掉 {nt} 行被截断的 charging 会话，其 kwh 只算已充部分）")
     check(truncated.filter(F.col("status") != "charging").count() == 0,
           "被截断的行 status 都是 charging")
@@ -182,7 +196,7 @@ def main():
     check(bad3.count() == 0, "duration_seconds == end_time - start_time",
           f"对不上 {bad3.count()} 行")
 
-    bad4 = clean.filter(F.col("end_time") > F.lit("2026-09-13 21:00:00"))
+    bad4 = clean.filter(F.col("end_time") > F.lit(sim_now))
     check(bad4.count() == 0, "end_time <= sim_now（无未来的负荷）",
           f"越界 {bad4.count()} 行")
 
@@ -202,11 +216,11 @@ def main():
     bad6 = clean.join(pile, clean.pile_id == pile.id, "left_anti").count()
     check(bad6 == 0, "干净行的 pile_id 都能 join 上", f"孤儿 {bad6} 行")
 
-    # ---------------- 端到端：在 Spark 里按矩阵四条规则算出 DWD ----------------
+    # ---------------- 端到端：在 Spark 里按矩阵清洗规则算出 DWD ----------------
     # 这一段就是翟梓涵 NO.114 要写的东西，提前跑通一遍，等于验证契约本身。
     # 注意 dq_tag 在这里【完全没被用到】—— 清洗必须是按规则真清洗，
     # 拿注入标签当清洗依据是自证。
-    print("\n[7] 按矩阵四条规则在 Spark 里清洗，对契约的 dwd_rows / dwd_kwh_total")
+    print("\n[7] 按矩阵清洗规则在 Spark 里清洗，对契约的 dwd_rows / dwd_kwh_total")
     kept = order.filter(
         F.col("start_time").isNotNull()
         & F.col("kwh").isNotNull()
@@ -214,6 +228,17 @@ def main():
         & ~(F.col("end_time") < F.col("start_time")))
     kept = kept.join(station.select("id"), kept.station_id == station.id, "left_semi")
     kept = kept.join(pile.select("id"), kept.pile_id == pile.id, "left_semi")
+
+    # 状态矛盾：settled 但 duration_seconds=0 而 kwh>0。矩阵两处说法原本不一致
+    # （场景表说丢弃、NO.114 的清单没列它），9/14 按场景表裁定为【丢弃】。
+    # 注意这条与「时间颠倒」是两条独立规则：这类行的 end−start 刻意保持正常，
+    # 所以不会同时命中时间颠倒、被数两次。
+    status_conflict = (F.col("status") == "settled") & (F.col("duration_seconds") == 0) \
+        & (F.col("kwh") > 0)
+    n_sc = kept.filter(status_conflict).count()
+    want_sc = expected["expected_probe"]["status_conflict"]
+    check(n_sc == want_sc, f"清洗丢掉的状态矛盾行 {n_sc}", f"(探查 {want_sc})")
+    kept = kept.filter(~status_conflict)
 
     w = Window.partitionBy("order_no").orderBy(
         F.col("updated_at").desc(), F.col("created_at").desc())
@@ -230,6 +255,9 @@ def main():
           f"DWD kwh 合计 {total}", f"(契约 {want_k})")
     print("     ⚠️ SOC_RANGE 的 177 行【必须留在这里】—— 矩阵口径是「裁剪或置空」，")
     print("        不是丢弃；丢掉的话 DWD 会少 177 行、少约 12457 度，对不上契约。")
+    print("     ⚠️ 状态矛盾的 177 行则相反，【必须丢掉】—— 它们带着约 6321.82 度。")
+    print("        这类行的 end−start 是正常的 1200s，先把 duration_seconds 归零，")
+    print("        所以时间颠倒那条规则抓不到它，两条规则各管各的、不会重复计数。")
 
     # dq_tag 在 DWD 之后必须 drop（这里只是证明它没参与清洗）
     check("dq_tag" in dwd.columns, "dq_tag 此刻还在（DWD 收尾要 drop 掉它）")
