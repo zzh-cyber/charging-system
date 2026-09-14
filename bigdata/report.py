@@ -511,7 +511,7 @@ def build_html(contract, rows, stations, piles, dwd, drops, occ_avg, occ_max,
         [("实际注入", inj), ("期望探查", probe)], tags,
         ["#3b7dd8", "#b9c3d0"], fmt="{:.0f}")
 
-    # NULL_START_TIME 是【唯一】允许对不上的一类：它天然多出 1832 行
+    # NULL_START_TIME 是【唯一】允许对不上的一类：它天然多出若干行
     # (reserved / 未开始的 cancelled)，期望探查 = 注入 + 业务天然。
     # 判断它要拿 注入+天然 去比，直接比注入数会报假警。
     natural = c_der["natural_null_start"]
@@ -707,10 +707,10 @@ seed <code>{contract['params']['seed']}</code>　|　模拟当前时刻 <code>{s
 <b>{c_der['dwd_kwh_status_conflict']} 度</b>；
 <code>dwd_rows = {c_der['dwd_rows']}</code>、
 <code>dwd_kwh_total = {c_der['dwd_kwh_total']}</code>。
-<br>口径改动前后 DWD 行数都是 16929 附近纯属巧合 —— 旧的两种读法各 177 行
-一进一出正好抵消，只有 kwh 合计会差
-{c_der['dwd_kwh_status_conflict']} 度。所以<b>只对行数是发现不了这个分歧的</b>，
-必须连 kwh 一起对。</div>
+<br>⚠️ 这类分歧不一定能从行数上发现：排查时一边留 STATUS_CONFLICT 丢 NULL_KWH、
+另一边正好相反，两边各 177 行一进一出抵消，两种读法的 dwd_rows 相同、
+只有 kwh 合计不同。所以核对时必须<b>连 kwh 一起对</b>，只看行数可能一路
+绿灯放过去。</div>
 <div class="card">{chart_top}</div>
 
 <h2>6　契约核对</h2>

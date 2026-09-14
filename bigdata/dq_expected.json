@@ -23,7 +23,7 @@
   },
   "expected_probe": {
     "ods_rows": 20000,
-    "null_start_time": 2009,
+    "null_start_time": 2014,
     "null_kwh": 177,
     "negative_kwh": 177,
     "soc_range": 177,
@@ -38,18 +38,18 @@
   "derived": {
     "clean_rows": 18407,
     "dirty_rows": 1593,
-    "dwd_rows": 16752,
+    "dwd_rows": 16747,
     "dwd_by_tag": {
-      "OK": 16575,
+      "OK": 16570,
       "SOC_RANGE": 177
     },
     "dwd_dropped_status_conflict": 177,
-    "dwd_kwh_status_conflict": "6321.82",
-    "truncated_charging_rows": 56,
-    "truncated_charging_clean": 54,
-    "natural_null_start": 1832,
-    "ods_kwh_total": "633130.71",
-    "dwd_kwh_total": "602100.09"
+    "dwd_kwh_status_conflict": "6285.83",
+    "truncated_charging_rows": 60,
+    "truncated_charging_clean": 55,
+    "natural_null_start": 1837,
+    "ods_kwh_total": "634447.56",
+    "dwd_kwh_total": "603710.40"
   },
   "dimension": {
     "stations": 72,
@@ -126,8 +126,8 @@
     "truncated_charging": "derived.truncated_charging_rows 是 status=charging 且 end_time == sim_now 的行 —— 跨过模拟当前时刻、按已充时长折算过的会话，不满足 kwh == (target-start)/100*capacity 这条整段关系式，断言时要排掉。其中干净行是 derived.truncated_charging_clean 条，两者别混用"
   },
   "file_sha256": {
-    "ods_station.csv": "a7ff62e1250154ee13c76f025437be3c7b847e339e95a458fd537c9399d2a86f",
-    "ods_pile.csv": "3ccaa31cdbd19e993699a0c03aad87c122f14a666aa8127796f73c784b8da6d8",
-    "ods_charge_order.csv": "964c021d39b4b8b2d8049811b88213239dc7576dd3c93d3753f3e07acf2e40cd"
+    "ods_station.csv": "3007524a4a918ba58493f7e704bdcda2397d2d910eda34f8da0d7d59120172b8",
+    "ods_pile.csv": "359c3d725413b866b2428b8d57bd4197792e81a5b7c3b631b39967405af77ddb",
+    "ods_charge_order.csv": "de7ad1617eaed436d0bf3010c2dd2776fe7e643224ca886feda7bab5731668e7"
   }
 }

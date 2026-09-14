@@ -57,8 +57,16 @@ python3 bigdata/gen_ods.py --orders \
 >    `random.Random(seed)` 流，前面错一位后面全错位，是雪崩式的，不是局部差异。
 > 2. **`--end-date` 默认「今天」**，所以不给这个参数就等于把「今天几号」当输入。
 >
-> ⇒ 约定：**这份数据由邓雅心生成一次，其他人直接消费产物，不要重跑生成器。**
+> **这不是假设，9/14 已经发生过一次**：两份数据用完全相同的参数
+> （`seed 20260913` / `end-date 2026-09-13` / `sim_now 21:00:00`）生成，
+> 因为两个人的演示库里 `user` 表行数不同（40 vs 21），
+> 结果 `dwd_rows` 一个 16752、一个 16747，kwh 一个 602100.09、一个 603710.40。
+>
+> ⇒ 约定：**`bigdata/out/` 下这三份 CSV 是【冻结的产物】，所有人直接消费它，
+> 不要重跑生成器**；要换数据就明确换一次并同步更新契约。
 > 拿到文件先对 `file_sha256` 自证是不是同一份。
+>
+> 当前基准取自 `c33a6d5` 提交入库的夹具（见 `file_sha256` 与 `derived`）。
 
 > ⚠️ 窗口默认 **30 天**而不是矩阵下限的 14 天，是实测调出来的：72 站 / 399 桩
 > 装 2 万单，14 天时 17.7% 的「站×小时」占用率 ≥80%、72 个站有 70 个触顶，
@@ -213,7 +221,7 @@ end_time         <= sim_now（2026-09-13 21:00:00），全量成立
 >
 > ```bash
 > hdfs dfs -cat /user/charging/ods/charge_order/ods_charge_order.csv | sha256sum
-> # 应为 964c021d39b4b8b2d8049811b88213239dc7576dd3c93d3753f3e07acf2e40cd
+> # 应为 de7ad1617eaed436d0bf3010c2dd2776fe7e643224ca886feda7bab5731668e7
 > ```
 
 **9/14 验收就对着 `expected_probe` 逐项比**。生成时打印的那张表也是它：
@@ -221,22 +229,22 @@ end_time         <= sim_now（2026-09-13 21:00:00），全量成立
 ```
   注入数 == 期望探查数
   dq_tag               注入    业务天然    期望探查
-  NULL_START_TIME       177      1832        2009
+  NULL_START_TIME       177      1837        2014
   NULL_KWH              177         0         177
   ...
 ```
 
 > ⚠️ **`null_start_time` 是两个来源之和**：注入的 177 行 **+ 业务上天然没有
-> `start_time` 的 1832 行**（`reserved`、以及还没开始的 `cancelled`）。后者不是脏数据，
-> 但 `isNull(start_time)` 一样会数到它们 —— 所以契约里两者分开写，**别把 2009 当成
-> 注入数**，那样会以为注入多了 1832 行。
+> `start_time` 的 1837 行**（`reserved`、以及还没开始的 `cancelled`）。后者不是脏数据，
+> 但 `isNull(start_time)` 一样会数到它们 —— 所以契约里两者分开写，**别把 2014 当成
+> 注入数**，那样会以为注入多了 1837 行。
 >
-**`dwd_rows = 16752` 是怎么来的**（不是 `20000 - 1593`，看 `derived.dwd_by_tag`）：
+**`dwd_rows = 16747` 是怎么来的**（不是 `20000 - 1593`，看 `derived.dwd_by_tag`）：
 
 ```
-DWD = 干净且已开始的 16575 行
+DWD = 干净且已开始的 16570 行
     + SOC_RANGE         177 行      ← 【不丢弃】
-    = 16752 行，kwh 合计 602100.09 度
+    = 16747 行，kwh 合计 603710.40 度
 ```
 
 > ⚠️ **`SOC_RANGE` 必须留在 DWD 里。** 矩阵场景表给它的口径是「SOC **裁剪或置空**」
@@ -254,19 +262,21 @@ DWD = 干净且已开始的 16575 行
 >
 > 按场景表裁定为丢弃 —— 那一列的标题就是「清洗规则（DWD）」，比 NO.114 的
 > 概述性清单更具体。丢掉的量与 kwh 见 `derived.dwd_dropped_status_conflict`（177）
-> 和 `derived.dwd_kwh_status_conflict`（6321.82 度）。
+> 和 `derived.dwd_kwh_status_conflict`（6285.83 度）。
 >
-> ⚠️ **这个分歧只对行数是发现不了的**：旧的两种读法一边留 `STATUS_CONFLICT`、
-> 一边留 `NULL_KWH`，各 177 行**一进一出正好抵消** —— 两种口径的 `dwd_rows`
-> 都是 16929，只有 `dwd_kwh_total` 差 6321.82 度。所以核对时必须**连 kwh 一起对**，
-> 只看行数会一路绿灯放过去。
+> ⚠️ **这类分歧不一定能从行数上发现。** 9/14 排查时的实际情况：一边（旧契约）
+> 留 `STATUS_CONFLICT` 丢 `NULL_KWH`，另一边（`pipeline.py`）留 `NULL_KWH` 丢
+> `STATUS_CONFLICT`，两边各 177 行**一进一出正好抵消** —— 两种口径的 `dwd_rows`
+> 都是 16929，只有 `dwd_kwh_total` 差 6321.82 度。所以核对时必须**连 kwh 一起对**。
+> 当前这份数据上 177 行的净差是看得出来的（16924 → 16747），但那是巧合，
+> 不能指望每次都这么走运。
 
 > ⚠️ **`kwh` 为空的行【丢弃】**，和负 `kwh` 一起处理。留空值到 DWS 会被 `sum`
 > 静默当 0，占用率却照算，属于「数看着对、口径说不清」。这一条曾经在两个实现里
 > 写法相反（见契约的 `null_kwh_rule`），是上面那个 177 行差额的另一半。
 
-> ⚠️ **有 56 行的 `end_time` 等于 `sim_now`**（`derived.truncated_charging_rows`，
-> 其中干净行 54 条 = `truncated_charging_clean`）。那是**跨过模拟当前时刻、按已充
+> ⚠️ **有 60 行的 `end_time` 等于 `sim_now`**（`derived.truncated_charging_rows`，
+> 其中干净行 55 条 = `truncated_charging_clean`）。那是**跨过模拟当前时刻、按已充
 > 时长折算过 `kwh`** 的 `charging` 会话 —— 它们**不满足**上面那条
 > `kwh == (target-start)/100*capacity` 整段关系式（`kwh` 只是已充的那部分）。
 > 做这类自洽断言时要按 `status == 'charging' and end_time == sim_now` 排掉，
@@ -274,7 +284,7 @@ DWD = 干净且已开始的 16575 行
 
 > ⚠️ **矩阵 mock 里的数字是占位的，会动。** mock 写的是
 > `ods_rows: 20000 / dwd_rows: 18500 / today_kwh: 1280.5`，真值是
-> `20000 / 16752 / 约 4 万度级`。mock 本来就是「结构对齐用」的占位数 ——
+> `20000 / 16747 / 约 4 万度级`。mock 本来就是「结构对齐用」的占位数 ——
 > 前端按本文件的真值替换即可。
 
 ## HDFS 目录约定

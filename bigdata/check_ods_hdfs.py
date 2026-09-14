@@ -253,9 +253,16 @@ def main():
     want_k = Decimal(expected["derived"]["dwd_kwh_total"])
     check(abs(Decimal(str(total)) - want_k) < Decimal("0.5"),
           f"DWD kwh 合计 {total}", f"(契约 {want_k})")
-    print("     ⚠️ SOC_RANGE 的 177 行【必须留在这里】—— 矩阵口径是「裁剪或置空」，")
-    print("        不是丢弃；丢掉的话 DWD 会少 177 行、少约 12457 度，对不上契约。")
-    print("     ⚠️ 状态矛盾的 177 行则相反，【必须丢掉】—— 它们带着约 6321.82 度。")
+    # ⚠️ 这几句里的数字【从数据里算】，不许写死。换一份数据（比如演示库的
+    #    user 表行数变了）整份文件都会不同，写死的数会静默变成错的 ——
+    #    9/14 换成组长那份夹具时，6321.82 就当场对不上了（那份是 6285.83）。
+    soc = dwd.filter(F.col("dq_tag") == "SOC_RANGE")
+    n_soc = soc.count()
+    kwh_soc = soc.agg(F.sum("kwh")).collect()[0][0]
+    kwh_sc = expected["derived"]["dwd_kwh_status_conflict"]
+    print(f"     ⚠️ SOC_RANGE 的 {n_soc} 行【必须留在这里】—— 矩阵口径是「裁剪或置空」，")
+    print(f"        不是丢弃；丢掉的话 DWD 会少 {n_soc} 行、少约 {kwh_soc} 度，对不上契约。")
+    print(f"     ⚠️ 状态矛盾的 {n_sc} 行则相反，【必须丢掉】—— 它们带着约 {kwh_sc} 度。")
     print("        这类行的 end−start 是正常的 1200s，先把 duration_seconds 归零，")
     print("        所以时间颠倒那条规则抓不到它，两条规则各管各的、不会重复计数。")
 

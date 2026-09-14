@@ -699,7 +699,7 @@ def _build_report(rows, injected, quota, params, usable, station_ids,
     truncated_clean = sum(1 for r in truncated if r["dq_tag"] == TAG_OK)
 
     # 状态矛盾已按矩阵场景表裁定为【丢弃】。把「丢掉的那部分」显式算出来记账，
-    # 免得 6321.82 这个差额在仓库里没有出处：用同一套清洗规则再跑一遍
+    # 免得这个差额在仓库里没有出处：用同一套清洗规则再跑一遍
     # 【不丢状态矛盾】的版本，两个版本相减。刻意不按 dq_tag 筛 ——
     # 清洗口径必须由规则决定，拿注入标签反推就是自证。
     dwd_keep_status = clean_to_dwd(rows, station_ids, pile_ids,
