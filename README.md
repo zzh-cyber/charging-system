@@ -395,6 +395,16 @@ python3 tests/test_session_security.py
 
 同目录还有管理端订单 / 电桩 / 用户列表等脚本，失败时看脚本内注释的前置条件。
 
+以下两个**不需要起服务端**，只连数据库 / 只读文本：
+
+```bash
+python3 tests/test_schema_v5_consistency.py     # v5 三处 DDL 逐字一致（schema.sql / patch / database.cpp）
+python3 tests/test_seed_user_groups_demo.py     # 大屏演示数据：结构、幂等、三组比例、约束
+python3 tests/test_seed_user_groups_demo.py --dry   # 同上，但跳过复跑，只读不写库
+```
+
+演示数据的生成与刷新见 `sql/gen_user_groups_demo.py` 与 `sql/reset_user_groups_demo.sql` 的文件头。
+
 ---
 
 ## 15. 给老师的提交物（源码包，不要只丢 GitHub 链接）
