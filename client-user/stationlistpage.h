@@ -21,6 +21,7 @@ class QEvent;
 class QVariantAnimation;
 class NetClient;
 class StationCardWidget;
+class QPushButton;
 class AmapWidget;
 class QResizeEvent;
 class QShowEvent;
@@ -110,6 +111,8 @@ private:
     QLabel *m_tip = nullptr;
 
     QComboBox *m_limitCombo = nullptr;
+    QPushButton *m_recommendButton = nullptr;
+    bool m_recommendEnabled = false;
 
     QFrame *m_sheet = nullptr;
 
