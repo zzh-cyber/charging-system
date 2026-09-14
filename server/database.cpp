@@ -6,6 +6,7 @@
 #include <QDate>
 #include <QDateTime>
 #include <QFile>
+#include <QHash>
 #include <QJsonArray>
 #include <QJsonValue>
 #include <QRandomGenerator>
@@ -494,6 +495,41 @@ QJsonArray Database::stationList(
         return arr;
     }
 
+    struct ForecastItem
+    {
+        double idle[3] = {};
+        double util[3] = {};
+        int isPeak = 0;
+        QString congestion;
+        bool present[3] = {};
+    };
+    QHash<qint64, ForecastItem> forecasts;
+    QSqlQuery forecastQuery(m_db);
+    forecastQuery.prepare(
+        "SELECT f.station_id, f.horizon_hours, f.pred_idle, f.pred_util, "
+        "f.is_peak, f.congestion "
+        "FROM load_forecast f "
+        "WHERE f.generated_at = ("
+        "SELECT MAX(generated_at) FROM load_forecast"
+        ") "
+        "AND f.horizon_hours IN (1,6,24)");
+    if (forecastQuery.exec()) {
+        while (forecastQuery.next()) {
+            const int horizon = forecastQuery.value("horizon_hours").toInt();
+            const int index = horizon == 1 ? 0 : (horizon == 6 ? 1 : 2);
+            ForecastItem &item = forecasts[forecastQuery.value("station_id").toLongLong()];
+            item.idle[index] = forecastQuery.value("pred_idle").toDouble();
+            item.util[index] = forecastQuery.value("pred_util").toDouble();
+            item.present[index] = true;
+            if (index == 0) {
+                item.isPeak = forecastQuery.value("is_peak").toInt();
+                item.congestion = forecastQuery.value("congestion").toString();
+            }
+        }
+    } else {
+        qWarning() << "Optional load forecast query failed:" << forecastQuery.lastError().text();
+    }
+
     // ------------------------------------------------------------------------
     // 临时保存：
     // 站点数据 + 距离
@@ -664,6 +700,23 @@ QJsonArray Database::stationList(
         o["recommend_score"] =
             static_cast<double>(idle) * 10.0 - utilization;
         o["is_peak_1h"] = utilization >= 80.0 ? 1 : 0;
+
+        const ForecastItem forecast = forecasts.value(o["id"].toVariant().toLongLong());
+        if (forecast.present[0]) {
+            o["forecast_idle_1h"] = forecast.idle[0];
+            o["forecast_util_1h"] = forecast.util[0];
+            o["is_peak_1h"] = forecast.isPeak;
+            o["congestion"] = forecast.congestion;
+            o["recommend_score"] = forecast.idle[0] * 10.0 - forecast.util[0];
+        }
+        if (forecast.present[1]) {
+            o["forecast_idle_6h"] = forecast.idle[1];
+            o["forecast_util_6h"] = forecast.util[1];
+        }
+        if (forecast.present[2]) {
+            o["forecast_idle_24h"] = forecast.idle[2];
+            o["forecast_util_24h"] = forecast.util[2];
+        }
 
         // 单位 km
         o["distance"] =
