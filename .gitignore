@@ -6,6 +6,10 @@ out/
 
 # Spark coalesce 临时目录（保留 qa/report.json 与 dwd csv）
 bigdata/work/**/_spark/
+# ADS 是流水线运行产物；大屏通过 DASHBOARD_DATA_FILE 读取，不随前端提交。
+bigdata/work/ads/
+dashboard/ads_snapshot.json
+dashboard.log
 
 # ---- CMake 中间文件 ----
 CMakeCache.txt

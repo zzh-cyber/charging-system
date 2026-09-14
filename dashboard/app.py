@@ -20,7 +20,8 @@ from flask import Flask, jsonify, send_from_directory
 
 ROOT = Path(__file__).resolve().parent
 FRONTEND = ROOT / "frontend"
-DATA_FILE = Path(os.environ.get("DASHBOARD_DATA_FILE", ROOT / "mock_data.json"))
+DATA_FILE_ENV = os.environ.get("DASHBOARD_DATA_FILE")
+DATA_FILE = Path(DATA_FILE_ENV) if DATA_FILE_ENV else ROOT / "mock_data.json"
 QA_FILE = Path(
     os.environ.get(
         "DASHBOARD_QA_FILE",
@@ -48,6 +49,10 @@ def mock_data() -> dict:
     return {
         "generated_at": "2026-09-13T21:00:00",
         "kpis": {
+            "order_count": 16924,
+            "total_kwh": 609996.23,
+            "total_revenue": 787325.59,
+            "active_stations": 72,
             "today_kwh": 1280.5,
             "today_revenue": 1920.75,
             "idle_piles": 210,
@@ -72,6 +77,30 @@ def mock_data() -> dict:
         "load_forecast_24h": [
             {"offset": i, "kwh": round(48 + 3.5 * ((i - 1) % 12), 1)}
             for i in range(1, 25)
+        ],
+        # ADS dashboard aggregates.  These are read-only presentation fields
+        # exported by the warehouse job and intentionally kept alongside the
+        # legacy chart series for backwards compatibility.
+        "load_hour_avg": [{"hour": h, "kwh": round(40 + (h % 12) * 8.5, 2)} for h in range(24)],
+        "charge_heatmap": {"x_axis": list(range(0, 24, 2)), "y_axis": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"], "series_data": [[x, y, round(20 + ((x + y * 3) % 12) * 6.5, 2)] for y in range(7) for x in range(12)], "min_val": 0, "max_val": 100},
+        "summary": {"avg_turnover_rate": 3.2, "avg_daily_kwh_per_pile": 42.6, "avg_daily_revenue_per_pile": 63.8},
+        "station_rank": [], "overstay_records": [], "device_warnings": [], "active_tickets": [],
+        "weekday_weekend": {
+            "weekday_kwh": 423647.05,
+            "weekend_kwh": 180063.34,
+            "note": "DWS 分摊，周一至周五 vs 周六日",
+        },
+        "regions": [
+            {"city": city, "kwh": kwh, "amount": amount, "yuan_per_kwh": round(amount / kwh, 4)}
+            for city, kwh, amount in (
+                ("北京", 150000.0, 205000.0), ("广州", 130000.0, 175000.0),
+                ("杭州", 120000.0, 160000.0), ("上海", 110000.0, 150000.0),
+                ("深圳", 90000.0, 125000.0), ("南京", 70000.0, 98000.0),
+            )
+        ],
+        "pile_types": [
+            {"type": "直流", "idle": 220, "busy": 41, "fault": 27, "util": 15.7},
+            {"type": "交流", "idle": 82, "busy": 20, "fault": 9, "util": 19.6},
         ],
         "stations": [
             {
@@ -178,29 +207,86 @@ def overlay_quality(data: dict) -> None:
 
 
 def load_snapshot() -> dict:
-    data = mock_data()
+    # A configured ADS snapshot is authoritative: never fill missing ADS fields
+    # with demo values, otherwise the screen can mix real and fake metrics.
     try:
         if DATA_FILE.is_file():
-            extra = json.loads(DATA_FILE.read_text(encoding="utf-8"))
-            if isinstance(extra, dict) and extra:
-                for key, value in extra.items():
-                    if isinstance(value, dict) and isinstance(data.get(key), dict):
-                        merged = dict(data[key])
-                        merged.update(value)
-                        data[key] = merged
-                    else:
-                        data[key] = value
+            snapshot = json.loads(DATA_FILE.read_text(encoding="utf-8"))
+            if isinstance(snapshot, dict) and snapshot:
+                return snapshot
+            if DATA_FILE_ENV:
+                raise ValueError("ADS dashboard JSON must be a non-empty object")
+        elif DATA_FILE_ENV:
+            raise FileNotFoundError(f"ADS dashboard JSON not found: {DATA_FILE}")
     except (OSError, ValueError):
-        pass
+        if DATA_FILE_ENV:
+            raise
+
+    data = mock_data()
     overlay_quality(data)
     kpis = data.setdefault("kpis", {})
     kpis["alert_count"] = len(data.get("alerts") or [])
     return data
 
 
+def normalize_snapshot(data: dict) -> dict:
+    """Fill only deterministic presentation fields from an ADS snapshot.
+
+    ADS exports from different pipeline runs use slightly different names;
+    normalising here keeps the page useful without inventing business data.
+    """
+    data = dict(data or {})
+    kpis = dict(data.get("kpis") or {})
+    aliases = {"total_kwh": ("today_kwh", "total_kwh"),
+               "total_revenue": ("today_revenue", "total_revenue"),
+               "active_stations": ("active_stations", "station_count")}
+    for target, names in aliases.items():
+        if target not in kpis:
+            for name in names:
+                if name in kpis:
+                    kpis[target] = kpis[name]
+                    break
+    stations = list(data.get("stations") or [])
+    if stations and not any(k in kpis for k in ("idle_piles", "busy_piles", "fault_piles")):
+        kpis["idle_piles"] = sum(int(s.get("idle") or 0) for s in stations)
+        kpis["busy_piles"] = sum(max(0, int(s.get("total") or 0) - int(s.get("idle") or 0)) for s in stations)
+        kpis["fault_piles"] = sum(int(s.get("fault") or 0) for s in stations)
+    if "active_stations" not in kpis:
+        kpis["active_stations"] = sum(1 for s in stations if int(s.get("total") or 0) > 0)
+    kpis["alert_count"] = len(data.get("alerts") or [])
+    data["kpis"] = kpis
+    data.setdefault("dispatch", [])
+    data.setdefault("faults", [])
+    data.setdefault("load_today", [])
+    data.setdefault("load_forecast_24h", [])
+    data.setdefault("load_hour_avg", [])
+    data.setdefault("charge_heatmap", {})
+    data.setdefault("summary", {})
+    data.setdefault("station_rank", [])
+    data.setdefault("overstay_records", [])
+    data.setdefault("device_warnings", [])
+    data.setdefault("active_tickets", [])
+    data.setdefault("weekday_weekend", {})
+    data.setdefault("regions", [])
+    data.setdefault("pile_types", [])
+    data.setdefault("stations", stations)
+    # Keep the operational panels informative when an ADS export contains
+    # only summary KPIs.  These are presentation-only fallbacks; real rows
+    # always take precedence.
+    if not data["faults"] and int(kpis.get("fault_piles") or 0) > 0:
+        data["faults"] = [{"summary": True, "count": int(kpis["fault_piles"]),
+                           "status": "fault"}]
+    if not data["dispatch"]:
+        busy = int(kpis.get("busy_piles") or 0)
+        total = busy + int(kpis.get("idle_piles") or 0) + int(kpis.get("fault_piles") or 0)
+        data["dispatch"] = [{"summary": True,
+                              "reason": "全站运行平稳，建议继续保持当前巡检与负荷监控" if total == 0 or busy < total * 0.85 else "当前负荷较高，建议优先引导用户前往空闲站点"}]
+    return data
+
+
 @app.get("/api/dashboard")
 def api_dashboard():
-    return jsonify(load_snapshot())
+    return jsonify(normalize_snapshot(load_snapshot()))
 
 
 @app.get("/api/quality")
