@@ -37,15 +37,34 @@ CHARGING_DB_PASSWORD=xxx python3 bigdata/gen_ods.py
 ```bash
 python3 bigdata/gen_ods.py --orders \
     --days 14 --rows 30000 \        # 天数与总量（矩阵区间：14~30 天 / 1~3 万条）
-    --seed 20260914 \               # 换种子换一份数据；同种子逐字节相同
+    --seed 20260914 \               # 换种子换一份数据（同种子也未必同产物，见下）
     --sim-now 21:00:00 \            # 「模拟当前时刻」，必须落在 --end-date 当天
     --end-date 2026-09-13 \
     --dirty-ratio 0.08 \            # 脏数据比例，矩阵区间 0.05~0.10
     --holidays 2026-10-01           # 窗口内的节假日；默认空
 ```
 
-**可复现**：同一组 `(--seed --end-date --sim-now --days --rows --dirty-ratio)`
-下输出逐字节相同。解析后的参数会原样写进 `dq_expected.json` 备查。
+**可复现是有条件的**：同一组 `(--seed --end-date --sim-now --days --rows
+--dirty-ratio)` 下输出逐字节相同 —— **前提是演示库的 `station` / `pile` /
+`user` 三张表也和上次一模一样**。`load_dimensions()` 是拿 `SELECT` 现读这三张表
+的，不是从仓库读的：只要有人注册一个用户、或用管理员端建一个站/桩，返回的
+`stations` / `piles` / `users` 就变了，**同一组参数会生成出完全不同的文件**。
+另外 `--end-date` 默认「今天」，不给这个参数就等于把「今天几号」当输入。
+
+> **这不是假设，9/14 已经发生过一次**：两份数据用完全相同的参数
+> （`seed 20260913` / `end-date 2026-09-13` / `sim_now 21:00:00`）生成，
+> 因为两个人的演示库里 `user` 表行数不同（40 vs 21），
+> 结果 `dwd_rows` 一个 16752、一个 16747，kwh 一个 602100.09、一个 603710.40。
+> 差异还是**雪崩式**的：所有抽取共用一个 `random.Random(seed)` 流，
+> 前面错一位后面全错位，不是局部差几行。
+>
+> ⇒ 约定：**`bigdata/out/` 下这三份 CSV 是【冻结的产物】，所有人直接消费它，
+> 不要重跑生成器**；要换数据就明确换一次并同步更新契约。
+> 拿到文件先对 `file_sha256` 自证是不是同一份。
+>
+> 当前基准取自 `c33a6d5` 提交入库的夹具（见 `file_sha256` 与 `derived`）。
+
+解析后的参数会原样写进 `dq_expected.json` 备查。
 
 > ⚠️ 窗口默认 **30 天**而不是矩阵下限的 14 天，是实测调出来的：72 站 / 399 桩
 > 装 2 万单，14 天时 17.7% 的「站×小时」占用率 ≥80%、72 个站有 70 个触顶，
@@ -64,7 +83,7 @@ python3 bigdata/gen_ods.py --orders \
 | `check_ods_hdfs.py` | NO.111 | 验收：Spark 回读 HDFS，逐条核对契约 |
 | `report.py` | NO.109/110 | **可视化检验**：生成 HTML 图表报告，肉眼验分布与脏数据 |
 | `dq_expected.json` | NO.110 | **接口契约**：注入数 / 期望探查数 / DWD 行数，见下 |
-| `out/` | — | 导出产物，**已被 `.gitignore` 忽略**（靠根目录的 `out/` 规则） |
+| `out/` | — | 导出产物。**三份 CSV 已入库**（`.gitignore` 里逐个 `!` 放开），其余仍忽略 |
 
 `gen_ods.py` 自带几处自检，对不上会非 0 退出、**并且不写任何订单文件**：
 结果集列序 == `information_schema` 列序；写出行数 == 库里行数；
@@ -194,6 +213,7 @@ end_time         <= sim_now（2026-09-13 21:00:00），全量成立
 | `dimension` | 合法站/桩 id 范围，用来推孤儿判定 |
 | `hot_stations` | 8 个热点站及其桩数，用来校峰值占用率 |
 | `contract` | 给 Spark 侧的约定，逐条照做 |
+| `file_sha256` | **三份产物的指纹**。生成器不可跨机复现，所以「是不是同一份」不看参数、看这个。也是核对 HDFS 上那份与仓库里这份是否一致的判据：`sha256sum bigdata/out/ods_charge_order.csv` |
 
 **9/14 验收就对着 `expected_probe` 逐项比**。生成时打印的那张表也是它：
 

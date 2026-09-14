@@ -124,5 +124,10 @@
     "dwd_composition": "DWD 里留了哪些行看 derived.dwd_by_tag：干净行 + SOC_RANGE + STATUS_CONFLICT。后两类只违反「范围/自洽」检查，不在四条丢弃规则里，所以【必须】留着",
     "status_conflict_ambiguity": "⚠️ 矩阵两处对 STATUS_CONFLICT 口径不一致：60-72 行场景表的「清洗规则（DWD）」列写「本阶段丢弃」，而 NO.114 详细说明的丢弃清单里没列它。本实现按 NO.114 的清单【保留】，dwd_rows / dwd_kwh_total 就是保留后的数；若组长裁定要丢，用 derived.dwd_rows_if_status_conflict_dropped 与 dwd_kwh_if_status_conflict_dropped。两边都算好了，9/14 别因为记账口径不同判成不一致",
     "truncated_charging": "derived.truncated_charging_rows 是 status=charging 且 end_time == sim_now 的行 —— 跨过模拟当前时刻、按已充时长折算过的会话，不满足 kwh == (target-start)/100*capacity 这条整段关系式，断言时要排掉。其中干净行是 derived.truncated_charging_clean 条，两者别混用"
+  },
+  "file_sha256": {
+    "ods_station.csv": "3007524a4a918ba58493f7e704bdcda2397d2d910eda34f8da0d7d59120172b8",
+    "ods_pile.csv": "359c3d725413b866b2428b8d57bd4197792e81a5b7c3b631b39967405af77ddb",
+    "ods_charge_order.csv": "de7ad1617eaed436d0bf3010c2dd2776fe7e643224ca886feda7bab5731668e7"
   }
 }
