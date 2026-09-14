@@ -11,15 +11,17 @@
   spark-submit bigdata/pipeline.py --stage qa
   spark-submit bigdata/pipeline.py --stage clean
   spark-submit bigdata/pipeline.py --stage dws
+  spark-submit bigdata/pipeline.py --stage ads
   spark-submit bigdata/pipeline.py --stage qa --ods hdfs   # 已 put 到 HDFS 时
 
-后续 stage：ads / train（尚未实现）。
+后续 stage：train（MLlib，尚未实现）。
 """
 from __future__ import annotations
 
 import argparse
 import json
 import os
+import subprocess
 import sys
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -392,7 +394,7 @@ def stage_dws(spark: SparkSession) -> int:
         raise FileNotFoundError(src)
 
     dwd = read_csv(spark, src)
-    _, _, piles = load_ods(spark)
+    _, _, _, piles = load_ods(spark)
     piles.createOrReplaceTempView("ods_pile")
     dwd.createOrReplaceTempView("dwd_order")
 
@@ -506,11 +508,388 @@ def stage_dws(spark: SparkSession) -> int:
     dws.show(20, truncate=False)
     if n == 0:
         raise RuntimeError("DWS 为空：检查 DWD 时间字段是否能被 to_timestamp 解析")
+    try_hdfs_put(dest / "station_hour.csv", "/user/charging/dws/station_hour")
+    return 0
+
+
+def dws_path() -> Path:
+    return WORK_DIR / "dws" / "station_hour" / "station_hour.csv"
+
+
+def try_hdfs_put(local: Path, hdfs_dir: str) -> None:
+    """NameNode 活着就把单个文件放到目录里。失败不挡本地结果。"""
+    if not local.is_file():
+        return
+    try:
+        ls = subprocess.run(
+            ["hdfs", "dfs", "-ls", "/"],
+            capture_output=True,
+            timeout=20,
+        )
+        if ls.returncode != 0:
+            print("HDFS 未就绪，跳过上传", hdfs_dir)
+            return
+        subprocess.run(
+            ["hdfs", "dfs", "-mkdir", "-p", hdfs_dir],
+            check=True,
+            timeout=20,
+        )
+        subprocess.run(
+            ["hdfs", "dfs", "-put", "-f", str(local), hdfs_dir + "/"],
+            check=True,
+            timeout=60,
+        )
+        print("HDFS <-", hdfs_dir + "/" + local.name)
+    except (OSError, subprocess.SubprocessError) as exc:
+        print("HDFS 上传跳过:", exc)
+
+
+def congestion_of(idle: int, total: int, util: float) -> str:
+    if total <= 0:
+        return "mid"
+    ratio = idle / float(total)
+    if ratio >= 0.5:
+        return "low"
+    if ratio < 0.2 or util >= 80.0:
+        return "high"
+    return "mid"
+
+
+def forecast_slot(kwh: float, idle: int, total: int) -> dict:
+    util = 0.0 if total <= 0 else round((total - idle) * 100.0 / total, 1)
+    util = max(0.0, min(100.0, util))
+    idle = max(0, min(int(total), int(idle)))
+    return {
+        "kwh": round(float(kwh), 2),
+        "idle": idle,
+        "util": util,
+        "is_peak": 1 if util >= 80.0 else 0,
+        "congestion": congestion_of(idle, total, util),
+    }
+
+
+def quality_from_disk() -> dict:
+    report_path = WORK_DIR / "qa" / "report.json"
+    keys = (
+        "ods_rows",
+        "null_start_time",
+        "negative_kwh",
+        "dup_order_no",
+        "orphan_station",
+        "dwd_rows",
+    )
+    out = {}
+    if report_path.is_file():
+        qa = json.loads(report_path.read_text(encoding="utf-8"))
+        for k in keys:
+            if k in qa:
+                out[k] = qa[k]
+    contract = load_contract()
+    if contract:
+        probe = contract.get("expected_probe", {})
+        derived = contract.get("derived", {})
+        for k in keys:
+            if k not in out and k in probe:
+                out[k] = probe[k]
+        if "dwd_rows" not in out:
+            out["dwd_rows"] = derived.get("dwd_rows")
+    return out
+
+
+def stage_ads(spark: SparkSession) -> int:
+    """NO.116：SparkSQL 从 DWS 出大屏 JSON + MLlib 训练宽表。
+
+    1h/6h/24h 用「最新时刻 / 近 6h 均值 / 昨日同时段」占位，
+    真正的 MLlib 预测留给 --stage train。
+    """
+    src = dws_path()
+    if not src.is_file():
+        print("未找到 DWS，先跑 dws:", src)
+        rc = stage_dws(spark)
+        if rc != 0:
+            return rc
+    if not src.is_file():
+        raise FileNotFoundError(src)
+
+    sim = "2026-09-13"
+    sim_now = "2026-09-13T21:00:00"
+    contract = load_contract()
+    if contract and "params" in contract:
+        sim = contract["params"].get("end_date", sim)
+        sim_now = contract["params"].get("sim_now", sim_now).replace(" ", "T")
+
+    dws = (
+        spark.read.option("header", True)
+        .option("encoding", "UTF-8")
+        .csv(file_uri(src))
+        .withColumn("station_id", F.col("station_id").cast("long"))
+        .withColumn("hour_ts", F.to_timestamp("hour_ts"))
+        .withColumn("kwh", F.col("kwh").cast("double"))
+        .withColumn("order_count", F.col("order_count").cast("int"))
+        .withColumn("busy_piles", F.col("busy_piles").cast("int"))
+        .withColumn("idle_piles", F.col("idle_piles").cast("int"))
+        .withColumn("total_piles", F.col("total_piles").cast("int"))
+        .withColumn("weekday", F.col("weekday").cast("int"))
+        .withColumn("is_weekend", F.col("is_weekend").cast("int"))
+        .withColumn("is_holiday", F.col("is_holiday").cast("int"))
+        .withColumn("hour_of_day", F.col("hour_of_day").cast("int"))
+    )
+    dws.createOrReplaceTempView("dws")
+
+    kind, _orders, stations, piles = load_ods(spark)
+    stations.createOrReplaceTempView("ods_station")
+    piles.createOrReplaceTempView("ods_pile")
+    print("ADS 用 DWS + ODS source:", kind)
+
+    w = Window.partitionBy("station_id").orderBy("hour_ts")
+    w24 = Window.partitionBy("station_id").orderBy("hour_ts").rowsBetween(-24, -1)
+    feat = (
+        dws.withColumn("lag1_kwh", F.lag("kwh", 1).over(w))
+        .withColumn("mean_24h_kwh", F.avg("kwh").over(w24))
+        .withColumn("label_kwh_1", F.lead("kwh", 1).over(w))
+        .withColumn("label_idle_1", F.lead("idle_piles", 1).over(w))
+        .withColumn("label_kwh_6", F.lead("kwh", 6).over(w))
+        .withColumn("label_idle_6", F.lead("idle_piles", 6).over(w))
+        .withColumn("label_kwh_24", F.lead("kwh", 24).over(w))
+        .withColumn("label_idle_24", F.lead("idle_piles", 24).over(w))
+    )
+    feat.createOrReplaceTempView("dws_feat")
+    wide = spark.sql(
+        """
+        SELECT station_id, hour_ts, kwh, idle_piles, busy_piles, total_piles,
+               hour_of_day, weekday, is_weekend, is_holiday,
+               lag1_kwh, mean_24h_kwh, horizon, label_kwh, label_idle
+        FROM (
+          SELECT station_id, hour_ts, kwh, idle_piles, busy_piles, total_piles,
+                 hour_of_day, weekday, is_weekend, is_holiday,
+                 lag1_kwh, mean_24h_kwh,
+                 1 AS horizon, label_kwh_1 AS label_kwh, label_idle_1 AS label_idle
+          FROM dws_feat
+          UNION ALL
+          SELECT station_id, hour_ts, kwh, idle_piles, busy_piles, total_piles,
+                 hour_of_day, weekday, is_weekend, is_holiday,
+                 lag1_kwh, mean_24h_kwh,
+                 6, label_kwh_6, label_idle_6
+          FROM dws_feat
+          UNION ALL
+          SELECT station_id, hour_ts, kwh, idle_piles, busy_piles, total_piles,
+                 hour_of_day, weekday, is_weekend, is_holiday,
+                 lag1_kwh, mean_24h_kwh,
+                 24, label_kwh_24, label_idle_24
+          FROM dws_feat
+        )
+        WHERE label_kwh IS NOT NULL
+        """
+    )
+    train_dest = WORK_DIR / "ads" / "train"
+    write_csv(wide, train_dest)
+    train_n = wide.count()
+    print("ADS train wide rows:", train_n, " file:", train_dest / "train.csv")
+
+    today_load = spark.sql(
+        """
+        SELECT hour_of_day AS hour, ROUND(SUM(kwh), 2) AS kwh
+        FROM dws
+        WHERE date_format(hour_ts, 'yyyy-MM-dd') = '%s'
+        GROUP BY hour_of_day
+        ORDER BY hour
+        """
+        % sim
+    ).collect()
+    by_hour = {int(r["hour"]): float(r["kwh"]) for r in today_load}
+    load_today = [{"hour": h, "kwh": round(by_hour.get(h, 0.0), 2)} for h in range(24)]
+    today_kwh = round(sum(x["kwh"] for x in load_today), 2)
+    peak = max(load_today, key=lambda x: x["kwh"])
+    peak_hour = "%02d:00" % peak["hour"]
+
+    price_rev = spark.sql(
+        """
+        SELECT ROUND(SUM(d.kwh * CAST(s.price AS DOUBLE)), 2) AS revenue
+        FROM dws d
+        JOIN ods_station s ON d.station_id = CAST(s.id AS BIGINT)
+        WHERE date_format(d.hour_ts, 'yyyy-MM-dd') = '%s'
+        """
+        % sim
+    ).collect()[0]["revenue"]
+    today_revenue = float(price_rev or 0.0)
+
+    spark.sql(
+        """
+        CREATE OR REPLACE TEMP VIEW station_dim AS
+        SELECT CAST(s.id AS BIGINT) AS station_id,
+               s.name AS name,
+               COUNT(p.id) AS total_piles,
+               SUM(CASE WHEN p.status = 'idle' THEN 1 ELSE 0 END) AS snap_idle,
+               SUM(CASE WHEN p.status = 'busy' THEN 1 ELSE 0 END) AS snap_busy,
+               SUM(CASE WHEN p.status = 'fault' THEN 1 ELSE 0 END) AS snap_fault
+        FROM ods_station s
+        LEFT JOIN ods_pile p ON CAST(s.id AS BIGINT) = CAST(p.station_id AS BIGINT)
+        GROUP BY CAST(s.id AS BIGINT), s.name
+        """
+    )
+    spark.sql(
+        """
+        CREATE OR REPLACE TEMP VIEW dws_latest AS
+        SELECT d.*
+        FROM dws d
+        JOIN (
+          SELECT station_id, max(hour_ts) AS hour_ts
+          FROM dws
+          GROUP BY station_id
+        ) m ON d.station_id = m.station_id AND d.hour_ts = m.hour_ts
+        """
+    )
+    # 桩状态用 ODS 快照：DWS 最新小时只有当小时有单的站，会漏掉全空闲站
+    snap = spark.sql(
+        """
+        SELECT SUM(snap_idle) AS idle_piles,
+               SUM(snap_busy) AS busy_piles,
+               SUM(snap_fault) AS fault_piles
+        FROM station_dim
+        """
+    ).collect()[0]
+    busy_piles = int(snap["busy_piles"] or 0)
+    idle_piles = int(snap["idle_piles"] or 0)
+    fault_piles = int(snap["fault_piles"] or 0)
+
+    hod_avg = {
+        int(r["hour_of_day"]): float(r["avg_kwh"])
+        for r in spark.sql(
+            """
+            SELECT hour_of_day,
+                   SUM(kwh) / COUNT(DISTINCT date_format(hour_ts, 'yyyy-MM-dd')) AS avg_kwh
+            FROM dws
+            GROUP BY hour_of_day
+            """
+        ).collect()
+    }
+    latest_hod = spark.sql("SELECT hour(max(hour_ts)) AS h FROM dws").collect()[0]["h"]
+    latest_hod = int(latest_hod if latest_hod is not None else 20)
+    load_forecast_24h = []
+    for offset in range(1, 25):
+        hod = (latest_hod + offset) % 24
+        load_forecast_24h.append({"offset": offset, "kwh": round(hod_avg.get(hod, 0.0), 2)})
+
+    spark.sql(
+        """
+        CREATE OR REPLACE TEMP VIEW hist6 AS
+        SELECT d.station_id,
+               AVG(d.kwh) AS kwh6,
+               AVG(d.idle_piles) AS idle6,
+               AVG(d.total_piles) AS total6
+        FROM dws d
+        JOIN (SELECT station_id, max(hour_ts) AS t FROM dws GROUP BY station_id) m
+          ON d.station_id = m.station_id
+        WHERE d.hour_ts > m.t - INTERVAL 6 HOURS
+        GROUP BY d.station_id
+        """
+    )
+    spark.sql(
+        """
+        CREATE OR REPLACE TEMP VIEW yday AS
+        SELECT d.station_id, d.kwh, d.idle_piles, d.total_piles
+        FROM dws d
+        JOIN (SELECT station_id, max(hour_ts) AS t FROM dws GROUP BY station_id) m
+          ON d.station_id = m.station_id
+         AND d.hour_ts = m.t - INTERVAL 24 HOURS
+        """
+    )
+    station_rows = spark.sql(
+        """
+        SELECT
+          d.station_id, d.name, d.total_piles, d.snap_idle,
+          l.kwh AS kwh1, l.idle_piles AS dws_idle1, l.total_piles AS dws_total1,
+          h.kwh6, h.idle6, h.total6,
+          y.kwh AS kwh24, y.idle_piles AS idle24, y.total_piles AS total24
+        FROM station_dim d
+        LEFT JOIN dws_latest l ON d.station_id = l.station_id
+        LEFT JOIN hist6 h ON d.station_id = h.station_id
+        LEFT JOIN yday y ON d.station_id = y.station_id
+        ORDER BY d.station_id
+        """
+    ).collect()
+
+    stations_out = []
+    alerts = []
+    for r in station_rows:
+        sid = int(r["station_id"])
+        name = r["name"] or ("站 %s" % sid)
+        total = int(r["total_piles"] or 0)
+        idle = int(r["snap_idle"] or 0)
+        dws_total = int(r["dws_total1"] if r["dws_total1"] is not None else total)
+        dws_idle = int(r["dws_idle1"] if r["dws_idle1"] is not None else idle)
+        h1 = forecast_slot(r["kwh1"] or 0.0, dws_idle, dws_total)
+        h6 = forecast_slot(
+            r["kwh6"] if r["kwh6"] is not None else (r["kwh1"] or 0.0),
+            int(r["idle6"] if r["idle6"] is not None else dws_idle),
+            int(r["total6"] if r["total6"] is not None else dws_total),
+        )
+        h24 = forecast_slot(
+            r["kwh24"] if r["kwh24"] is not None else (r["kwh1"] or 0.0),
+            int(r["idle24"] if r["idle24"] is not None else dws_idle),
+            int(r["total24"] if r["total24"] is not None else dws_total),
+        )
+        stations_out.append(
+            {
+                "station_id": sid,
+                "name": name,
+                "idle": idle,
+                "total": total,
+                "forecast": {"h1": h1, "h6": h6, "h24": h24},
+            }
+        )
+        for horizon, slot in ((1, h1), (6, h6), (24, h24)):
+            if slot["is_peak"]:
+                alerts.append(
+                    {
+                        "station_id": sid,
+                        "name": name,
+                        "horizon": horizon,
+                        "reason": "%s小时后预测占用率 %.0f%%" % (horizon, slot["util"]),
+                    }
+                )
+
+    dashboard = {
+        "generated_at": sim_now,
+        "kpis": {
+            "today_kwh": today_kwh,
+            "today_revenue": round(today_revenue, 2),
+            "idle_piles": idle_piles,
+            "busy_piles": busy_piles,
+            "fault_piles": int(fault_piles),
+            "peak_hour": peak_hour,
+            "alert_count": len(alerts),
+        },
+        "quality": quality_from_disk(),
+        "load_today": load_today,
+        "load_forecast_24h": load_forecast_24h,
+        "stations": stations_out,
+        "alerts": alerts,
+        "note": "ADS 占位预测来自 DWS 最新/近6h/昨日同时段，MLlib 在 --stage train 替换",
+    }
+    kpi_dir = WORK_DIR / "ads" / "kpis"
+    kpi_dir.mkdir(parents=True, exist_ok=True)
+    dash_path = kpi_dir / "dashboard.json"
+    dash_path.write_text(
+        json.dumps(dashboard, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    print("ADS dashboard ->", dash_path)
+    print(
+        json.dumps(dashboard["kpis"], ensure_ascii=False),
+        "stations",
+        len(stations_out),
+        "alerts",
+        len(alerts),
+    )
+    try_hdfs_put(dash_path, "/user/charging/ads/kpis")
+    try_hdfs_put(train_dest / "train.csv", "/user/charging/ads/train")
+    print("大屏接真数：DASHBOARD_DATA_FILE=%s python3 dashboard/app.py" % dash_path)
     return 0
 
 
 def not_ready(stage: str) -> int:
-    print("stage=%s 尚未实现。dws 通了之后再补 ADS 与 MLlib。" % stage)
+    print("stage=%s 尚未实现。ads 通了之后再补 MLlib。" % stage)
     return 0
 
 
@@ -543,6 +922,8 @@ def main() -> int:
             return stage_clean(spark)
         if args.stage == "dws":
             return stage_dws(spark)
+        if args.stage == "ads":
+            return stage_ads(spark)
         return not_ready(args.stage)
     finally:
         spark.stop()

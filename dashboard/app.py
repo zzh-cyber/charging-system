@@ -155,7 +155,7 @@ def overlay_quality(data: dict) -> None:
     if "dup_order_no" not in qa and "duplicate_order_no" in qa:
         quality["dup_order_no"] = qa["duplicate_order_no"]
     data["quality"] = quality
-    if qa.get("generated_at"):
+    if qa.get("generated_at") and not data.get("generated_at"):
         data["generated_at"] = qa["generated_at"]
 
 

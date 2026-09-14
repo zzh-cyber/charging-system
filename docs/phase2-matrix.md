@@ -2,7 +2,7 @@
 
 > **项目名称**：新能源汽车充电管理系统（接第一阶段 Qt + MySQL）  
 > **节点**：9/12 环境就绪 · **9/15 两项验收**  
-> **编制日期**：2026-09-12　**修订**：2026-09-12 晚（按老师六步：模拟脏数据 → PySpark 探查/清洗 → SparkSQL 四层 → Flask+Vue+ECharts → Spark MLlib）  
+> **编制日期**：2026-09-12　**修订**：2026-09-14（DWS/ADS 已在答辩机跑通）  
 > **状态图例**：○ 完成　△ 进行中　× 未着手  
 
 第一阶段四项（用户端 / 管理端 / 服务端 / 数据库）不变。本文件覆盖老师文档 **（4）大数据可视化大屏**、**（5）充电负荷智能预测**，并按老师给出的作业步骤落地。  
@@ -203,24 +203,24 @@ JSON 字段与下面结构对齐（便于先 mock）：
 
 | NO. | 大分类 | 中分类 | 小分类 | 详细说明 | 负责人 | 预计日期 | 状态 | 困难 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 108 | 老师（1）模拟数据 | 维表导出 | 按第一阶段表结构出 ODS 维表 | `gen_ods.py` 从 `charging_system.station/pile` 导出 CSV（列与 `schema.sql` 一致）。禁止 DROP 业务表。 | 邓雅心 | 2026-09-12 | × | 只读演示库 |
-| 109 | 老师（1）模拟数据 | 足量订单 | 生成 14～30 天、1～3 万条模拟充电订单 | 按现有站/桩、单价、功率生成 `start_time/end_time/kwh/amount/status`，日内早/晚高峰与周末差异。`--seed` 可复现。文件 `bigdata/out/ods_charge_order.csv`。 | 邓雅心 | 2026-09-13 | × | 不要插入 `charge_order` 业务表 |
-| 110 | 老师（1）模拟数据 | 质量问题 | 注入约 5%～10% 场景脏数据 | 覆盖空值、负 kwh、时间颠倒、重复 order_no、孤儿 station/pile、状态矛盾（见上表）。脏行带 `dq_tag` 列便于自测（ODS 可多一列，DWD 去掉）。 | 邓雅心 | 2026-09-13 | × | 每类都能在探查报告里对上 |
-| 111 | 老师（1）存储 | 上传 HDFS ODS | 三维表进 `/user/charging/ods/` | `hdfs dfs -mkdir -p` 后 `-put -f`。Hadoop 未启动则非 0 退出。验收：`hdfs dfs -ls -R /user/charging/ods`。 | 邓雅心 | 2026-09-13 | × | HDFS 8020；`source ~/.hadoop_env.sh` |
-| 112 | 数据库端 | 预测结果表 | MySQL `load_forecast`，schema_version=4 | `patch_v4_load_forecast.sql` + `upgradeSchema` 增量 CREATE。仅此表进演示库，给 `station_list` 用。 | 邓雅心 | 2026-09-12 | × | 禁止把 ODS 灌进 MySQL |
-| 113 | 老师（2）探查 | PySpark 发现质量问题 | 空值/范围/重复/孤儿计数 | `spark-submit` 读 ODS：`isNull`、`kwh<0`、`end<start`、`groupBy order_no`、anti-join 维表。写出 `/user/charging/qa/report.json` 并 print。截图 Spark UI 4040。 | 翟梓涵 | 2026-09-13 | × | 数字须与邓雅心注入量级相符 |
-| 114 | 老师（3）清洗 | PySpark ODS→DWD | 按规则过滤/去重 | 丢弃空 start/负 kwh/时间颠倒/孤儿；重复 order_no 留最新。`dwd_rows` 写入报告。写出 `/user/charging/dwd/charge_order/`。 | 翟梓涵 | 2026-09-13 | × | 不在清洗阶段做预测 |
-| 115 | 老师（4）SparkSQL | DWD→DWS | 站×小时负荷 | TempView + SparkSQL 按整点分摊 kwh、统计占用/空闲。写出 `/user/charging/dws/station_hour/`。节假日用内置日历，不调天气 API。 | 翟梓涵 | 2026-09-13 | × | SQL 要能在答辩打开讲解 |
-| 116 | 老师（4）SparkSQL | DWS→ADS | KPI、预警、训练宽表 | SparkSQL 汇总今日 kwh/营收（amount 分摊或按日）、桩状态可用演示库 pile 快照或 DWS 最新小时。预警：占用率≥80%。训练宽表含 lag-1、近 24h 均值、horizon 展开 1/6/24。写出 `/user/charging/ads/`。 | 翟梓涵 | 2026-09-14 | × | Flask 只读 ADS |
+| 108 | 老师（1）模拟数据 | 维表导出 | 按第一阶段表结构出 ODS 维表 | `gen_ods.py` 从 `charging_system.station/pile` 导出 CSV（列与 `schema.sql` 一致）。禁止 DROP 业务表。 | 邓雅心 | 2026-09-12 | ○ | 只读演示库 |
+| 109 | 老师（1）模拟数据 | 足量订单 | 生成 14～30 天、1～3 万条模拟充电订单 | 按现有站/桩、单价、功率生成 `start_time/end_time/kwh/amount/status`，日内早/晚高峰与周末差异。`--seed` 可复现。文件 `bigdata/out/ods_charge_order.csv`。 | 邓雅心 | 2026-09-13 | ○ | 不要插入 `charge_order` 业务表 |
+| 110 | 老师（1）模拟数据 | 质量问题 | 注入约 5%～10% 场景脏数据 | 覆盖空值、负 kwh、时间颠倒、重复 order_no、孤儿 station/pile、状态矛盾（见上表）。脏行带 `dq_tag` 列便于自测（ODS 可多一列，DWD 去掉）。 | 邓雅心 | 2026-09-13 | ○ | 每类都能在探查报告里对上 |
+| 111 | 老师（1）存储 | 上传 HDFS ODS | 三维表进 `/user/charging/ods/` | `hdfs dfs -mkdir -p` 后 `-put -f`。Hadoop 未启动则非 0 退出。验收：`hdfs dfs -ls -R /user/charging/ods`。 | 邓雅心 | 2026-09-13 | ○ | HDFS 8020；`source ~/.hadoop_env.sh` |
+| 112 | 数据库端 | 预测结果表 | MySQL `load_forecast`，schema_version=4 | `patch_v4_load_forecast.sql` + `upgradeSchema` 增量 CREATE。仅此表进演示库，给 `station_list` 用。 | 邓雅心 | 2026-09-12 | ○ | 禁止把 ODS 灌进 MySQL |
+| 113 | 老师（2）探查 | PySpark 发现质量问题 | 空值/范围/重复/孤儿计数 | `spark-submit` 读 ODS：`isNull`、`kwh<0`、`end<start`、`groupBy order_no`、anti-join 维表。写出 `/user/charging/qa/report.json` 并 print。截图 Spark UI 4040。 | 翟梓涵 | 2026-09-13 | ○ | 数字须与邓雅心注入量级相符 |
+| 114 | 老师（3）清洗 | PySpark ODS→DWD | 按规则过滤/去重 | 丢弃空 start/负 kwh/时间颠倒/孤儿；重复 order_no 留最新。`dwd_rows` 写入报告。写出 `/user/charging/dwd/charge_order/`。 | 翟梓涵 | 2026-09-13 | ○ | 不在清洗阶段做预测 |
+| 115 | 老师（4）SparkSQL | DWD→DWS | 站×小时负荷 | TempView + SparkSQL 按整点分摊 kwh、统计占用/空闲。写出 `/user/charging/dws/station_hour/`。节假日用内置日历，不调天气 API。 | 翟梓涵 | 2026-09-13 | ○ | SQL 要能在答辩打开讲解 |
+| 116 | 老师（4）SparkSQL | DWS→ADS | KPI、预警、训练宽表 | SparkSQL 汇总今日 kwh/营收（amount 分摊或按日）、桩状态可用演示库 pile 快照或 DWS 最新小时。预警：占用率≥80%。训练宽表含 lag-1、近 24h 均值、horizon 展开 1/6/24。写出 `/user/charging/ads/`。 | 翟梓涵 | 2026-09-14 | ○ | Flask 只读 ADS |
 | 117 | 老师（6）预测 | Spark MLlib | 1h/6h/24h 负荷与空闲桩 | `spark-submit` 读 ADS 宽表。`VectorAssembler`：hour、weekday、is_weekend、is_holiday、lag、24h 均值、**horizon**。MLlib `RandomForestRegressor` 或 `GBTRegressor`，kwh 与 idle 各一模型。裁剪 idle∈[0,total]、util∈[0,100]；≥80% 为高峰。写 ADS forecast + `load_forecast`（pymysql，station_id 映射演示库）+ Flask 用 JSON。 | 翟梓涵 | 2026-09-14 | × | 演示主路径不用 sklearn；local[*] |
-| 118 | 老师（6）部署 | 一键流水线 | qa→clean→dws→ads→train | `hdfs_sync.sh`：NameNode 存活则 `spark-submit pipeline.py`；禁止 namenode -format。结束打印各层行数、4040、Flask JSON 路径。 | 翟梓涵 | 2026-09-14 | × | 与充电 9000 同时开 |
-| 119 | 老师（5）大屏 | Flask API | 提供 /api/quality 与看板数据 | `dashboard/app.py` 读 ADS/qa JSON（或仓库 mock）。端口 8081。13 号 mock 与上文结构一致。 | 牛昀轶 | 2026-09-13 | × | 不直连业务 MySQL |
-| 120 | 老师（5）大屏 | Vue+ECharts | 6 区运营看板 | Vue 3 CDN + ECharts 5 CDN。KPI、质量摘要、今日负荷、24h 预测、各站占用、预警。`axios/fetch` 调 Flask。空数据不白屏。 | 牛昀轶 | 2026-09-13 | × | 不用 HBuilderX、不用 `http.server` 当验收主路径 |
-| 121 | 老师（5）大屏 | 接真 ADS | 流水线后刷新大屏 | 14 号改 fetch 真接口；质量区数字与 qa/report 一致；预警可点高亮站。 | 牛昀轶 | 2026-09-14 | × | Flask 与 Spark 写文件的路径约定好 |
-| 122 | 服务端 | 预测接入 | station_list 附带预测 | `stationList` 查最新 `load_forecast` 拼字段。无预测不崩首页。不新增 MsgType。 | 朱雅琪 | 2026-09-13 | × | 13 号可 mock 字段 |
-| 123 | 服务端 | 可测 | 登录后可见新字段 | 演示号 `13800138001` + token 调 `station_list`。样例补 `docs/api-contract.md`。 | 朱雅琪 | 2026-09-14 | × | 须 load_forecast 有数 |
-| 124 | 用户端 | 智能推荐开关 | 距离序 / 预测序 | 默认关=NO.4。打开后排缓存：congestion → score → distance。缺字段当 mid/0。 | 马晓钰 | 2026-09-13 | × | 不改导航 |
-| 125 | 用户端 | 卡片标记 | 低拥堵 / 高峰将至 | low 绿、is_peak_1h 橙、high 红；缺字段不崩。 | 马晓钰 | 2026-09-13 | × | — |
+| 118 | 老师（6）部署 | 一键流水线 | qa→clean→dws→ads→train | `hdfs_sync.sh`：NameNode 存活则 `spark-submit pipeline.py`；禁止 namenode -format。结束打印各层行数、4040、Flask JSON 路径。 | 翟梓涵 | 2026-09-14 | △ | 与充电 9000 同时开 |
+| 119 | 老师（5）大屏 | Flask API | 提供 /api/quality 与看板数据 | `dashboard/app.py` 读 ADS/qa JSON（或仓库 mock）。端口 8081。13 号 mock 与上文结构一致。 | 牛昀轶 | 2026-09-13 | ○ | 不直连业务 MySQL |
+| 120 | 老师（5）大屏 | Vue+ECharts | 6 区运营看板 | Vue 3 CDN + ECharts 5 CDN。KPI、质量摘要、今日负荷、24h 预测、各站占用、预警。`axios/fetch` 调 Flask。空数据不白屏。 | 牛昀轶 | 2026-09-13 | ○ | 不用 HBuilderX、不用 `http.server` 当验收主路径 |
+| 121 | 老师（5）大屏 | 接真 ADS | 流水线后刷新大屏 | 14 号改 fetch 真接口；质量区数字与 qa/report 一致；预警可点高亮站。 | 牛昀轶 | 2026-09-14 | △ | Flask 与 Spark 写文件的路径约定好 |
+| 122 | 服务端 | 预测接入 | station_list 附带预测 | `stationList` 查最新 `load_forecast` 拼字段。无预测不崩首页。不新增 MsgType。 | 朱雅琪 | 2026-09-13 | ○ | 13 号可 mock 字段 |
+| 123 | 服务端 | 可测 | 登录后可见新字段 | 演示号 `13800138001` + token 调 `station_list`。样例补 `docs/api-contract.md`。 | 朱雅琪 | 2026-09-14 | △ | 须 load_forecast 有数 |
+| 124 | 用户端 | 智能推荐开关 | 距离序 / 预测序 | 默认关=NO.4。打开后排缓存：congestion → score → distance。缺字段当 mid/0。 | 马晓钰 | 2026-09-13 | ○ | 不改导航 |
+| 125 | 用户端 | 卡片标记 | 低拥堵 / 高峰将至 | low 绿、is_peak_1h 橙、high 红；缺字段不崩。 | 马晓钰 | 2026-09-13 | △ | — |
 | 126 | 联调 | 15 号验收 | 按老师六步演示 | ① ODS 脏数据 + qa 报告（（1）（2））。② DWD/DWS/ADS 路径与 SparkSQL（（3）（4））。③ Flask+Vue 大屏（（5））。④ spark-submit MLlib + 4040 + 用户端推荐（（6）+附加）。演示号余额约 92.50。 | 翟梓涵（组织）全员 | 2026-09-15 | × | 录屏按六步，不要只播大屏 |
 
 ---
