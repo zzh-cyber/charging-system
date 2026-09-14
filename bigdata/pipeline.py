@@ -12,9 +12,8 @@
   spark-submit bigdata/pipeline.py --stage clean
   spark-submit bigdata/pipeline.py --stage dws
   spark-submit bigdata/pipeline.py --stage ads
+  spark-submit --driver-memory 2g bigdata/pipeline.py --stage train
   spark-submit bigdata/pipeline.py --stage qa --ods hdfs   # 已 put 到 HDFS 时
-
-后续 stage：train（MLlib，尚未实现）。
 """
 from __future__ import annotations
 
@@ -88,6 +87,8 @@ def spark_session(app: str, use_hdfs: bool = False) -> SparkSession:
         .master("local[*]")
         .config("spark.sql.session.timeZone", "Asia/Shanghai")
         .config("spark.ui.port", "4040")
+        .config("spark.driver.memory", "2g")
+        .config("spark.driver.maxResultSize", "1g")
     )
     # 只在读 HDFS 时指定 defaultFS，避免 NameNode 没起时本地跑卡住
     if use_hdfs:
@@ -888,8 +889,363 @@ def stage_ads(spark: SparkSession) -> int:
     return 0
 
 
+FEATURE_COLS = [
+    "hour_of_day",
+    "weekday",
+    "is_weekend",
+    "is_holiday",
+    "lag1_kwh",
+    "mean_24h_kwh",
+    "horizon",
+    "kwh",
+    "idle_piles",
+]
+
+
+def train_csv_path() -> Path:
+    return WORK_DIR / "ads" / "train" / "train.csv"
+
+
+def dash_path() -> Path:
+    return WORK_DIR / "ads" / "kpis" / "dashboard.json"
+
+
+def sim_now_pair() -> tuple[str, str]:
+    """返回 (JSON 用 2026-09-13T21:00:00, MySQL 用 2026-09-13 21:00:00)。"""
+    iso = "2026-09-13T21:00:00"
+    contract = load_contract()
+    if contract and "params" in contract:
+        iso = contract["params"].get("sim_now", iso.replace("T", " ")).replace(" ", "T")
+        if "T" not in iso:
+            iso = iso.replace(" ", "T")
+    return iso, iso.replace("T", " ")
+
+
+def load_dws_typed(spark: SparkSession):
+    src = dws_path()
+    if not src.is_file():
+        raise FileNotFoundError(src)
+    return (
+        spark.read.option("header", True)
+        .option("encoding", "UTF-8")
+        .csv(file_uri(src))
+        .withColumn("station_id", F.col("station_id").cast("long"))
+        .withColumn("hour_ts", F.to_timestamp("hour_ts"))
+        .withColumn("kwh", F.col("kwh").cast("double"))
+        .withColumn("idle_piles", F.col("idle_piles").cast("int"))
+        .withColumn("total_piles", F.col("total_piles").cast("int"))
+        .withColumn("weekday", F.col("weekday").cast("int"))
+        .withColumn("is_weekend", F.col("is_weekend").cast("int"))
+        .withColumn("is_holiday", F.col("is_holiday").cast("int"))
+        .withColumn("hour_of_day", F.col("hour_of_day").cast("int"))
+    )
+
+
+def latest_station_features(spark: SparkSession):
+    """每站最新小时 + lag-1 / 近 24h 均值，给 MLlib 推理用。"""
+    dws = load_dws_typed(spark)
+    w = Window.partitionBy("station_id").orderBy("hour_ts")
+    w24 = Window.partitionBy("station_id").orderBy("hour_ts").rowsBetween(-24, -1)
+    feat = (
+        dws.withColumn("lag1_kwh", F.lag("kwh", 1).over(w))
+        .withColumn("mean_24h_kwh", F.avg("kwh").over(w24))
+    )
+    latest = feat.join(
+        feat.groupBy("station_id").agg(F.max("hour_ts").alias("hour_ts")),
+        ["station_id", "hour_ts"],
+    ).withColumn(
+        "lag1_kwh", F.coalesce(F.col("lag1_kwh"), F.col("kwh"), F.lit(0.0))
+    ).withColumn(
+        "mean_24h_kwh", F.coalesce(F.col("mean_24h_kwh"), F.col("kwh"), F.lit(0.0))
+    )
+    return latest.select(
+        "station_id",
+        "hour_of_day",
+        "weekday",
+        "is_weekend",
+        "is_holiday",
+        "lag1_kwh",
+        "mean_24h_kwh",
+        "idle_piles",
+        "total_piles",
+        "kwh",
+    )
+
+
+def clip_forecast(df):
+    idle = F.least(
+        F.col("total_piles"),
+        F.greatest(F.lit(0), F.round(F.col("pred_idle_raw")).cast("int")),
+    )
+    kwh = F.greatest(F.lit(0.0), F.col("pred_kwh_raw"))
+    util = F.when(
+        F.col("total_piles") <= 0, F.lit(0.0)
+    ).otherwise(
+        (F.col("total_piles") - idle) * 100.0 / F.col("total_piles")
+    )
+    util = F.least(F.lit(100.0), F.greatest(F.lit(0.0), util))
+    return (
+        df.withColumn("pred_kwh", F.round(kwh, 2))
+        .withColumn("pred_idle", idle)
+        .withColumn("pred_util", F.round(util, 1))
+        .withColumn("is_peak", F.when(util >= 80.0, F.lit(1)).otherwise(F.lit(0)))
+    )
+
+
+def write_mysql_forecast(rows: list[dict], generated_at: str) -> int:
+    """只写 load_forecast。禁止碰 charge_order / ODS。"""
+    try:
+        import common as bd_common
+    except ImportError:
+        print("写库跳过：找不到 bigdata/common.py")
+        return 0
+    try:
+        conn = bd_common.connect()
+    except Exception as exc:
+        print("写库跳过：MySQL 连不上:", exc)
+        return 0
+    sql = (
+        "INSERT INTO load_forecast ("
+        "station_id, generated_at, horizon_hours, pred_kwh, pred_idle, "
+        "pred_util, is_peak, congestion"
+        ") VALUES (%s,%s,%s,%s,%s,%s,%s,%s) "
+        "ON DUPLICATE KEY UPDATE pred_kwh=VALUES(pred_kwh), "
+        "pred_idle=VALUES(pred_idle), pred_util=VALUES(pred_util), "
+        "is_peak=VALUES(is_peak), congestion=VALUES(congestion)"
+    )
+    payload = [
+        (
+            int(r["station_id"]),
+            generated_at,
+            int(r["horizon"]),
+            float(r["pred_kwh"]),
+            int(r["pred_idle"]),
+            float(r["pred_util"]),
+            int(r["is_peak"]),
+            r["congestion"],
+        )
+        for r in rows
+    ]
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SHOW TABLES LIKE 'load_forecast'")
+            if cur.fetchone() is None:
+                print("写库跳过：没有 load_forecast 表，先跑 sql/patch_v4_load_forecast.sql")
+                return 0
+            cur.executemany(sql, payload)
+        conn.commit()
+        print("MySQL load_forecast 写入", len(payload), "行  generated_at=", generated_at)
+        return len(payload)
+    except Exception as exc:
+        conn.rollback()
+        print("写库失败（JSON 已落地）:", exc)
+        return 0
+    finally:
+        conn.close()
+
+
+def stage_train(spark: SparkSession) -> int:
+    """NO.117：MLlib 随机森林预测 1h/6h/24h，写 ADS JSON + MySQL load_forecast。"""
+    from pyspark.ml.feature import VectorAssembler
+    from pyspark.ml.regression import RandomForestRegressor
+
+    src = train_csv_path()
+    if not src.is_file() or not dash_path().is_file():
+        print("未找到 ADS，先跑 ads:", src)
+        rc = stage_ads(spark)
+        if rc != 0:
+            return rc
+    if not src.is_file():
+        raise FileNotFoundError(src)
+
+    wide = (
+        spark.read.option("header", True)
+        .option("encoding", "UTF-8")
+        .csv(file_uri(src))
+        .withColumn("hour_of_day", F.col("hour_of_day").cast("int"))
+        .withColumn("weekday", F.col("weekday").cast("int"))
+        .withColumn("is_weekend", F.col("is_weekend").cast("int"))
+        .withColumn("is_holiday", F.col("is_holiday").cast("int"))
+        .withColumn("lag1_kwh", F.col("lag1_kwh").cast("double"))
+        .withColumn("mean_24h_kwh", F.col("mean_24h_kwh").cast("double"))
+        .withColumn("horizon", F.col("horizon").cast("int"))
+        .withColumn("kwh", F.col("kwh").cast("double"))
+        .withColumn("idle_piles", F.col("idle_piles").cast("int"))
+        .withColumn("label_kwh", F.col("label_kwh").cast("double"))
+        .withColumn("label_idle", F.col("label_idle").cast("double"))
+        .na.drop(subset=FEATURE_COLS + ["label_kwh", "label_idle"])
+    )
+    assembler = VectorAssembler(inputCols=FEATURE_COLS, outputCol="features")
+    feat = assembler.transform(wide)
+    n_train = feat.count()
+    print("MLlib 训练行数:", n_train)
+    if n_train < 100:
+        raise RuntimeError("训练宽表太少，先检查 --stage ads")
+
+    rf_kwh = RandomForestRegressor(
+        featuresCol="features",
+        labelCol="label_kwh",
+        predictionCol="pred_kwh_raw",
+        numTrees=16,
+        maxDepth=6,
+        seed=20260913,
+    )
+    rf_idle = RandomForestRegressor(
+        featuresCol="features",
+        labelCol="label_idle",
+        predictionCol="pred_idle_raw",
+        numTrees=16,
+        maxDepth=6,
+        seed=20260913,
+    )
+    print("拟合 kwh 模型…")
+    m_kwh = rf_kwh.fit(feat)
+    print("拟合 idle 模型…")
+    m_idle = rf_idle.fit(feat)
+    print(
+        "featureImportances kwh=",
+        m_kwh.featureImportances,
+        " idle=",
+        m_idle.featureImportances,
+    )
+
+    latest = latest_station_features(spark)
+    horizons = spark.createDataFrame([(1,), (6,), (24,)], ["horizon"])
+    infer_h = assembler.transform(latest.crossJoin(horizons))
+    pred_h = clip_forecast(m_idle.transform(m_kwh.transform(infer_h)))
+
+    orig_hod = F.col("hour_of_day")
+    infer_24 = (
+        latest.withColumn("orig_hod", orig_hod)
+        .crossJoin(spark.range(1, 25).toDF("offset"))
+        .withColumn(
+            "horizon",
+            F.when(F.col("offset") <= 2, F.lit(1))
+            .when(F.col("offset") <= 12, F.lit(6))
+            .otherwise(F.lit(24)),
+        )
+        .withColumn("hour_of_day", (F.col("orig_hod") + F.col("offset")) % 24)
+        .withColumn(
+            "crossed",
+            F.when(F.col("orig_hod") + F.col("offset") >= 24, F.lit(1)).otherwise(F.lit(0)),
+        )
+        .withColumn("weekday", (F.col("weekday") + F.col("crossed")) % 7)
+        .withColumn(
+            "is_weekend", F.when(F.col("weekday") >= 5, F.lit(1)).otherwise(F.lit(0))
+        )
+        .drop("orig_hod", "crossed")
+    )
+    pred_24 = clip_forecast(
+        m_idle.transform(m_kwh.transform(assembler.transform(infer_24)))
+    )
+
+    station_rows = pred_h.select(
+        "station_id", "horizon", "pred_kwh", "pred_idle", "pred_util",
+        "is_peak", "total_piles",
+    ).collect()
+    curve = (
+        pred_24.groupBy("offset")
+        .agg(F.round(F.sum("pred_kwh"), 2).alias("kwh"))
+        .orderBy("offset")
+        .collect()
+    )
+    load_forecast_24h = [
+        {"offset": int(r["offset"]), "kwh": float(r["kwh"] or 0.0)} for r in curve
+    ]
+
+    by_station: dict[int, dict[int, dict]] = {}
+    mysql_rows = []
+    for r in station_rows:
+        sid = int(r["station_id"])
+        hz = int(r["horizon"])
+        total = int(r["total_piles"] or 0)
+        idle = int(r["pred_idle"] or 0)
+        util = float(r["pred_util"] or 0.0)
+        slot = {
+            "kwh": float(r["pred_kwh"] or 0.0),
+            "idle": idle,
+            "util": util,
+            "is_peak": int(r["is_peak"] or 0),
+            "congestion": congestion_of(idle, total, util),
+        }
+        by_station.setdefault(sid, {})[hz] = slot
+        mysql_rows.append(
+            {
+                "station_id": sid,
+                "horizon": hz,
+                "pred_kwh": slot["kwh"],
+                "pred_idle": idle,
+                "pred_util": util,
+                "is_peak": slot["is_peak"],
+                "congestion": slot["congestion"],
+            }
+        )
+
+    payload = json.loads(dash_path().read_text(encoding="utf-8"))
+    alerts = []
+    for st in payload.get("stations") or []:
+        sid = int(st["station_id"])
+        total = int(st.get("total") or 0)
+        slots = by_station.get(sid, {})
+        forecast = st.get("forecast") or {}
+        for key, hz in (("h1", 1), ("h6", 6), ("h24", 24)):
+            if hz in slots:
+                forecast[key] = slots[hz]
+        st["forecast"] = forecast
+        name = st.get("name") or ("站 %s" % sid)
+        for hz, key in ((1, "h1"), (6, "h6"), (24, "h24")):
+            slot = forecast.get(key) or {}
+            if slot.get("is_peak"):
+                alerts.append(
+                    {
+                        "station_id": sid,
+                        "name": name,
+                        "horizon": hz,
+                        "reason": "%s小时后预测占用率 %.0f%%"
+                        % (hz, float(slot.get("util") or 0)),
+                    }
+                )
+
+    iso, mysql_ts = sim_now_pair()
+    payload["generated_at"] = iso
+    payload["load_forecast_24h"] = load_forecast_24h
+    payload["alerts"] = alerts
+    kpis = payload.setdefault("kpis", {})
+    kpis["alert_count"] = len(alerts)
+    payload["note"] = "MLlib RandomForestRegressor 预测 1h/6h/24h（seed=20260913）"
+    dash_path().write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    print("ADS dashboard 已换成 MLlib 预测 ->", dash_path())
+    print(
+        "stations",
+        len(payload.get("stations") or []),
+        "alerts",
+        len(alerts),
+        "kpis",
+        json.dumps(kpis, ensure_ascii=False),
+    )
+
+    forecast_df = pred_h.select(
+        "station_id",
+        F.col("horizon").alias("horizon_hours"),
+        "pred_kwh",
+        "pred_idle",
+        "pred_util",
+        "is_peak",
+    )
+    dest = WORK_DIR / "ads" / "forecast"
+    write_csv(forecast_df, dest)
+    try_hdfs_put(dash_path(), "/user/charging/ads/kpis")
+    try_hdfs_put(dest / "forecast.csv", "/user/charging/ads/forecast")
+    write_mysql_forecast(mysql_rows, mysql_ts)
+    print("大屏接真数：DASHBOARD_DATA_FILE=%s python3 dashboard/app.py" % dash_path())
+    return 0
+
+
 def not_ready(stage: str) -> int:
-    print("stage=%s 尚未实现。ads 通了之后再补 MLlib。" % stage)
+    print("stage=%s 尚未实现。" % stage)
     return 0
 
 
@@ -924,6 +1280,8 @@ def main() -> int:
             return stage_dws(spark)
         if args.stage == "ads":
             return stage_ads(spark)
+        if args.stage == "train":
+            return stage_train(spark)
         return not_ready(args.stage)
     finally:
         spark.stop()
