@@ -2151,6 +2151,113 @@ bool Database::upgradeSchema()
         }
     }
 
+    // v5：用户群体画像。user 表只 ALTER 加列，两张表只 CREATE，绝不 DROP。
+    // 六个 ADD COLUMN 各自用 columnExists() 守卫，而不是一条 ALTER 加六列 ——
+    // 那样只要有一列已存在整条就失败，做不到「已存在字段时不报错」。
+    // 每条的 DDL 与 sql/patch_v5_user_groups.sql 逐字一致（那边用 information_schema
+    // 判存在 + 预处理语句做幂等，因为 MySQL 8 没有 ADD COLUMN IF NOT EXISTS）。
+    struct UserGroupColumn {
+        const char *name;
+        const char *ddl;
+    };
+    static const UserGroupColumn kUserGroupColumns[] = {
+        {"gender",
+         "ALTER TABLE `user` ADD COLUMN gender ENUM('male','female','unknown') "
+         "NOT NULL DEFAULT 'unknown' AFTER avatar"},
+        {"age_group",
+         "ALTER TABLE `user` ADD COLUMN age_group ENUM('under_25','25_34','35_44',"
+         "'45_54','55_plus','unknown') NOT NULL DEFAULT 'unknown' AFTER gender"},
+        {"city",
+         "ALTER TABLE `user` ADD COLUMN city VARCHAR(64) NOT NULL DEFAULT '' "
+         "AFTER age_group"},
+        {"vehicle_type",
+         "ALTER TABLE `user` ADD COLUMN vehicle_type ENUM('sedan','suv','mpv',"
+         "'commercial','other','unknown') NOT NULL DEFAULT 'unknown' AFTER city"},
+        {"registration_source",
+         "ALTER TABLE `user` ADD COLUMN registration_source ENUM('android','ios',"
+         "'web','qt','offline','unknown') NOT NULL DEFAULT 'unknown' AFTER vehicle_type"},
+        {"last_active_at",
+         "ALTER TABLE `user` ADD COLUMN last_active_at DATETIME NULL AFTER last_login_at"},
+    };
+    for (const UserGroupColumn &col : kUserGroupColumns) {
+        if (columnExists(QStringLiteral("user"), QString::fromLatin1(col.name))) {
+            continue;
+        }
+        QSqlQuery alter(m_db);
+        if (!alter.exec(QString::fromLatin1(col.ddl))) {
+            m_lastError = alter.lastError().text();
+            return false;
+        }
+    }
+
+    // DDL 与 sql/schema.sql、sql/patch_v5_user_groups.sql 三处保持逐字一致，
+    // 所以这里用 \n 换行拼接（照 v4 的写法），方便直接 diff 比对。
+    // 注意：SQL 文本里不能出现行尾 -- 注释，否则拼成一行后会把后续内容全注释掉。
+    if (!tableExists(QStringLiteral("user_group_profile"))) {
+        QSqlQuery create(m_db);
+        if (!create.exec(QStringLiteral(
+                "CREATE TABLE IF NOT EXISTS user_group_profile (\n"
+                "    user_id             BIGINT       NOT NULL,\n"
+                "    total_orders        INT          NOT NULL DEFAULT 0,\n"
+                "    total_kwh           DECIMAL(12,2) NOT NULL DEFAULT 0.00,\n"
+                "    total_amount        DECIMAL(12,2) NOT NULL DEFAULT 0.00,\n"
+                "    avg_duration_seconds INT         NOT NULL DEFAULT 0,\n"
+                "    orders_30d          INT          NOT NULL DEFAULT 0,\n"
+                "    kwh_30d             DECIMAL(12,2) NOT NULL DEFAULT 0.00,\n"
+                "    amount_30d          DECIMAL(12,2) NOT NULL DEFAULT 0.00,\n"
+                "    active_days_30d     INT          NOT NULL DEFAULT 0,\n"
+                "    frequency_level     ENUM('high','medium','low','inactive') NOT NULL DEFAULT 'inactive',\n"
+                "    value_level         ENUM('high','medium','low') NOT NULL DEFAULT 'low',\n"
+                "    preferred_period    VARCHAR(32)  NOT NULL DEFAULT '',\n"
+                "    preferred_station_id BIGINT      NULL,\n"
+                "    preferred_pile_type ENUM('fast','slow','mixed') NOT NULL DEFAULT 'mixed',\n"
+                "    tags_json           JSON         NULL,\n"
+                "    generated_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,\n"
+                "    updated_at          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n"
+                "    PRIMARY KEY (user_id),\n"
+                "    KEY idx_group_frequency (frequency_level),\n"
+                "    KEY idx_group_value (value_level),\n"
+                "    KEY idx_group_station (preferred_station_id),\n"
+                "    CONSTRAINT fk_group_profile_user FOREIGN KEY (user_id) REFERENCES `user` (id),\n"
+                "    CONSTRAINT fk_group_profile_station FOREIGN KEY (preferred_station_id) REFERENCES station (id)\n"
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"))) {
+            m_lastError = create.lastError().text();
+            return false;
+        }
+    }
+
+    if (!tableExists(QStringLiteral("user_group_insight"))) {
+        QSqlQuery create(m_db);
+        if (!create.exec(QStringLiteral(
+                "CREATE TABLE IF NOT EXISTS user_group_insight (\n"
+                "    id            BIGINT       NOT NULL AUTO_INCREMENT,\n"
+                "    insight_type  VARCHAR(32)  NOT NULL,\n"
+                "    target_group  VARCHAR(32)  NOT NULL DEFAULT '',\n"
+                "    title         VARCHAR(128) NOT NULL,\n"
+                "    content       VARCHAR(512) NOT NULL,\n"
+                "    reason        VARCHAR(512) NOT NULL DEFAULT '',\n"
+                "    priority      INT          NOT NULL DEFAULT 0,\n"
+                "    generated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,\n"
+                "    PRIMARY KEY (id),\n"
+                "    KEY idx_insight_time (generated_at),\n"
+                "    KEY idx_insight_priority (priority)\n"
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"))) {
+            m_lastError = create.lastError().text();
+            return false;
+        }
+    }
+
+    if (schemaVersion() < 5) {
+        QSqlQuery ver(m_db);
+        ver.prepare(QStringLiteral(
+            "INSERT INTO schema_version (version, description) VALUES "
+            "(5, 'user 表加用户画像属性 + user_group_profile/user_group_insight 两表')"));
+        if (!ver.exec()) {
+            m_lastError = ver.lastError().text();
+            return false;
+        }
+    }
+
     return true;
 }
 

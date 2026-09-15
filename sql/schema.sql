@@ -11,6 +11,13 @@
 USE charging_system;
 
 SET FOREIGN_KEY_CHECKS = 0;
+-- user_group_profile 的外键指向 user / station，必须和它们一起重建。
+-- 漏在这里的后果不是报错而是**静默悬空**：FOREIGN_KEY_CHECKS=0 下 DROP 掉父表
+-- 是允许的，子表留在原地、外键指向一个已不存在的表；后面
+-- `CREATE TABLE IF NOT EXISTS user_group_profile` 又会因为表还在而跳过，
+-- 于是库里留下一个查不动也删不掉的坏引用。
+DROP TABLE IF EXISTS user_group_profile;
+DROP TABLE IF EXISTS user_group_insight;
 DROP TABLE IF EXISTS wallet_transactions;
 DROP TABLE IF EXISTS device_commands;
 DROP TABLE IF EXISTS operation_logs;
@@ -25,16 +32,25 @@ DROP TABLE IF EXISTS schema_version;
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- 充电用户
+-- v5 加的六列（gender…last_active_at）的 DDL 与 sql/patch_v5_user_groups.sql、
+-- server/database.cpp 的 upgradeSchema() 保持一致；那边因为要幂等用的是
+-- ALTER ADD COLUMN，这里是空库全量建表所以直接写在 CREATE 里。
 CREATE TABLE `user` (
     id            BIGINT        NOT NULL AUTO_INCREMENT,
     phone         VARCHAR(11)   NOT NULL,
     nickname      VARCHAR(64)   NOT NULL DEFAULT '',
     avatar        VARCHAR(255)  NOT NULL DEFAULT '',
+    gender          ENUM('male','female','unknown') NOT NULL DEFAULT 'unknown',
+    age_group       ENUM('under_25','25_34','35_44','45_54','55_plus','unknown') NOT NULL DEFAULT 'unknown',
+    city            VARCHAR(64) NOT NULL DEFAULT '',
+    vehicle_type    ENUM('sedan','suv','mpv','commercial','other','unknown') NOT NULL DEFAULT 'unknown',
+    registration_source ENUM('android','ios','web','qt','offline','unknown') NOT NULL DEFAULT 'unknown',
     balance       DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     status        ENUM('normal','frozen') NOT NULL DEFAULT 'normal',
     created_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     last_login_at DATETIME      NULL,
+    last_active_at DATETIME     NULL,
     PRIMARY KEY (id),
     UNIQUE KEY uk_user_phone (phone),
     KEY idx_user_status (status),
@@ -214,11 +230,56 @@ CREATE TABLE IF NOT EXISTS load_forecast (
     CONSTRAINT chk_forecast_idle    CHECK (pred_idle >= 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 用户画像快照（第三阶段：用户群体管理大屏）。每个用户一行，主键就是 user_id。
+-- 统计口径见 docs/数据.md 三：画像/行为/趋势/价值一律只取 charge_order.status='settled'。
+-- 本表只存结构，口径逻辑在服务端的画像计算任务里。
+CREATE TABLE IF NOT EXISTS user_group_profile (
+    user_id             BIGINT       NOT NULL,
+    total_orders        INT          NOT NULL DEFAULT 0,
+    total_kwh           DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    total_amount        DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    avg_duration_seconds INT         NOT NULL DEFAULT 0,
+    orders_30d          INT          NOT NULL DEFAULT 0,
+    kwh_30d             DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    amount_30d          DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    active_days_30d     INT          NOT NULL DEFAULT 0,
+    frequency_level     ENUM('high','medium','low','inactive') NOT NULL DEFAULT 'inactive',
+    value_level         ENUM('high','medium','low') NOT NULL DEFAULT 'low',
+    preferred_period    VARCHAR(32)  NOT NULL DEFAULT '',
+    preferred_station_id BIGINT      NULL,
+    preferred_pile_type ENUM('fast','slow','mixed') NOT NULL DEFAULT 'mixed',
+    tags_json           JSON         NULL,
+    generated_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id),
+    KEY idx_group_frequency (frequency_level),
+    KEY idx_group_value (value_level),
+    KEY idx_group_station (preferred_station_id),
+    CONSTRAINT fk_group_profile_user FOREIGN KEY (user_id) REFERENCES `user` (id),
+    CONSTRAINT fk_group_profile_station FOREIGN KEY (preferred_station_id) REFERENCES station (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 群体运营建议（规则型生成，不调用外部 AI；load_forecast 为空时也要能出历史行为建议）
+CREATE TABLE IF NOT EXISTS user_group_insight (
+    id            BIGINT       NOT NULL AUTO_INCREMENT,
+    insight_type  VARCHAR(32)  NOT NULL,
+    target_group  VARCHAR(32)  NOT NULL DEFAULT '',
+    title         VARCHAR(128) NOT NULL,
+    content       VARCHAR(512) NOT NULL,
+    reason        VARCHAR(512) NOT NULL DEFAULT '',
+    priority      INT          NOT NULL DEFAULT 0,
+    generated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_insight_time (generated_at),
+    KEY idx_insight_priority (priority)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 INSERT INTO schema_version (version, description) VALUES
 (1, 'PR#11 基线：核心表 + wallet_transactions + 管理员加盐哈希'),
 (2, '补齐 device_commands / operation_logs，pile 占用与心跳字段，charge_order pending_payment'),
 (3, 'charge_order 增加模拟 SOC：start_soc / battery_capacity_kwh / target_soc'),
-(4, '新增 load_forecast：负荷预测结果（1/6/24h），供 station_list 与大屏读取');
+(4, '新增 load_forecast：负荷预测结果（1/6/24h），供 station_list 与大屏读取'),
+(5, 'user 表加用户画像属性 + user_group_profile/user_group_insight 两表');
 
 -- ===================== 初始 / 测试数据 =====================
 
