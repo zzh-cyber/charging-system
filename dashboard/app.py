@@ -42,7 +42,8 @@ QA_FILE = Path(
 
 app = Flask(__name__, static_folder=str(FRONTEND), static_url_path="")
 
-# 用户群体屏：查演示库 MySQL，不走 Spark。运营首页 /api/dashboard 仍只读 JSON。
+# 用户群体屏：读 ADS JSON（bigdata/work/ads/user_groups/），不连 MySQL。
+# 运营首页 /api/dashboard 仍只读 kpis/dashboard.json。
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 from user_groups_api import bp as user_groups_bp  # noqa: E402
