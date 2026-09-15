@@ -134,6 +134,17 @@ PileListPage::PileListPage(
     headerLayout->addLayout(
         topRow);
 
+    // 紧凑的预测摘要区域（预测字段接入后由 loadStation 更新）
+    auto *forecastLabel = new QLabel(
+        QStringLiteral("未来1小时：暂无　未来6小时：暂无　当前状态：待预测"),
+        headerCard);
+    forecastLabel->setObjectName(QStringLiteral("pileForecastLabel"));
+    forecastLabel->setMinimumHeight(22);
+    forecastLabel->setMaximumHeight(26);
+    forecastLabel->setStyleSheet(QStringLiteral(
+        "QLabel#pileForecastLabel{color:#6B756F;font-size:11px;font-weight:700;padding:2px 4px;}"));
+    headerLayout->addWidget(forecastLabel);
+
 
     // =========================================================================
     // 当前站点标题
