@@ -14,9 +14,10 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from pathlib import Path
 
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory
 
 ROOT = Path(__file__).resolve().parent
 FRONTEND = ROOT / "frontend"
@@ -31,6 +32,13 @@ QA_FILE = Path(
 
 app = Flask(__name__, static_folder=str(FRONTEND), static_url_path="")
 
+# 用户群体屏：查演示库 MySQL，不走 Spark。运营首页 /api/dashboard 仍只读 JSON。
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+from user_groups_api import bp as user_groups_bp  # noqa: E402
+
+app.register_blueprint(user_groups_bp)
+
 QUALITY_KEYS = (
     "ods_rows",
     "null_start_time",
@@ -42,10 +50,22 @@ QUALITY_KEYS = (
 
 
 def mock_data() -> dict:
-    load_today = [{"hour": h, "kwh": round(18 + (h % 12) * 4.2, 1)} for h in range(24)]
+    cap, warn = 2400.0, 1920.0
+
+    def stamp(points):
+        if points is None:
+            return None
+        return [
+            {**p, "capacity_kw": cap, "warning_threshold_kw": warn} for p in points
+        ]
+
+    load_today = stamp(
+        [{"hour": h, "kwh": round(18 + (h % 12) * 4.2, 1)} for h in range(24)]
+    )
     load_today[8]["kwh"] = 96.0
     load_today[9]["kwh"] = 102.5
     load_today[18]["kwh"] = 1280.5 / 10
+    yday = stamp([{"hour": h, "kwh": round(16 + (h % 12) * 3.8, 1)} for h in range(24)])
     return {
         "generated_at": "2026-09-13T21:00:00",
         "kpis": {
@@ -60,10 +80,9 @@ def mock_data() -> dict:
             "fault_piles": 29,
             "peak_hour": "18:00",
             "alert_count": 3,
-            "order_count": 16924,
-            "total_kwh": 609996.23,
-            "total_revenue": 792000.0,
-            "active_stations": 72,
+            "yesterday_kwh": 1190.2,
+            "yesterday_charge_kwh": 1190.2,
+            "yesterday_revenue": 1785.40,
         },
         "quality": {
             "ods_rows": 20000,
@@ -108,6 +127,8 @@ def mock_data() -> dict:
                 "name": "深圳市民中心充电站",
                 "idle": 2,
                 "total": 4,
+                "capacity_kw": 240.0,
+                "warning_threshold_kw": 192.0,
                 "forecast": {
                     "h1": {"kwh": 8.2, "idle": 2, "util": 50.0, "is_peak": 0, "congestion": "mid"},
                     "h6": {"kwh": 22.0, "idle": 1, "util": 83.3, "is_peak": 1, "congestion": "high"},
@@ -119,6 +140,8 @@ def mock_data() -> dict:
                 "name": "上海陆家嘴充电站",
                 "idle": 1,
                 "total": 4,
+                "capacity_kw": 240.0,
+                "warning_threshold_kw": 192.0,
                 "forecast": {
                     "h1": {"kwh": 6.0, "idle": 1, "util": 67.0, "is_peak": 0, "congestion": "mid"},
                     "h6": {"kwh": 14.0, "idle": 1, "util": 75.0, "is_peak": 0, "congestion": "mid"},
@@ -130,6 +153,8 @@ def mock_data() -> dict:
                 "name": "广州天河充电站",
                 "idle": 3,
                 "total": 5,
+                "capacity_kw": 300.0,
+                "warning_threshold_kw": 240.0,
                 "forecast": {
                     "h1": {"kwh": 5.1, "idle": 3, "util": 40.0, "is_peak": 0, "congestion": "low"},
                     "h6": {"kwh": 9.4, "idle": 2, "util": 52.0, "is_peak": 0, "congestion": "mid"},
@@ -141,6 +166,8 @@ def mock_data() -> dict:
                 "name": "北京南站充电站",
                 "idle": 0,
                 "total": 4,
+                "capacity_kw": 240.0,
+                "warning_threshold_kw": 192.0,
                 "forecast": {
                     "h1": {"kwh": 12.0, "idle": 0, "util": 88.0, "is_peak": 1, "congestion": "high"},
                     "h6": {"kwh": 16.5, "idle": 0, "util": 92.0, "is_peak": 1, "congestion": "high"},
@@ -150,38 +177,114 @@ def mock_data() -> dict:
         ],
         "alerts": [
             {
+                "alert_id": "31-h1",
                 "station_id": 31,
                 "name": "北京南站充电站",
+                "station_name": "北京南站充电站",
                 "horizon": 1,
                 "reason": "1小时后预测占用率 88%",
+                "message": "1小时后预测占用率 88%",
+                "alert_type": "peak",
+                "severity": "high",
+                "predicted_occupancy": 88.0,
+                "predicted_time": "2026-09-13T22:00:00",
+                "created_at": "2026-09-13T21:00:00",
             },
             {
+                "alert_id": "1-h6",
                 "station_id": 1,
                 "name": "深圳市民中心充电站",
+                "station_name": "深圳市民中心充电站",
                 "horizon": 6,
                 "reason": "6小时后预测占用率 83%",
+                "message": "6小时后预测占用率 83%",
+                "alert_type": "peak",
+                "severity": "high",
+                "predicted_occupancy": 83.0,
+                "predicted_time": "2026-09-14T03:00:00",
+                "created_at": "2026-09-13T21:00:00",
             },
             {
+                "alert_id": "31-h6",
                 "station_id": 31,
                 "name": "北京南站充电站",
+                "station_name": "北京南站充电站",
                 "horizon": 6,
                 "reason": "6小时后预测占用率 92%",
+                "message": "6小时后预测占用率 92%",
+                "alert_type": "peak",
+                "severity": "high",
+                "predicted_occupancy": 92.0,
+                "predicted_time": "2026-09-14T03:00:00",
+                "created_at": "2026-09-13T21:00:00",
             },
         ],
-        "load_hour_avg": load_today,
-        "weekday_weekend": {
-            "weekday_kwh": 420000.0,
-            "weekend_kwh": 180000.0,
-            "note": "DWS 分摊电量；weekday=周一至周五，weekend=周六日",
+        "faults": [
+            {
+                "pile_id": 4,
+                "code": "BJ001-01",
+                "station_id": 4,
+                "station_name": "北京国贸充电站",
+                "fault_type": "fault",
+                "fault_code": None,
+                "fault_time": "2026-09-13T18:40:00",
+                "status": "fault",
+            }
+        ],
+        "yesterday_load": yday,
+        "windows": {
+            "1": {
+                "start": "2026-09-13",
+                "end": "2026-09-13",
+                "kpis": {
+                    "today_kwh": 1280.5,
+                    "today_revenue": 1920.75,
+                    "yesterday_kwh": 1190.2,
+                    "yesterday_charge_kwh": 1190.2,
+                    "yesterday_revenue": 1785.40,
+                    "peak_hour": "18:00",
+                },
+                "load_today": load_today,
+                "yesterday_load": yday,
+            },
+            "7": {
+                "start": "2026-09-07",
+                "end": "2026-09-13",
+                "kpis": {
+                    "today_kwh": 8120.4,
+                    "today_revenue": 12180.6,
+                    "yesterday_kwh": 7640.1,
+                    "yesterday_charge_kwh": 7640.1,
+                    "yesterday_revenue": 11460.2,
+                    "peak_hour": "18:00",
+                },
+                "load_today": stamp(
+                    [{"hour": h, "kwh": round(40 + (h % 12) * 8.5, 1)} for h in range(24)]
+                ),
+                "yesterday_load": stamp(
+                    [{"hour": h, "kwh": round(36 + (h % 12) * 8.0, 1)} for h in range(24)]
+                ),
+            },
+            "30": {
+                "start": "2026-08-15",
+                "end": "2026-09-13",
+                "kpis": {
+                    "today_kwh": 15620.04,
+                    "today_revenue": 20292.01,
+                    "yesterday_kwh": None,
+                    "yesterday_charge_kwh": None,
+                    "yesterday_revenue": None,
+                    "peak_hour": "11:00",
+                },
+                "load_today": stamp(
+                    [{"hour": h, "kwh": round(50 + (h % 12) * 10.2, 1)} for h in range(24)]
+                ),
+                "yesterday_load": None,
+            },
         },
-        "regions": [
-            {"city": "深圳市", "kwh": 100000.0, "amount": 130000.0, "yuan_per_kwh": 1.3},
-            {"city": "北京市", "kwh": 98000.0, "amount": 147000.0, "yuan_per_kwh": 1.5},
-        ],
-        "pile_types": [
-            {"type": "直流", "idle": 220, "busy": 41, "fault": 27, "util": 15.7},
-            {"type": "交流", "idle": 82, "busy": 20, "fault": 9, "util": 19.6},
-        ],
+        "latest_data_time": "2026-09-13T21:00:00",
+        "data_source": "mock",
+        "freshness_status": "mock",
     }
 
 
@@ -204,6 +307,34 @@ def overlay_quality(data: dict) -> None:
     data["quality"] = quality
     if qa.get("generated_at") and not data.get("generated_at"):
         data["generated_at"] = qa["generated_at"]
+
+
+def parse_period() -> str:
+    raw = (request.args.get("period") or "1").strip().lower()
+    aliases = {"today": "1", "1d": "1", "7d": "7", "30d": "30"}
+    raw = aliases.get(raw, raw)
+    return raw if raw in ("1", "7", "30") else "1"
+
+
+def apply_period(data: dict, period: str) -> dict:
+    data = dict(data or {})
+    windows = data.get("windows") or {}
+    win = windows.get(period) or {}
+    data["period"] = period
+    if not win:
+        return data
+    kpis = dict(data.get("kpis") or {})
+    for key, value in (win.get("kpis") or {}).items():
+        kpis[key] = value
+    if "yesterday_charge_kwh" not in kpis and "yesterday_kwh" in kpis:
+        kpis["yesterday_charge_kwh"] = kpis["yesterday_kwh"]
+    data["kpis"] = kpis
+    if win.get("load_today") is not None:
+        data["load_today"] = win["load_today"]
+    data["yesterday_load"] = win.get("yesterday_load")
+    data["window_start"] = win.get("start")
+    data["window_end"] = win.get("end")
+    return data
 
 
 def load_snapshot() -> dict:
@@ -270,23 +401,18 @@ def normalize_snapshot(data: dict) -> dict:
     data.setdefault("regions", [])
     data.setdefault("pile_types", [])
     data.setdefault("stations", stations)
-    # Keep the operational panels informative when an ADS export contains
-    # only summary KPIs.  These are presentation-only fallbacks; real rows
-    # always take precedence.
-    if not data["faults"] and int(kpis.get("fault_piles") or 0) > 0:
-        data["faults"] = [{"summary": True, "count": int(kpis["fault_piles"]),
-                           "status": "fault"}]
-    if not data["dispatch"]:
-        busy = int(kpis.get("busy_piles") or 0)
-        total = busy + int(kpis.get("idle_piles") or 0) + int(kpis.get("fault_piles") or 0)
-        data["dispatch"] = [{"summary": True,
-                              "reason": "全站运行平稳，建议继续保持当前巡检与负荷监控" if total == 0 or busy < total * 0.85 else "当前负荷较高，建议优先引导用户前往空闲站点"}]
+    data.setdefault("yesterday_load", None)
+    data.setdefault("windows", {})
+    data.setdefault("latest_data_time", data.get("generated_at"))
+    data.setdefault("data_source", "ads" if DATA_FILE_ENV else "mock")
+    data.setdefault("freshness_status", data.get("data_source"))
     return data
 
 
 @app.get("/api/dashboard")
 def api_dashboard():
-    return jsonify(normalize_snapshot(load_snapshot()))
+    period = parse_period()
+    return jsonify(apply_period(normalize_snapshot(load_snapshot()), period))
 
 
 @app.get("/api/quality")
@@ -296,16 +422,21 @@ def api_quality():
 
 @app.get("/api/kpis")
 def api_kpis():
-    return jsonify(load_snapshot().get("kpis", {}))
+    period = parse_period()
+    data = apply_period(normalize_snapshot(load_snapshot()), period)
+    return jsonify(data.get("kpis", {}))
 
 
 @app.get("/api/load")
 def api_load():
-    snap = load_snapshot()
+    period = parse_period()
+    snap = apply_period(normalize_snapshot(load_snapshot()), period)
     return jsonify(
         {
             "load_today": snap.get("load_today", []),
             "load_forecast_24h": snap.get("load_forecast_24h", []),
+            "yesterday_load": snap.get("yesterday_load"),
+            "period": snap.get("period"),
         }
     )
 

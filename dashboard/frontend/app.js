@@ -16,6 +16,15 @@ createApp({
     alerts: [],
     dispatch: [],
     faults: [],
+    yesterday_load: [],
+    period: "1",
+    window_start: "",
+    window_end: "",
+    periods: [
+      { value: "1", label: "今日" },
+      { value: "7", label: "近7日" },
+      { value: "30", label: "近30日" },
+    ],
     now: "",
     error: "",
     charts: {},
@@ -61,12 +70,44 @@ createApp({
       dwd_rows: "DWD 清洗后",
     },
   }),
+  computed: {
+    loadTitle() {
+      return { "1": "今日充电负荷趋势", "7": "近7日平均负荷趋势", "30": "近30日平均负荷趋势" }[this.period];
+    },
+  },
   methods: {
+    kpiLabel(key) {
+      if (key === "today_kwh") {
+        return { "1": "今日充电量 (kWh)", "7": "近7日充电量 (kWh)", "30": "近30日充电量 (kWh)" }[this.period];
+      }
+      if (key === "today_revenue") {
+        return { "1": "今日营收 (元)", "7": "近7日营收 (元)", "30": "近30日营收 (元)" }[this.period];
+      }
+      return this.labels[key] || key;
+    },
+    kpiDelta(key) {
+      const map = { today_kwh: "yesterday_kwh", today_revenue: "yesterday_revenue" };
+      const prevKey = map[key];
+      if (!prevKey) return "";
+      const prev = this.kpis[prevKey];
+      const cur = this.kpis[key];
+      if (prev === undefined || prev === null || cur === undefined || cur === null) {
+        return this.period === "30" ? "上期不足" : "";
+      }
+      const d = Number(cur) - Number(prev);
+      const sign = d > 0 ? "+" : "";
+      const unit = key === "today_revenue" ? "元" : "kWh";
+      return (this.period === "1" ? "较昨日 " : "较上期 ") + sign + d.toFixed(1) + " " + unit;
+    },
     format(v, k) {
       if (v === undefined || v === null || v === "") return "--";
       if (k === "peak_hour") return String(v);
       if (k === "today_revenue" || k === "total_revenue") return "¥" + Number(v).toFixed(2);
       return Number(v).toLocaleString();
+    },
+    setPeriod(value) {
+      this.period = String(value);
+      this.refresh();
     },
     stationUtil(s) {
       // The card's percentage is current occupancy, so it must agree with
@@ -84,13 +125,16 @@ createApp({
     },
     async refresh() {
       try {
-        const r = await fetch("/api/dashboard");
+        const r = await fetch("/api/dashboard?period=" + this.period);
         if (!r.ok) throw Error("HTTP " + r.status);
         const data = await r.json();
         this.generated_at = data.generated_at || "";
         this.kpis = data.kpis || {};
         this.quality = data.quality || {};
         this.load_today = data.load_today || [];
+        this.yesterday_load = data.yesterday_load || [];
+        this.window_start = data.window_start || "";
+        this.window_end = data.window_end || "";
         this.load_forecast_24h = data.load_forecast_24h || [];
         this.load_hour_avg = data.load_hour_avg || [];
         this.weekday_weekend = data.weekday_weekend || {};
@@ -105,7 +149,7 @@ createApp({
         this.stations = data.stations || [];
         this.alerts = data.alerts || [];
         this.dispatch = data.dispatch || [];
-        this.faults = data.faults || [];
+        this.faults = (data.faults || []).filter((f) => !f.summary);
         this.error = "";
         await nextTick();
         this.draw();
@@ -136,11 +180,47 @@ createApp({
           ],
         });
       };
-      line(
-        "load",
-        this.load_today.map((x) => x.hour + "时"),
-        this.load_today.map((x) => x.kwh)
-      );
+      if (this.$refs.load) {
+        if (this.charts.load) this.charts.load.dispose();
+        const curName = { "1": "今日", "7": "近7日均", "30": "近30日均" }[this.period];
+        const prevName = this.period === "1" ? "昨日" : "上一窗口";
+        const series = [
+          {
+            name: curName,
+            type: "line",
+            smooth: true,
+            data: this.load_today.map((x) => x.kwh),
+            lineStyle: { width: 2, color: "#22d7ff" },
+            areaStyle: { color: { type: "linear", x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: "rgba(25,190,255,.55)" }, { offset: 1, color: "rgba(25,100,255,.02)" }] } },
+            itemStyle: { color: "#42d9ff" },
+          },
+        ];
+        if (this.yesterday_load && this.yesterday_load.length) {
+          series.push({
+            name: prevName,
+            type: "line",
+            smooth: true,
+            data: this.yesterday_load.map((x) => x.kwh),
+            lineStyle: { width: 2, type: "dashed", color: "#ffae45" },
+            itemStyle: { color: "#ffae45" },
+          });
+        }
+        const warn = Number((this.load_today[0] || {}).warning_threshold_kw);
+        const maxKwh = Math.max(0, ...this.load_today.map((x) => Number(x.kwh) || 0));
+        const markLine = warn && maxKwh && warn <= maxKwh * 4
+          ? { silent: true, data: [{ yAxis: warn, name: "预警阈值", label: { formatter: "预警 {c} kW", color: "#ff826d" }, lineStyle: { color: "#ff6559", type: "dashed" } }] }
+          : undefined;
+        const c = (this.charts.load = echarts.init(this.$refs.load));
+        c.setOption({
+          textStyle: { color: "#7899b6" },
+          tooltip: { trigger: "axis" },
+          legend: { top: 0, right: 8, textStyle: { color: "#7899b6", fontSize: 11 } },
+          grid: { left: 48, right: 18, top: 28, bottom: 28 },
+          xAxis: { type: "category", data: this.load_today.map((x) => x.hour + "时"), axisLine: { lineStyle: { color: "#244d70" } }, axisLabel: { color: "#6688a5" } },
+          yAxis: { type: "value", splitLine: { lineStyle: { color: "rgba(62,130,180,.15)" } }, axisLabel: { color: "#6688a5" } },
+          series: series.map((s, i) => (i === 0 && markLine ? { ...s, markLine } : s)),
+        });
+      }
       if (this.$refs.piles) {
         if (this.charts.piles) this.charts.piles.dispose();
         const values = [Number(this.kpis.idle_piles || 0), Number(this.kpis.busy_piles || 0), Number(this.kpis.fault_piles || 0)];
@@ -166,7 +246,7 @@ createApp({
           series: [
             {
               type: "bar",
-              data: this.stations.slice(0, 8).map((x) => this.stationUtil(x)), barWidth: 8,
+              data: this.stations.slice(0, 8).map((x) => Number(this.stationUtil(x).toFixed(1))), barWidth: 8,
               itemStyle: { color: { type: "linear", x: 0, y: 0, x2: 1, y2: 0, colorStops: [{ offset: 0, color: "#1679ff" }, { offset: 1, color: "#19e0dc" }] }, borderRadius: 4 },
               label: { show: true, formatter: "{c}%" },
             },

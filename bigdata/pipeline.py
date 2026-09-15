@@ -19,7 +19,7 @@ import json
 import os
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 
@@ -566,6 +566,166 @@ def forecast_slot(kwh: float, idle: int, total: int) -> dict:
     }
 
 
+def iso_plus_hours(iso: str, hours: int) -> str:
+    raw = (iso or "").replace("Z", "")
+    if "T" not in raw:
+        raw = raw.replace(" ", "T")
+    try:
+        dt = datetime.fromisoformat(raw)
+    except ValueError:
+        dt = datetime(2026, 9, 13, 21, 0, 0)
+    return (dt + timedelta(hours=int(hours))).strftime("%Y-%m-%dT%H:%M:%S")
+
+
+def enrich_peak_alert(station_id, name: str, horizon: int, util, created_at: str) -> dict:
+    util_f = float(util or 0.0)
+    reason = "%s小时后预测占用率 %.0f%%" % (horizon, util_f)
+    return {
+        "alert_id": "%s-h%s" % (station_id, horizon),
+        "station_id": int(station_id),
+        "name": name,
+        "station_name": name,
+        "horizon": int(horizon),
+        "reason": reason,
+        "message": reason,
+        "alert_type": "peak",
+        "severity": "high",
+        "predicted_occupancy": round(util_f, 1),
+        "predicted_time": iso_plus_hours(created_at, horizon),
+        "created_at": created_at,
+    }
+
+
+def stamp_load(points: list, capacity_kw: float, warn_kw: float) -> list:
+    out = []
+    for x in points:
+        row = dict(x)
+        row["capacity_kw"] = capacity_kw
+        row["warning_threshold_kw"] = warn_kw
+        out.append(row)
+    return out
+
+
+def collect_faults(spark: SparkSession) -> list:
+    rows = spark.sql(
+        """
+        SELECT CAST(p.id AS BIGINT) AS pile_id,
+               p.code AS code,
+               CAST(p.station_id AS BIGINT) AS station_id,
+               s.name AS station_name,
+               p.status AS status,
+               CAST(p.last_online_at AS STRING) AS fault_time
+        FROM ods_pile p
+        JOIN ods_station s ON CAST(p.station_id AS BIGINT) = CAST(s.id AS BIGINT)
+        WHERE lower(p.status) = 'fault'
+        ORDER BY CAST(p.station_id AS BIGINT), CAST(p.id AS BIGINT)
+        """
+    ).collect()
+    faults = []
+    for r in rows:
+        faults.append(
+            {
+                "pile_id": int(r["pile_id"]),
+                "station_id": int(r["station_id"]),
+                "station_name": r["station_name"] or ("站 %s" % r["station_id"]),
+                "code": r["code"],
+                "fault_type": "fault",
+                "fault_code": None,
+                "fault_time": r["fault_time"],
+                "status": "fault",
+            }
+        )
+    return faults
+
+
+def _window_metrics(spark: SparkSession, start: date, end: date, hourly: str):
+    s, e = start.isoformat(), end.isoformat()
+    rows = spark.sql(
+        """
+        SELECT hour_of_day AS hour,
+               ROUND(SUM(kwh), 2) AS kwh_sum,
+               ROUND(SUM(kwh) / COUNT(DISTINCT date_format(hour_ts, 'yyyy-MM-dd')), 2) AS kwh_avg
+        FROM dws
+        WHERE date_format(hour_ts, 'yyyy-MM-dd') BETWEEN '%s' AND '%s'
+        GROUP BY hour_of_day
+        """
+        % (s, e)
+    ).collect()
+    key = "kwh_sum" if start == end else "kwh_avg"
+    by = {int(r["hour"]): float(r[key] or 0.0) for r in rows}
+    load = [{"hour": h, "kwh": round(by.get(h, 0.0), 2)} for h in range(24)]
+    tot = spark.sql(
+        """
+        SELECT ROUND(SUM(kwh), 2) AS kwh,
+               ROUND(SUM(d.kwh * CAST(s.price AS DOUBLE)), 2) AS revenue
+        FROM dws d
+        JOIN ods_station s ON d.station_id = CAST(s.id AS BIGINT)
+        WHERE date_format(d.hour_ts, 'yyyy-MM-dd') BETWEEN '%s' AND '%s'
+        """
+        % (s, e)
+    ).collect()[0]
+    return load, float(tot["kwh"] or 0.0), float(tot["revenue"] or 0.0)
+
+
+def collect_period_windows(spark: SparkSession, sim_day: date) -> dict:
+    """period=1/7/30：当前窗口 KPI + 上一窗口（不够则 yesterday_* 为 null）。"""
+    bounds = spark.sql(
+        """
+        SELECT date_format(min(hour_ts), 'yyyy-MM-dd') AS dmin,
+               date_format(max(hour_ts), 'yyyy-MM-dd') AS dmax
+        FROM dws
+        """
+    ).collect()[0]
+    if not bounds["dmin"] or not bounds["dmax"]:
+        return {}
+    min_day = date.fromisoformat(str(bounds["dmin"]))
+    max_day = date.fromisoformat(str(bounds["dmax"]))
+    end = min(sim_day, max_day)
+
+    def clip(days: int):
+        start = end - timedelta(days=days - 1)
+        if start < min_day:
+            start = min_day
+        return start, end
+
+    def previous(start: date, stop: date):
+        n = (stop - start).days + 1
+        p_end = start - timedelta(days=1)
+        if p_end < min_day:
+            return None, None
+        p_start = p_end - timedelta(days=n - 1)
+        if p_start < min_day:
+            p_start = min_day
+        return p_start, p_end
+
+    windows = {}
+    for key, days in (("1", 1), ("7", 7), ("30", 30)):
+        start, stop = clip(days)
+        load, kwh, rev = _window_metrics(spark, start, stop, "sum")
+        peak = max(load, key=lambda x: x["kwh"])
+        p_start, p_stop = previous(start, stop)
+        prev_load = prev_kwh = prev_rev = None
+        if p_start and p_stop:
+            prev_load, prev_kwh, prev_rev = _window_metrics(spark, p_start, p_stop, "sum")
+        windows[key] = {
+            "start": start.isoformat(),
+            "end": stop.isoformat(),
+            "prev_start": p_start.isoformat() if p_start else None,
+            "prev_end": p_stop.isoformat() if p_stop else None,
+            "kpis": {
+                "today_kwh": round(kwh, 2),
+                "today_revenue": round(rev, 2),
+                "yesterday_kwh": None if prev_kwh is None else round(prev_kwh, 2),
+                "yesterday_charge_kwh": None if prev_kwh is None else round(prev_kwh, 2),
+                "yesterday_revenue": None if prev_rev is None else round(prev_rev, 2),
+                "peak_hour": "%02d:00" % peak["hour"],
+            },
+            "load_today": load,
+            "yesterday_load": prev_load,
+        }
+    return windows
+
+
 def quality_from_disk() -> dict:
     report_path = WORK_DIR / "qa" / "report.json"
     keys = (
@@ -863,7 +1023,8 @@ def stage_ads(spark: SparkSession) -> int:
                COUNT(p.id) AS total_piles,
                SUM(CASE WHEN p.status = 'idle' THEN 1 ELSE 0 END) AS snap_idle,
                SUM(CASE WHEN p.status = 'busy' THEN 1 ELSE 0 END) AS snap_busy,
-               SUM(CASE WHEN p.status = 'fault' THEN 1 ELSE 0 END) AS snap_fault
+               SUM(CASE WHEN p.status = 'fault' THEN 1 ELSE 0 END) AS snap_fault,
+               ROUND(SUM(CAST(p.power_kw AS DOUBLE)), 1) AS capacity_kw
         FROM ods_station s
         LEFT JOIN ods_pile p ON CAST(s.id AS BIGINT) = CAST(p.station_id AS BIGINT)
         GROUP BY CAST(s.id AS BIGINT), s.name
@@ -939,7 +1100,7 @@ def stage_ads(spark: SparkSession) -> int:
     station_rows = spark.sql(
         """
         SELECT
-          d.station_id, d.name, d.total_piles, d.snap_idle,
+          d.station_id, d.name, d.total_piles, d.snap_idle, d.capacity_kw,
           l.kwh AS kwh1, l.idle_piles AS dws_idle1, l.total_piles AS dws_total1,
           h.kwh6, h.idle6, h.total6,
           y.kwh AS kwh24, y.idle_piles AS idle24, y.total_piles AS total24
@@ -960,6 +1121,8 @@ def stage_ads(spark: SparkSession) -> int:
         idle = int(r["snap_idle"] or 0)
         dws_total = int(r["dws_total1"] if r["dws_total1"] is not None else total)
         dws_idle = int(r["dws_idle1"] if r["dws_idle1"] is not None else idle)
+        cap = float(r["capacity_kw"] or 0.0)
+        warn = round(cap * 0.8, 1)
         h1 = forecast_slot(r["kwh1"] or 0.0, dws_idle, dws_total)
         h6 = forecast_slot(
             r["kwh6"] if r["kwh6"] is not None else (r["kwh1"] or 0.0),
@@ -977,25 +1140,48 @@ def stage_ads(spark: SparkSession) -> int:
                 "name": name,
                 "idle": idle,
                 "total": total,
+                "capacity_kw": cap,
+                "warning_threshold_kw": warn,
                 "forecast": {"h1": h1, "h6": h6, "h24": h24},
             }
         )
         for horizon, slot in ((1, h1), (6, h6), (24, h24)):
             if slot["is_peak"]:
                 alerts.append(
-                    {
-                        "station_id": sid,
-                        "name": name,
-                        "horizon": horizon,
-                        "reason": "%s小时后预测占用率 %.0f%%" % (horizon, slot["util"]),
-                    }
+                    enrich_peak_alert(sid, name, horizon, slot["util"], sim_now)
                 )
+
+    faults = collect_faults(spark)
+    sim_day = date.fromisoformat(sim[:10])
+    windows = collect_period_windows(spark, sim_day)
+    cap_row = spark.sql("SELECT ROUND(SUM(capacity_kw), 1) AS cap FROM station_dim").collect()[0]
+    global_cap = float(cap_row["cap"] or 0.0)
+    global_warn = round(global_cap * 0.8, 1)
+    load_today = stamp_load(load_today, global_cap, global_warn)
+    for win in windows.values():
+        win["load_today"] = stamp_load(win.get("load_today") or [], global_cap, global_warn)
+        if win.get("yesterday_load") is not None:
+            win["yesterday_load"] = stamp_load(win["yesterday_load"], global_cap, global_warn)
+    day_win = windows.get("1") or {}
+    if day_win:
+        day_win["load_today"] = load_today
+        k = day_win.setdefault("kpis", {})
+        k["today_kwh"] = today_kwh
+        k["today_revenue"] = round(today_revenue, 2)
+        k["peak_hour"] = peak_hour
+    day_kpis = day_win.get("kpis") or {}
 
     dashboard = {
         "generated_at": sim_now,
+        "latest_data_time": sim_now,
+        "data_source": "ads",
+        "freshness_status": "ok",
         "kpis": {
             "today_kwh": today_kwh,
             "today_revenue": round(today_revenue, 2),
+            "yesterday_kwh": day_kpis.get("yesterday_kwh"),
+            "yesterday_charge_kwh": day_kpis.get("yesterday_charge_kwh"),
+            "yesterday_revenue": day_kpis.get("yesterday_revenue"),
             "idle_piles": idle_piles,
             "busy_piles": busy_piles,
             "fault_piles": int(fault_piles),
@@ -1008,6 +1194,9 @@ def stage_ads(spark: SparkSession) -> int:
         },
         "quality": quality_from_disk(),
         "load_today": load_today,
+        "yesterday_load": day_win.get("yesterday_load"),
+        "windows": windows,
+        "faults": faults,
         "load_forecast_24h": load_forecast_24h,
         "load_hour_avg": ops_panels["load_hour_avg"],
         "weekday_weekend": ops_panels["weekday_weekend"],
@@ -1031,6 +1220,10 @@ def stage_ads(spark: SparkSession) -> int:
         len(stations_out),
         "alerts",
         len(alerts),
+        "faults",
+        len(faults),
+        "windows",
+        sorted(windows.keys()),
     )
     try_hdfs_put(dash_path, "/user/charging/ads/kpis")
     try_hdfs_put(train_dest / "train.csv", "/user/charging/ads/train")
@@ -1331,6 +1524,7 @@ def stage_train(spark: SparkSession) -> int:
         )
 
     payload = json.loads(dash_path().read_text(encoding="utf-8"))
+    iso, mysql_ts = sim_now_pair()
     alerts = []
     for st in payload.get("stations") or []:
         sid = int(st["station_id"])
@@ -1346,17 +1540,13 @@ def stage_train(spark: SparkSession) -> int:
             slot = forecast.get(key) or {}
             if slot.get("is_peak"):
                 alerts.append(
-                    {
-                        "station_id": sid,
-                        "name": name,
-                        "horizon": hz,
-                        "reason": "%s小时后预测占用率 %.0f%%"
-                        % (hz, float(slot.get("util") or 0)),
-                    }
+                    enrich_peak_alert(sid, name, hz, slot.get("util"), iso)
                 )
 
-    iso, mysql_ts = sim_now_pair()
     payload["generated_at"] = iso
+    payload["latest_data_time"] = iso
+    payload["data_source"] = payload.get("data_source") or "ads"
+    payload["freshness_status"] = "ok"
     payload["load_forecast_24h"] = load_forecast_24h
     payload["alerts"] = alerts
     kpis = payload.setdefault("kpis", {})
