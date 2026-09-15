@@ -840,22 +840,6 @@ def stage_ads(spark: SparkSession) -> int:
     ).collect()
     by_hour = {int(r["hour"]): float(r["kwh"]) for r in today_load}
     load_today = [{"hour": h, "kwh": round(by_hour.get(h, 0.0), 2)} for h in range(24)]
-    hourly_avg = spark.sql(
-        """
-        SELECT hour_of_day AS hour, ROUND(AVG(kwh), 2) AS kwh
-        FROM dws GROUP BY hour_of_day ORDER BY hour
-        """
-    ).collect()
-    load_hour_avg = [{"hour": h, "kwh": 0.0} for h in range(24)]
-    for row in hourly_avg:
-        load_hour_avg[int(row["hour"])] = {"hour": int(row["hour"]), "kwh": float(row["kwh"] or 0.0)}
-    weekday_weekend_rows = spark.sql(
-        "SELECT is_weekend, ROUND(SUM(kwh), 2) AS kwh FROM dws GROUP BY is_weekend"
-    ).collect()
-    weekday_weekend = {"weekday_kwh": 0.0, "weekend_kwh": 0.0,
-                       "note": "DWS 分摊，周一至周五 vs 周六日"}
-    for row in weekday_weekend_rows:
-        weekday_weekend["weekend_kwh" if int(row["is_weekend"] or 0) else "weekday_kwh"] = float(row["kwh"] or 0.0)
     today_kwh = round(sum(x["kwh"] for x in load_today), 2)
     peak = max(load_today, key=lambda x: x["kwh"])
     peak_hour = "%02d:00" % peak["hour"]
@@ -1024,8 +1008,6 @@ def stage_ads(spark: SparkSession) -> int:
         },
         "quality": quality_from_disk(),
         "load_today": load_today,
-        "load_hour_avg": load_hour_avg,
-        "weekday_weekend": weekday_weekend,
         "load_forecast_24h": load_forecast_24h,
         "load_hour_avg": ops_panels["load_hour_avg"],
         "weekday_weekend": ops_panels["weekday_weekend"],
