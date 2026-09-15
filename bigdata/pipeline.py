@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import subprocess
 import sys
@@ -638,6 +639,126 @@ def collect_faults(spark: SparkSession) -> list:
     return faults
 
 
+def occupancy_pct(idle, total) -> float:
+    total_n = int(total or 0)
+    idle_n = int(idle or 0)
+    if total_n <= 0:
+        return 0.0
+    return round(max(0.0, (total_n - idle_n) * 100.0 / total_n), 1)
+
+
+def haversine_km(lat1, lon1, lat2, lon2) -> float:
+    radius = 6371.0
+    p1, p2 = math.radians(float(lat1)), math.radians(float(lat2))
+    dphi = math.radians(float(lat2) - float(lat1))
+    dlamb = math.radians(float(lon2) - float(lon1))
+    arc = (
+        math.sin(dphi / 2) ** 2
+        + math.cos(p1) * math.cos(p2) * math.sin(dlamb / 2) ** 2
+    )
+    return round(2 * radius * math.asin(min(1.0, math.sqrt(arc))), 2)
+
+
+def predicted_occupancy(station: dict) -> float:
+    slot = ((station.get("forecast") or {}).get("h1") or {})
+    if slot.get("util") is not None:
+        return round(float(slot["util"]), 1)
+    return occupancy_pct(station.get("idle"), station.get("total"))
+
+
+def collect_dispatch(stations: list, created_at: str, limit: int = 3) -> list:
+    """高峰/高占用站 → 更空闲且更近的站。无高峰时兜底取占用最高的 3 站。"""
+    usable = []
+    for station in stations or []:
+        try:
+            float(station["latitude"])
+            float(station["longitude"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if int(station.get("total") or 0) <= 0:
+            continue
+        usable.append(station)
+    if not usable:
+        return []
+
+    peaks = [
+        s
+        for s in usable
+        if int(((s.get("forecast") or {}).get("h1") or {}).get("is_peak") or 0)
+        or predicted_occupancy(s) >= 80.0
+    ]
+    sources = sorted(peaks, key=predicted_occupancy, reverse=True)
+    if not sources:
+        sources = sorted(
+            usable, key=lambda s: occupancy_pct(s.get("idle"), s.get("total")), reverse=True
+        )[:3]
+
+    used = set()
+    out = []
+    for src in sources:
+        sid = int(src["station_id"])
+        src_idle = int(src.get("idle") or 0)
+        src_pred = predicted_occupancy(src)
+        best = None
+        for dst in usable:
+            did = int(dst["station_id"])
+            if did == sid or did in used:
+                continue
+            idle = int(dst.get("idle") or 0)
+            if idle <= src_idle:
+                continue
+            dst_occ = occupancy_pct(dst.get("idle"), dst.get("total"))
+            km = haversine_km(
+                src["latitude"], src["longitude"], dst["latitude"], dst["longitude"]
+            )
+            preferred = idle >= 2 and dst_occ < 40.0
+            score = (0 if preferred else 1, km, dst_occ, -idle)
+            if best is None or score < best[0]:
+                best = (score, dst, km, dst_occ, idle)
+        if best is None:
+            continue
+        _, dst, km, dst_occ, idle = best
+        used.add(int(dst["station_id"]))
+        sname = src.get("name") or ("站 %s" % sid)
+        dname = dst.get("name") or ("站 %s" % dst["station_id"])
+        reason = "预测占用 %.0f%%，引导至 %.1fkm 外空闲站（空闲 %d 桩）" % (
+            src_pred,
+            km,
+            idle,
+        )
+        out.append(
+            {
+                "source_station_id": sid,
+                "source_station_name": sname,
+                "source_predicted_occupancy": src_pred,
+                "recommended_station_id": int(dst["station_id"]),
+                "recommended_station_name": dname,
+                "recommended_idle_piles": idle,
+                "recommended_occupancy": dst_occ,
+                "distance_km": km,
+                "expected_improvement": round(max(0.0, src_pred - dst_occ), 1),
+                "reason": reason,
+                "created_at": created_at,
+                "from_name": sname,
+                "to_name": dname,
+                "from_id": sid,
+                "to_id": int(dst["station_id"]),
+            }
+        )
+        if len(out) >= limit:
+            break
+    return out
+
+
+def window_targets(stop: date, prev_kwh, prev_rev) -> dict:
+    return {
+        "date": stop.isoformat(),
+        "charge_kwh_target": None if prev_kwh is None else round(prev_kwh, 2),
+        "revenue_target": None if prev_rev is None else round(prev_rev, 2),
+        "availability_target": 90.0,
+    }
+
+
 def _window_metrics(spark: SparkSession, start: date, end: date, hourly: str):
     s, e = start.isoformat(), end.isoformat()
     rows = spark.sql(
@@ -722,6 +843,7 @@ def collect_period_windows(spark: SparkSession, sim_day: date) -> dict:
             },
             "load_today": load,
             "yesterday_load": prev_load,
+            "targets": window_targets(stop, prev_kwh, prev_rev),
         }
     return windows
 
@@ -1020,6 +1142,8 @@ def stage_ads(spark: SparkSession) -> int:
         CREATE OR REPLACE TEMP VIEW station_dim AS
         SELECT CAST(s.id AS BIGINT) AS station_id,
                s.name AS name,
+               CAST(s.longitude AS DOUBLE) AS longitude,
+               CAST(s.latitude AS DOUBLE) AS latitude,
                COUNT(p.id) AS total_piles,
                SUM(CASE WHEN p.status = 'idle' THEN 1 ELSE 0 END) AS snap_idle,
                SUM(CASE WHEN p.status = 'busy' THEN 1 ELSE 0 END) AS snap_busy,
@@ -1027,7 +1151,7 @@ def stage_ads(spark: SparkSession) -> int:
                ROUND(SUM(CAST(p.power_kw AS DOUBLE)), 1) AS capacity_kw
         FROM ods_station s
         LEFT JOIN ods_pile p ON CAST(s.id AS BIGINT) = CAST(p.station_id AS BIGINT)
-        GROUP BY CAST(s.id AS BIGINT), s.name
+        GROUP BY CAST(s.id AS BIGINT), s.name, s.longitude, s.latitude
         """
     )
     spark.sql(
@@ -1100,7 +1224,8 @@ def stage_ads(spark: SparkSession) -> int:
     station_rows = spark.sql(
         """
         SELECT
-          d.station_id, d.name, d.total_piles, d.snap_idle, d.capacity_kw,
+          d.station_id, d.name, d.longitude, d.latitude,
+          d.total_piles, d.snap_idle, d.capacity_kw,
           l.kwh AS kwh1, l.idle_piles AS dws_idle1, l.total_piles AS dws_total1,
           h.kwh6, h.idle6, h.total6,
           y.kwh AS kwh24, y.idle_piles AS idle24, y.total_piles AS total24
@@ -1140,6 +1265,8 @@ def stage_ads(spark: SparkSession) -> int:
                 "name": name,
                 "idle": idle,
                 "total": total,
+                "latitude": None if r["latitude"] is None else float(r["latitude"]),
+                "longitude": None if r["longitude"] is None else float(r["longitude"]),
                 "capacity_kw": cap,
                 "warning_threshold_kw": warn,
                 "forecast": {"h1": h1, "h6": h6, "h24": h24},
@@ -1170,6 +1297,7 @@ def stage_ads(spark: SparkSession) -> int:
         k["today_revenue"] = round(today_revenue, 2)
         k["peak_hour"] = peak_hour
     day_kpis = day_win.get("kpis") or {}
+    dispatch = collect_dispatch(stations_out, sim_now)
 
     dashboard = {
         "generated_at": sim_now,
@@ -1192,11 +1320,13 @@ def stage_ads(spark: SparkSession) -> int:
             "total_revenue": kpi_extra["total_revenue"],
             "active_stations": kpi_extra["active_stations"],
         },
+        "targets": day_win.get("targets") or window_targets(sim_day, day_kpis.get("yesterday_kwh"), day_kpis.get("yesterday_revenue")),
         "quality": quality_from_disk(),
         "load_today": load_today,
         "yesterday_load": day_win.get("yesterday_load"),
         "windows": windows,
         "faults": faults,
+        "dispatch": dispatch,
         "load_forecast_24h": load_forecast_24h,
         "load_hour_avg": ops_panels["load_hour_avg"],
         "weekday_weekend": ops_panels["weekday_weekend"],
@@ -1222,6 +1352,8 @@ def stage_ads(spark: SparkSession) -> int:
         len(alerts),
         "faults",
         len(faults),
+        "dispatch",
+        len(dispatch),
         "windows",
         sorted(windows.keys()),
     )
@@ -1549,6 +1681,7 @@ def stage_train(spark: SparkSession) -> int:
     payload["freshness_status"] = "ok"
     payload["load_forecast_24h"] = load_forecast_24h
     payload["alerts"] = alerts
+    payload["dispatch"] = collect_dispatch(payload.get("stations") or [], iso)
     kpis = payload.setdefault("kpis", {})
     kpis["alert_count"] = len(alerts)
     payload["note"] = "MLlib RandomForestRegressor 预测 1h/6h/24h（seed=20260913）"
@@ -1564,6 +1697,8 @@ def stage_train(spark: SparkSession) -> int:
         len(alerts),
         "kpis",
         json.dumps(kpis, ensure_ascii=False),
+        "dispatch",
+        len(payload.get("dispatch") or []),
     )
 
     forecast_df = pred_h.select(

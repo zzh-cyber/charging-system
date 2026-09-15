@@ -1,8 +1,14 @@
 {
   "generated_at": "2026-09-13T21:00:00",
+  "latest_data_time": "2026-09-13T21:00:00",
+  "data_source": "ads",
+  "freshness_status": "ok",
   "kpis": {
     "today_kwh": 15620.04,
     "today_revenue": 20292.01,
+    "yesterday_kwh": 19025.24,
+    "yesterday_charge_kwh": 19025.24,
+    "yesterday_revenue": 24615.25,
     "idle_piles": 302,
     "busy_piles": 61,
     "fault_piles": 36,
@@ -12,6 +18,12 @@
     "total_kwh": 609996.23,
     "total_revenue": 787325.59,
     "active_stations": 72
+  },
+  "targets": {
+    "date": "2026-09-13",
+    "charge_kwh_target": 19025.24,
+    "revenue_target": 24615.25,
+    "availability_target": 90.0
   },
   "quality": {
     "ods_rows": 20000,
@@ -24,197 +36,1599 @@
   "load_today": [
     {
       "hour": 0,
-      "kwh": 516.18
+      "kwh": 516.18,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
     },
     {
       "hour": 1,
-      "kwh": 229.24
+      "kwh": 229.24,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
     },
     {
       "hour": 2,
-      "kwh": 238.2
+      "kwh": 238.2,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
     },
     {
       "hour": 3,
-      "kwh": 155.98
+      "kwh": 155.98,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
     },
     {
       "hour": 4,
-      "kwh": 98.05
+      "kwh": 98.05,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
     },
     {
       "hour": 5,
-      "kwh": 95.52
+      "kwh": 95.52,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
     },
     {
       "hour": 6,
-      "kwh": 219.42
+      "kwh": 219.42,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
     },
     {
       "hour": 7,
-      "kwh": 346.3
+      "kwh": 346.3,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
     },
     {
       "hour": 8,
-      "kwh": 561.73
+      "kwh": 561.73,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
     },
     {
       "hour": 9,
-      "kwh": 725.77
+      "kwh": 725.77,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
     },
     {
       "hour": 10,
-      "kwh": 1137.2
+      "kwh": 1137.2,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
     },
     {
       "hour": 11,
-      "kwh": 1439.9
+      "kwh": 1439.9,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
     },
     {
       "hour": 12,
-      "kwh": 1264.06
+      "kwh": 1264.06,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
     },
     {
       "hour": 13,
-      "kwh": 947.99
+      "kwh": 947.99,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
     },
     {
       "hour": 14,
-      "kwh": 1196.21
+      "kwh": 1196.21,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
     },
     {
       "hour": 15,
-      "kwh": 966.16
+      "kwh": 966.16,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
     },
     {
       "hour": 16,
-      "kwh": 1171.28
+      "kwh": 1171.28,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
     },
     {
       "hour": 17,
-      "kwh": 921.83
+      "kwh": 921.83,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
     },
     {
       "hour": 18,
-      "kwh": 1166.05
+      "kwh": 1166.05,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
     },
     {
       "hour": 19,
-      "kwh": 1430.85
+      "kwh": 1430.85,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
     },
     {
       "hour": 20,
-      "kwh": 792.12
+      "kwh": 792.12,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
     },
     {
       "hour": 21,
-      "kwh": 0.0
+      "kwh": 0.0,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
     },
     {
       "hour": 22,
-      "kwh": 0.0
+      "kwh": 0.0,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
     },
     {
       "hour": 23,
-      "kwh": 0.0
+      "kwh": 0.0,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
+    }
+  ],
+  "yesterday_load": [
+    {
+      "hour": 0,
+      "kwh": 635.66,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
+    },
+    {
+      "hour": 1,
+      "kwh": 307.37,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
+    },
+    {
+      "hour": 2,
+      "kwh": 197.54,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
+    },
+    {
+      "hour": 3,
+      "kwh": 230.13,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
+    },
+    {
+      "hour": 4,
+      "kwh": 353.15,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
+    },
+    {
+      "hour": 5,
+      "kwh": 315.13,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
+    },
+    {
+      "hour": 6,
+      "kwh": 220.76,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
+    },
+    {
+      "hour": 7,
+      "kwh": 265.5,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
+    },
+    {
+      "hour": 8,
+      "kwh": 415.87,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
+    },
+    {
+      "hour": 9,
+      "kwh": 817.68,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
+    },
+    {
+      "hour": 10,
+      "kwh": 1243.26,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
+    },
+    {
+      "hour": 11,
+      "kwh": 1191.62,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
+    },
+    {
+      "hour": 12,
+      "kwh": 984.41,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
+    },
+    {
+      "hour": 13,
+      "kwh": 1315.96,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
+    },
+    {
+      "hour": 14,
+      "kwh": 1276.52,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
+    },
+    {
+      "hour": 15,
+      "kwh": 1650.69,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
+    },
+    {
+      "hour": 16,
+      "kwh": 1313.46,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
+    },
+    {
+      "hour": 17,
+      "kwh": 1398.51,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
+    },
+    {
+      "hour": 18,
+      "kwh": 1251.63,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
+    },
+    {
+      "hour": 19,
+      "kwh": 1230.71,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
+    },
+    {
+      "hour": 20,
+      "kwh": 973.45,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
+    },
+    {
+      "hour": 21,
+      "kwh": 622.99,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
+    },
+    {
+      "hour": 22,
+      "kwh": 441.79,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
+    },
+    {
+      "hour": 23,
+      "kwh": 371.42,
+      "capacity_kw": 44397.0,
+      "warning_threshold_kw": 35517.6
+    }
+  ],
+  "windows": {
+    "1": {
+      "start": "2026-09-13",
+      "end": "2026-09-13",
+      "prev_start": "2026-09-12",
+      "prev_end": "2026-09-12",
+      "kpis": {
+        "today_kwh": 15620.04,
+        "today_revenue": 20292.01,
+        "yesterday_kwh": 19025.24,
+        "yesterday_charge_kwh": 19025.24,
+        "yesterday_revenue": 24615.25,
+        "peak_hour": "11:00"
+      },
+      "load_today": [
+        {
+          "hour": 0,
+          "kwh": 516.18,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 1,
+          "kwh": 229.24,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 2,
+          "kwh": 238.2,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 3,
+          "kwh": 155.98,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 4,
+          "kwh": 98.05,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 5,
+          "kwh": 95.52,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 6,
+          "kwh": 219.42,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 7,
+          "kwh": 346.3,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 8,
+          "kwh": 561.73,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 9,
+          "kwh": 725.77,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 10,
+          "kwh": 1137.2,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 11,
+          "kwh": 1439.9,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 12,
+          "kwh": 1264.06,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 13,
+          "kwh": 947.99,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 14,
+          "kwh": 1196.21,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 15,
+          "kwh": 966.16,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 16,
+          "kwh": 1171.28,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 17,
+          "kwh": 921.83,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 18,
+          "kwh": 1166.05,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 19,
+          "kwh": 1430.85,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 20,
+          "kwh": 792.12,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 21,
+          "kwh": 0.0,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 22,
+          "kwh": 0.0,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 23,
+          "kwh": 0.0,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        }
+      ],
+      "yesterday_load": [
+        {
+          "hour": 0,
+          "kwh": 635.66,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 1,
+          "kwh": 307.37,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 2,
+          "kwh": 197.54,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 3,
+          "kwh": 230.13,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 4,
+          "kwh": 353.15,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 5,
+          "kwh": 315.13,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 6,
+          "kwh": 220.76,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 7,
+          "kwh": 265.5,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 8,
+          "kwh": 415.87,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 9,
+          "kwh": 817.68,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 10,
+          "kwh": 1243.26,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 11,
+          "kwh": 1191.62,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 12,
+          "kwh": 984.41,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 13,
+          "kwh": 1315.96,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 14,
+          "kwh": 1276.52,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 15,
+          "kwh": 1650.69,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 16,
+          "kwh": 1313.46,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 17,
+          "kwh": 1398.51,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 18,
+          "kwh": 1251.63,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 19,
+          "kwh": 1230.71,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 20,
+          "kwh": 973.45,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 21,
+          "kwh": 622.99,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 22,
+          "kwh": 441.79,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 23,
+          "kwh": 371.42,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        }
+      ],
+      "targets": {
+        "date": "2026-09-13",
+        "charge_kwh_target": 19025.24,
+        "revenue_target": 24615.25,
+        "availability_target": 90.0
+      }
+    },
+    "7": {
+      "start": "2026-09-07",
+      "end": "2026-09-13",
+      "prev_start": "2026-08-31",
+      "prev_end": "2026-09-06",
+      "kpis": {
+        "today_kwh": 141136.96,
+        "today_revenue": 182192.92,
+        "yesterday_kwh": 143014.98,
+        "yesterday_charge_kwh": 143014.98,
+        "yesterday_revenue": 184456.85,
+        "peak_hour": "18:00"
+      },
+      "load_today": [
+        {
+          "hour": 0,
+          "kwh": 430.85,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 1,
+          "kwh": 240.19,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 2,
+          "kwh": 161.02,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 3,
+          "kwh": 144.46,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 4,
+          "kwh": 182.38,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 5,
+          "kwh": 199.47,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 6,
+          "kwh": 439.1,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 7,
+          "kwh": 775.39,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 8,
+          "kwh": 1193.99,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 9,
+          "kwh": 1114.62,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 10,
+          "kwh": 1131.41,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 11,
+          "kwh": 1060.52,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 12,
+          "kwh": 1031.02,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 13,
+          "kwh": 947.53,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 14,
+          "kwh": 1037.37,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 15,
+          "kwh": 1149.19,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 16,
+          "kwh": 1289.95,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 17,
+          "kwh": 1542.82,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 18,
+          "kwh": 1743.26,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 19,
+          "kwh": 1624.49,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 20,
+          "kwh": 1163.71,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 21,
+          "kwh": 811.31,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 22,
+          "kwh": 565.85,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 23,
+          "kwh": 442.48,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        }
+      ],
+      "yesterday_load": [
+        {
+          "hour": 0,
+          "kwh": 340.72,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 1,
+          "kwh": 222.42,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 2,
+          "kwh": 159.37,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 3,
+          "kwh": 112.97,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 4,
+          "kwh": 171.35,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 5,
+          "kwh": 151.34,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 6,
+          "kwh": 365.64,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 7,
+          "kwh": 888.31,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 8,
+          "kwh": 1095.2,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 9,
+          "kwh": 1252.74,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 10,
+          "kwh": 1097.63,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 11,
+          "kwh": 1073.8,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 12,
+          "kwh": 1022.77,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 13,
+          "kwh": 1062.47,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 14,
+          "kwh": 1104.02,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 15,
+          "kwh": 1080.62,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 16,
+          "kwh": 1258.03,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 17,
+          "kwh": 1583.95,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 18,
+          "kwh": 1683.49,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 19,
+          "kwh": 1604.91,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 20,
+          "kwh": 1255.8,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 21,
+          "kwh": 811.06,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 22,
+          "kwh": 627.17,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 23,
+          "kwh": 404.91,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        }
+      ],
+      "targets": {
+        "date": "2026-09-13",
+        "charge_kwh_target": 143014.98,
+        "revenue_target": 184456.85,
+        "availability_target": 90.0
+      }
+    },
+    "30": {
+      "start": "2026-08-15",
+      "end": "2026-09-13",
+      "prev_start": null,
+      "prev_end": null,
+      "kpis": {
+        "today_kwh": 603710.4,
+        "today_revenue": 779315.56,
+        "yesterday_kwh": null,
+        "yesterday_charge_kwh": null,
+        "yesterday_revenue": null,
+        "peak_hour": "18:00"
+      },
+      "load_today": [
+        {
+          "hour": 0,
+          "kwh": 372.48,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 1,
+          "kwh": 227.3,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 2,
+          "kwh": 163.76,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 3,
+          "kwh": 133.02,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 4,
+          "kwh": 167.7,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 5,
+          "kwh": 181.98,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 6,
+          "kwh": 367.51,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 7,
+          "kwh": 831.34,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 8,
+          "kwh": 1128.39,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 9,
+          "kwh": 1165.99,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 10,
+          "kwh": 1052.05,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 11,
+          "kwh": 1031.6,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 12,
+          "kwh": 1048.55,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 13,
+          "kwh": 1032.37,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 14,
+          "kwh": 1065.17,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 15,
+          "kwh": 1119.91,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 16,
+          "kwh": 1302.62,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 17,
+          "kwh": 1531.35,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 18,
+          "kwh": 1650.0,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 19,
+          "kwh": 1558.47,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 20,
+          "kwh": 1209.42,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 21,
+          "kwh": 803.03,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 22,
+          "kwh": 614.68,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        },
+        {
+          "hour": 23,
+          "kwh": 426.47,
+          "capacity_kw": 44397.0,
+          "warning_threshold_kw": 35517.6
+        }
+      ],
+      "yesterday_load": null,
+      "targets": {
+        "date": "2026-09-13",
+        "charge_kwh_target": null,
+        "revenue_target": null,
+        "availability_target": 90.0
+      }
+    }
+  },
+  "faults": [
+    {
+      "pile_id": 15,
+      "station_id": 4,
+      "station_name": "北京国贸充电站",
+      "code": "BJ001-01",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 19,
+      "station_id": 4,
+      "station_name": "北京国贸充电站",
+      "code": "BJ001-05",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 33,
+      "station_id": 7,
+      "station_name": "北京望京充电站",
+      "code": "BJ004-02",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 41,
+      "station_id": 8,
+      "station_name": "上海陆家嘴充电站",
+      "code": "SH001-04",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 62,
+      "station_id": 13,
+      "station_name": "广州珠江新城充电站",
+      "code": "GZ002-02",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 70,
+      "station_id": 14,
+      "station_name": "广州白云充电站",
+      "code": "GZ003-03",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 73,
+      "station_id": 14,
+      "station_name": "广州白云充电站",
+      "code": "GZ003-06",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 77,
+      "station_id": 15,
+      "station_name": "杭州西湖充电站",
+      "code": "HZ001-04",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 83,
+      "station_id": 16,
+      "station_name": "杭州滨江充电站",
+      "code": "HZ002-06",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 84,
+      "station_id": 16,
+      "station_name": "杭州滨江充电站",
+      "code": "HZ002-07",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 108,
+      "station_id": 21,
+      "station_name": "深圳宝安机场充电站",
+      "code": "SZ004-03",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 109,
+      "station_id": 21,
+      "station_name": "深圳宝安机场充电站",
+      "code": "SZ004-04",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 125,
+      "station_id": 24,
+      "station_name": "龙华深圳北站充电站",
+      "code": "SZ007-02",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 128,
+      "station_id": 24,
+      "station_name": "龙华深圳北站充电站",
+      "code": "SZ007-05",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 169,
+      "station_id": 31,
+      "station_name": "北京南站充电站",
+      "code": "BJ006-03",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 229,
+      "station_id": 42,
+      "station_name": "上海迪士尼充电站",
+      "code": "SH009-03",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 259,
+      "station_id": 47,
+      "station_name": "北京路步行街充电站",
+      "code": "GZ005-04",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 261,
+      "station_id": 47,
+      "station_name": "北京路步行街充电站",
+      "code": "GZ005-06",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 264,
+      "station_id": 48,
+      "station_name": "琶洲会展中心充电站",
+      "code": "GZ006-02",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 266,
+      "station_id": 48,
+      "station_name": "琶洲会展中心充电站",
+      "code": "GZ006-04",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 305,
+      "station_id": 55,
+      "station_name": "武林广场充电站",
+      "code": "HZ004-05",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 340,
+      "station_id": 62,
+      "station_name": "桐庐富春江充电站",
+      "code": "HZ011-02",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 342,
+      "station_id": 62,
+      "station_name": "桐庐富春江充电站",
+      "code": "HZ011-04",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 344,
+      "station_id": 63,
+      "station_name": "九堡客运中心充电站",
+      "code": "HZ012-01",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 347,
+      "station_id": 63,
+      "station_name": "九堡客运中心充电站",
+      "code": "HZ012-04",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 354,
+      "station_id": 65,
+      "station_name": "玄武湖充电站",
+      "code": "NJ005-01",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 358,
+      "station_id": 65,
+      "station_name": "玄武湖充电站",
+      "code": "NJ005-05",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 360,
+      "station_id": 66,
+      "station_name": "南京南站充电站",
+      "code": "NJ006-02",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 361,
+      "station_id": 66,
+      "station_name": "南京南站充电站",
+      "code": "NJ006-03",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 365,
+      "station_id": 67,
+      "station_name": "中山陵充电站",
+      "code": "NJ007-02",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 367,
+      "station_id": 67,
+      "station_name": "中山陵充电站",
+      "code": "NJ007-04",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 372,
+      "station_id": 68,
+      "station_name": "鼓楼广场充电站",
+      "code": "NJ008-03",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 373,
+      "station_id": 68,
+      "station_name": "鼓楼广场充电站",
+      "code": "NJ008-04",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 376,
+      "station_id": 69,
+      "station_name": "长江大桥充电站",
+      "code": "NJ009-03",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 380,
+      "station_id": 69,
+      "station_name": "长江大桥充电站",
+      "code": "NJ009-07",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    },
+    {
+      "pile_id": 394,
+      "station_id": 72,
+      "station_name": "高淳老街充电站",
+      "code": "NJ012-01",
+      "fault_type": "fault",
+      "fault_code": null,
+      "fault_time": null,
+      "status": "fault"
+    }
+  ],
+  "dispatch": [
+    {
+      "source_station_id": 21,
+      "source_station_name": "深圳宝安机场充电站",
+      "source_predicted_occupancy": 20.0,
+      "recommended_station_id": 22,
+      "recommended_station_name": "罗湖万象城充电站",
+      "recommended_idle_piles": 5,
+      "recommended_occupancy": 16.7,
+      "distance_km": 2.04,
+      "expected_improvement": 3.3,
+      "reason": "预测占用 20%，引导至 2.0km 外空闲站（空闲 5 桩）",
+      "created_at": "2026-09-13T21:00:00",
+      "from_name": "深圳宝安机场充电站",
+      "to_name": "罗湖万象城充电站",
+      "from_id": 21,
+      "to_id": 22
+    },
+    {
+      "source_station_id": 24,
+      "source_station_name": "龙华深圳北站充电站",
+      "source_predicted_occupancy": 20.0,
+      "recommended_station_id": 23,
+      "recommended_station_name": "龙岗大运中心充电站",
+      "recommended_idle_piles": 7,
+      "recommended_occupancy": 0.0,
+      "distance_km": 2.04,
+      "expected_improvement": 20.0,
+      "reason": "预测占用 20%，引导至 2.0km 外空闲站（空闲 7 桩）",
+      "created_at": "2026-09-13T21:00:00",
+      "from_name": "龙华深圳北站充电站",
+      "to_name": "龙岗大运中心充电站",
+      "from_id": 24,
+      "to_id": 23
+    },
+    {
+      "source_station_id": 65,
+      "source_station_name": "玄武湖充电站",
+      "source_predicted_occupancy": 40.0,
+      "recommended_station_id": 64,
+      "recommended_station_name": "夫子庙充电站",
+      "recommended_idle_piles": 6,
+      "recommended_occupancy": 0.0,
+      "distance_km": 1.94,
+      "expected_improvement": 40.0,
+      "reason": "预测占用 40%，引导至 1.9km 外空闲站（空闲 6 桩）",
+      "created_at": "2026-09-13T21:00:00",
+      "from_name": "玄武湖充电站",
+      "to_name": "夫子庙充电站",
+      "from_id": 65,
+      "to_id": 64
     }
   ],
   "load_forecast_24h": [
     {
       "offset": 1,
-      "kwh": 1489.19
+      "kwh": 803.03
     },
     {
       "offset": 2,
-      "kwh": 1470.53
+      "kwh": 614.68
     },
     {
       "offset": 3,
-      "kwh": 1495.84
+      "kwh": 426.47
     },
     {
       "offset": 4,
-      "kwh": 1590.16
+      "kwh": 372.48
     },
     {
       "offset": 5,
-      "kwh": 1614.75
+      "kwh": 227.3
     },
     {
       "offset": 6,
-      "kwh": 1626.68
+      "kwh": 163.76
     },
     {
       "offset": 7,
-      "kwh": 1634.68
+      "kwh": 133.02
     },
     {
       "offset": 8,
-      "kwh": 1636.99
+      "kwh": 167.7
     },
     {
       "offset": 9,
-      "kwh": 1642.58
+      "kwh": 181.98
     },
     {
       "offset": 10,
-      "kwh": 1649.72
+      "kwh": 367.51
     },
     {
       "offset": 11,
-      "kwh": 1653.8
+      "kwh": 831.34
     },
     {
       "offset": 12,
-      "kwh": 1657.34
+      "kwh": 1128.39
     },
     {
       "offset": 13,
-      "kwh": 1658.91
+      "kwh": 1165.99
     },
     {
       "offset": 14,
-      "kwh": 1666.75
+      "kwh": 1052.05
     },
     {
       "offset": 15,
-      "kwh": 1670.61
+      "kwh": 1031.6
     },
     {
       "offset": 16,
-      "kwh": 1668.91
+      "kwh": 1048.55
     },
     {
       "offset": 17,
-      "kwh": 1666.78
+      "kwh": 1032.37
     },
     {
       "offset": 18,
-      "kwh": 1664.47
+      "kwh": 1065.17
     },
     {
       "offset": 19,
-      "kwh": 1647.15
+      "kwh": 1119.91
     },
     {
       "offset": 20,
-      "kwh": 1623.52
+      "kwh": 1302.62
     },
     {
       "offset": 21,
-      "kwh": 1610.07
+      "kwh": 1531.35
     },
     {
       "offset": 22,
-      "kwh": 1604.72
+      "kwh": 1650.0
     },
     {
       "offset": 23,
-      "kwh": 1571.42
+      "kwh": 1558.47
     },
     {
       "offset": 24,
-      "kwh": 1545.75
+      "kwh": 1209.42
     }
   ],
   "load_hour_avg": [
@@ -380,23 +1794,27 @@
       "name": "深圳市民中心充电站",
       "idle": 2,
       "total": 4,
+      "latitude": 22.546,
+      "longitude": 114.061,
+      "capacity_kw": 427.0,
+      "warning_threshold_kw": 341.6,
       "forecast": {
         "h1": {
-          "kwh": 27.53,
+          "kwh": 36.58,
           "idle": 3,
           "util": 25.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 25.17,
+          "kwh": 28.89,
           "idle": 3,
           "util": 25.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 24.99,
+          "kwh": 6.44,
           "idle": 3,
           "util": 25.0,
           "is_peak": 0,
@@ -409,23 +1827,27 @@
       "name": "福田CBD充电站",
       "idle": 6,
       "total": 6,
+      "latitude": 22.532,
+      "longitude": 114.058,
+      "capacity_kw": 554.0,
+      "warning_threshold_kw": 443.2,
       "forecast": {
         "h1": {
-          "kwh": 16.56,
+          "kwh": 6.44,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 20.17,
+          "kwh": 15.76,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 20.28,
+          "kwh": 7.84,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
@@ -438,23 +1860,27 @@
       "name": "南山科技园充电站",
       "idle": 3,
       "total": 4,
+      "latitude": 22.54,
+      "longitude": 113.945,
+      "capacity_kw": 427.0,
+      "warning_threshold_kw": 341.6,
       "forecast": {
         "h1": {
-          "kwh": 18.68,
+          "kwh": 6.44,
           "idle": 3,
           "util": 25.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 22.49,
-          "idle": 3,
-          "util": 25.0,
+          "kwh": 19.59,
+          "idle": 2,
+          "util": 50.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 22.59,
+          "kwh": 6.44,
           "idle": 3,
           "util": 25.0,
           "is_peak": 0,
@@ -467,23 +1893,27 @@
       "name": "北京国贸充电站",
       "idle": 3,
       "total": 5,
+      "latitude": 39.908,
+      "longitude": 116.46,
+      "capacity_kw": 607.0,
+      "warning_threshold_kw": 485.6,
       "forecast": {
         "h1": {
-          "kwh": 16.8,
+          "kwh": 9.89,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 23.01,
-          "idle": 4,
-          "util": 20.0,
+          "kwh": 18.14,
+          "idle": 3,
+          "util": 40.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 22.71,
+          "kwh": 9.89,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
@@ -496,23 +1926,27 @@
       "name": "中关村充电站",
       "idle": 4,
       "total": 6,
+      "latitude": 39.984,
+      "longitude": 116.316,
+      "capacity_kw": 614.0,
+      "warning_threshold_kw": 491.2,
       "forecast": {
         "h1": {
-          "kwh": 23.19,
+          "kwh": 35.36,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 19.82,
-          "idle": 5,
-          "util": 16.7,
+          "kwh": 17.38,
+          "idle": 4,
+          "util": 33.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 19.82,
+          "kwh": 3.81,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
@@ -525,23 +1959,27 @@
       "name": "北京西单充电站",
       "idle": 5,
       "total": 6,
+      "latitude": 39.91,
+      "longitude": 116.38,
+      "capacity_kw": 787.0,
+      "warning_threshold_kw": 629.6,
       "forecast": {
         "h1": {
-          "kwh": 27.26,
+          "kwh": 32.3,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 25.22,
+          "kwh": 34.5,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 25.82,
+          "kwh": 30.28,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
@@ -554,23 +1992,27 @@
       "name": "北京望京充电站",
       "idle": 2,
       "total": 6,
+      "latitude": 39.996,
+      "longitude": 116.48,
+      "capacity_kw": 787.0,
+      "warning_threshold_kw": 629.6,
       "forecast": {
         "h1": {
-          "kwh": 16.14,
+          "kwh": 6.44,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 19.6,
+          "kwh": 11.61,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 19.72,
+          "kwh": 10.77,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
@@ -583,23 +2025,27 @@
       "name": "上海陆家嘴充电站",
       "idle": 3,
       "total": 4,
+      "latitude": 31.24,
+      "longitude": 121.5,
+      "capacity_kw": 427.0,
+      "warning_threshold_kw": 341.6,
       "forecast": {
         "h1": {
-          "kwh": 32.6,
-          "idle": 3,
-          "util": 25.0,
+          "kwh": 79.48,
+          "idle": 1,
+          "util": 75.0,
           "is_peak": 0,
-          "congestion": "low"
+          "congestion": "mid"
         },
         "h6": {
-          "kwh": 25.84,
-          "idle": 3,
-          "util": 25.0,
+          "kwh": 46.18,
+          "idle": 2,
+          "util": 50.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 27.47,
+          "kwh": 13.34,
           "idle": 3,
           "util": 25.0,
           "is_peak": 0,
@@ -612,23 +2058,27 @@
       "name": "上海虹桥充电站",
       "idle": 4,
       "total": 4,
+      "latitude": 31.2,
+      "longitude": 121.34,
+      "capacity_kw": 367.0,
+      "warning_threshold_kw": 293.6,
       "forecast": {
         "h1": {
-          "kwh": 15.34,
+          "kwh": 12.88,
           "idle": 3,
           "util": 25.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 17.39,
+          "kwh": 7.5,
           "idle": 3,
           "util": 25.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 17.39,
+          "kwh": 6.44,
           "idle": 3,
           "util": 25.0,
           "is_peak": 0,
@@ -641,25 +2091,29 @@
       "name": "上海人民广场充电站",
       "idle": 5,
       "total": 5,
+      "latitude": 31.23,
+      "longitude": 121.47,
+      "capacity_kw": 374.0,
+      "warning_threshold_kw": 299.2,
       "forecast": {
         "h1": {
-          "kwh": 14.42,
+          "kwh": 6.44,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 17.89,
-          "idle": 4,
-          "util": 20.0,
+          "kwh": 11.37,
+          "idle": 3,
+          "util": 40.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 17.89,
-          "idle": 4,
-          "util": 20.0,
+          "kwh": 9.49,
+          "idle": 3,
+          "util": 40.0,
           "is_peak": 0,
           "congestion": "low"
         }
@@ -670,23 +2124,27 @@
       "name": "上海张江充电站",
       "idle": 3,
       "total": 5,
+      "latitude": 31.2,
+      "longitude": 121.59,
+      "capacity_kw": 434.0,
+      "warning_threshold_kw": 347.2,
       "forecast": {
         "h1": {
-          "kwh": 18.28,
+          "kwh": 3.71,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 19.02,
-          "idle": 4,
-          "util": 20.0,
+          "kwh": 34.85,
+          "idle": 3,
+          "util": 40.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 19.01,
+          "kwh": 3.71,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
@@ -699,25 +2157,29 @@
       "name": "广州天河充电站",
       "idle": 2,
       "total": 5,
+      "latitude": 23.13,
+      "longitude": 113.32,
+      "capacity_kw": 727.0,
+      "warning_threshold_kw": 581.6,
       "forecast": {
         "h1": {
-          "kwh": 24.87,
+          "kwh": 47.27,
           "idle": 3,
           "util": 40.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 22.63,
-          "idle": 4,
-          "util": 20.0,
+          "kwh": 31.18,
+          "idle": 3,
+          "util": 40.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 22.72,
-          "idle": 4,
-          "util": 20.0,
+          "kwh": 45.85,
+          "idle": 3,
+          "util": 40.0,
           "is_peak": 0,
           "congestion": "low"
         }
@@ -728,23 +2190,27 @@
       "name": "广州珠江新城充电站",
       "idle": 6,
       "total": 7,
+      "latitude": 23.12,
+      "longitude": 113.33,
+      "capacity_kw": 734.0,
+      "warning_threshold_kw": 587.2,
       "forecast": {
         "h1": {
-          "kwh": 21.6,
+          "kwh": 5.1,
           "idle": 6,
           "util": 14.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 21.72,
-          "idle": 6,
-          "util": 14.3,
+          "kwh": 11.1,
+          "idle": 5,
+          "util": 28.6,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 21.72,
+          "kwh": 5.82,
           "idle": 6,
           "util": 14.3,
           "is_peak": 0,
@@ -757,25 +2223,29 @@
       "name": "广州白云充电站",
       "idle": 4,
       "total": 6,
+      "latitude": 23.16,
+      "longitude": 113.26,
+      "capacity_kw": 727.0,
+      "warning_threshold_kw": 581.6,
       "forecast": {
         "h1": {
-          "kwh": 25.97,
+          "kwh": 16.63,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 22.79,
-          "idle": 5,
-          "util": 16.7,
+          "kwh": 25.44,
+          "idle": 4,
+          "util": 33.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 22.83,
-          "idle": 5,
-          "util": 16.7,
+          "kwh": 34.11,
+          "idle": 4,
+          "util": 33.3,
           "is_peak": 0,
           "congestion": "low"
         }
@@ -786,23 +2256,27 @@
       "name": "杭州西湖充电站",
       "idle": 2,
       "total": 4,
+      "latitude": 30.27,
+      "longitude": 120.15,
+      "capacity_kw": 314.0,
+      "warning_threshold_kw": 251.2,
       "forecast": {
         "h1": {
-          "kwh": 25.49,
-          "idle": 3,
-          "util": 25.0,
+          "kwh": 40.99,
+          "idle": 1,
+          "util": 75.0,
           "is_peak": 0,
-          "congestion": "low"
+          "congestion": "mid"
         },
         "h6": {
-          "kwh": 21.97,
-          "idle": 3,
-          "util": 25.0,
+          "kwh": 20.69,
+          "idle": 2,
+          "util": 50.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 22.07,
+          "kwh": 6.44,
           "idle": 3,
           "util": 25.0,
           "is_peak": 0,
@@ -815,23 +2289,27 @@
       "name": "杭州滨江充电站",
       "idle": 5,
       "total": 7,
+      "latitude": 30.21,
+      "longitude": 120.21,
+      "capacity_kw": 967.0,
+      "warning_threshold_kw": 773.6,
       "forecast": {
         "h1": {
-          "kwh": 28.02,
+          "kwh": 47.0,
           "idle": 6,
           "util": 14.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 25.17,
-          "idle": 6,
-          "util": 14.3,
+          "kwh": 46.02,
+          "idle": 5,
+          "util": 28.6,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 25.26,
+          "kwh": 36.19,
           "idle": 6,
           "util": 14.3,
           "is_peak": 0,
@@ -844,25 +2322,29 @@
       "name": "杭州未来科技城充电站",
       "idle": 6,
       "total": 6,
+      "latitude": 30.28,
+      "longitude": 120.02,
+      "capacity_kw": 554.0,
+      "warning_threshold_kw": 443.2,
       "forecast": {
         "h1": {
-          "kwh": 22.94,
+          "kwh": 31.14,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 20.82,
+          "kwh": 14.62,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 20.81,
-          "idle": 5,
-          "util": 16.7,
+          "kwh": 25.15,
+          "idle": 4,
+          "util": 33.3,
           "is_peak": 0,
           "congestion": "low"
         }
@@ -873,25 +2355,29 @@
       "name": "南京新街口充电站",
       "idle": 2,
       "total": 5,
+      "latitude": 32.04,
+      "longitude": 118.78,
+      "capacity_kw": 607.0,
+      "warning_threshold_kw": 485.6,
       "forecast": {
         "h1": {
-          "kwh": 14.6,
+          "kwh": 11.59,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 18.07,
+          "kwh": 9.5,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 18.07,
-          "idle": 4,
-          "util": 20.0,
+          "kwh": 28.18,
+          "idle": 3,
+          "util": 40.0,
           "is_peak": 0,
           "congestion": "low"
         }
@@ -902,25 +2388,29 @@
       "name": "南京河西充电站",
       "idle": 6,
       "total": 6,
+      "latitude": 32.0,
+      "longitude": 118.72,
+      "capacity_kw": 614.0,
+      "warning_threshold_kw": 491.2,
       "forecast": {
         "h1": {
-          "kwh": 18.97,
+          "kwh": 23.38,
           "idle": 4,
           "util": 33.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 18.49,
+          "kwh": 28.33,
           "idle": 4,
           "util": 33.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 18.49,
-          "idle": 4,
-          "util": 33.3,
+          "kwh": 6.44,
+          "idle": 5,
+          "util": 16.7,
           "is_peak": 0,
           "congestion": "low"
         }
@@ -931,27 +2421,31 @@
       "name": "南京江宁充电站",
       "idle": 3,
       "total": 4,
+      "latitude": 31.95,
+      "longitude": 118.85,
+      "capacity_kw": 314.0,
+      "warning_threshold_kw": 251.2,
       "forecast": {
         "h1": {
-          "kwh": 31.08,
+          "kwh": 43.19,
           "idle": 2,
           "util": 50.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 24.69,
-          "idle": 2,
-          "util": 50.0,
+          "kwh": 58.06,
+          "idle": 1,
+          "util": 75.0,
           "is_peak": 0,
-          "congestion": "low"
+          "congestion": "mid"
         },
         "h24": {
-          "kwh": 24.82,
-          "idle": 2,
-          "util": 50.0,
+          "kwh": 44.94,
+          "idle": 1,
+          "util": 75.0,
           "is_peak": 0,
-          "congestion": "low"
+          "congestion": "mid"
         }
       }
     },
@@ -960,23 +2454,27 @@
       "name": "深圳宝安机场充电站",
       "idle": 1,
       "total": 5,
+      "latitude": 22.526,
+      "longitude": 113.66,
+      "capacity_kw": 554.0,
+      "warning_threshold_kw": 443.2,
       "forecast": {
         "h1": {
-          "kwh": 15.34,
+          "kwh": 6.44,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 17.39,
-          "idle": 4,
-          "util": 20.0,
+          "kwh": 20.08,
+          "idle": 3,
+          "util": 40.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 17.39,
+          "kwh": 21.92,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
@@ -989,23 +2487,27 @@
       "name": "罗湖万象城充电站",
       "idle": 5,
       "total": 6,
+      "latitude": 22.538,
+      "longitude": 113.675,
+      "capacity_kw": 674.0,
+      "warning_threshold_kw": 539.2,
       "forecast": {
         "h1": {
-          "kwh": 17.75,
+          "kwh": 5.88,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 19.44,
-          "idle": 5,
-          "util": 16.7,
+          "kwh": 24.79,
+          "idle": 4,
+          "util": 33.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 19.56,
+          "kwh": 6.44,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
@@ -1018,25 +2520,29 @@
       "name": "龙岗大运中心充电站",
       "idle": 7,
       "total": 7,
+      "latitude": 22.55,
+      "longitude": 113.69,
+      "capacity_kw": 674.0,
+      "warning_threshold_kw": 539.2,
       "forecast": {
         "h1": {
-          "kwh": 22.94,
+          "kwh": 63.06,
           "idle": 5,
           "util": 28.6,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 23.63,
+          "kwh": 21.08,
           "idle": 5,
           "util": 28.6,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 23.42,
-          "idle": 5,
-          "util": 28.6,
+          "kwh": 6.44,
+          "idle": 6,
+          "util": 14.3,
           "is_peak": 0,
           "congestion": "low"
         }
@@ -1047,23 +2553,27 @@
       "name": "龙华深圳北站充电站",
       "idle": 1,
       "total": 5,
+      "latitude": 22.562,
+      "longitude": 113.705,
+      "capacity_kw": 494.0,
+      "warning_threshold_kw": 395.2,
       "forecast": {
         "h1": {
-          "kwh": 14.6,
+          "kwh": 6.44,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 17.91,
+          "kwh": 12.07,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 17.91,
+          "kwh": 25.26,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
@@ -1076,25 +2586,29 @@
       "name": "光明科学城充电站",
       "idle": 7,
       "total": 7,
+      "latitude": 22.574,
+      "longitude": 113.72,
+      "capacity_kw": 674.0,
+      "warning_threshold_kw": 539.2,
       "forecast": {
         "h1": {
-          "kwh": 25.49,
+          "kwh": 49.78,
           "idle": 6,
           "util": 14.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 22.14,
-          "idle": 5,
-          "util": 28.6,
+          "kwh": 29.92,
+          "idle": 6,
+          "util": 14.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 22.14,
-          "idle": 5,
-          "util": 28.6,
+          "kwh": 6.44,
+          "idle": 6,
+          "util": 14.3,
           "is_peak": 0,
           "congestion": "low"
         }
@@ -1105,23 +2619,27 @@
       "name": "坪山比亚迪充电站",
       "idle": 7,
       "total": 7,
+      "latitude": 22.526,
+      "longitude": 113.735,
+      "capacity_kw": 907.0,
+      "warning_threshold_kw": 725.6,
       "forecast": {
         "h1": {
-          "kwh": 25.89,
+          "kwh": 32.7,
           "idle": 6,
           "util": 14.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 21.14,
+          "kwh": 26.09,
           "idle": 6,
           "util": 14.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 21.14,
+          "kwh": 4.8,
           "idle": 6,
           "util": 14.3,
           "is_peak": 0,
@@ -1134,23 +2652,27 @@
       "name": "盐田海鲜街充电站",
       "idle": 5,
       "total": 5,
+      "latitude": 22.538,
+      "longitude": 113.75,
+      "capacity_kw": 494.0,
+      "warning_threshold_kw": 395.2,
       "forecast": {
         "h1": {
-          "kwh": 14.9,
+          "kwh": 6.44,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 18.69,
-          "idle": 4,
-          "util": 20.0,
+          "kwh": 13.81,
+          "idle": 3,
+          "util": 40.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 18.96,
+          "kwh": 6.44,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
@@ -1163,23 +2685,27 @@
       "name": "大鹏较场尾充电站",
       "idle": 5,
       "total": 7,
+      "latitude": 22.55,
+      "longitude": 113.765,
+      "capacity_kw": 967.0,
+      "warning_threshold_kw": 773.6,
       "forecast": {
         "h1": {
-          "kwh": 22.62,
+          "kwh": 4.55,
           "idle": 6,
           "util": 14.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 22.12,
-          "idle": 6,
-          "util": 14.3,
+          "kwh": 17.05,
+          "idle": 5,
+          "util": 28.6,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 22.16,
+          "kwh": 4.1,
           "idle": 6,
           "util": 14.3,
           "is_peak": 0,
@@ -1192,23 +2718,27 @@
       "name": "前海自贸区充电站",
       "idle": 3,
       "total": 6,
+      "latitude": 22.562,
+      "longitude": 113.78,
+      "capacity_kw": 847.0,
+      "warning_threshold_kw": 677.6,
       "forecast": {
         "h1": {
-          "kwh": 21.37,
+          "kwh": 36.71,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 19.81,
+          "kwh": 19.73,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 19.93,
+          "kwh": 36.71,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
@@ -1221,25 +2751,29 @@
       "name": "三里屯充电站",
       "idle": 6,
       "total": 6,
+      "latitude": 39.924,
+      "longitude": 116.145,
+      "capacity_kw": 674.0,
+      "warning_threshold_kw": 539.2,
       "forecast": {
         "h1": {
-          "kwh": 22.7,
+          "kwh": 54.08,
           "idle": 4,
           "util": 33.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 20.59,
+          "kwh": 32.56,
           "idle": 4,
           "util": 33.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 20.59,
-          "idle": 4,
-          "util": 33.3,
+          "kwh": 6.44,
+          "idle": 5,
+          "util": 16.7,
           "is_peak": 0,
           "congestion": "low"
         }
@@ -1250,23 +2784,27 @@
       "name": "北京南站充电站",
       "idle": 1,
       "total": 4,
+      "latitude": 39.876,
+      "longitude": 116.16,
+      "capacity_kw": 374.0,
+      "warning_threshold_kw": 299.2,
       "forecast": {
         "h1": {
-          "kwh": 29.87,
+          "kwh": 23.27,
           "idle": 2,
           "util": 50.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 24.43,
-          "idle": 2,
-          "util": 50.0,
+          "kwh": 36.79,
+          "idle": 1,
+          "util": 75.0,
           "is_peak": 0,
-          "congestion": "low"
+          "congestion": "mid"
         },
         "h24": {
-          "kwh": 24.37,
+          "kwh": 28.96,
           "idle": 2,
           "util": 50.0,
           "is_peak": 0,
@@ -1279,23 +2817,27 @@
       "name": "奥林匹克公园充电站",
       "idle": 4,
       "total": 4,
+      "latitude": 39.888,
+      "longitude": 116.175,
+      "capacity_kw": 427.0,
+      "warning_threshold_kw": 341.6,
       "forecast": {
         "h1": {
-          "kwh": 14.42,
+          "kwh": 6.44,
           "idle": 3,
           "util": 25.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 17.75,
-          "idle": 3,
-          "util": 25.0,
+          "kwh": 26.2,
+          "idle": 2,
+          "util": 50.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 17.75,
+          "kwh": 6.44,
           "idle": 3,
           "util": 25.0,
           "is_peak": 0,
@@ -1308,25 +2850,29 @@
       "name": "五道口充电站",
       "idle": 7,
       "total": 7,
+      "latitude": 39.9,
+      "longitude": 116.19,
+      "capacity_kw": 967.0,
+      "warning_threshold_kw": 773.6,
       "forecast": {
         "h1": {
-          "kwh": 27.36,
+          "kwh": 27.08,
           "idle": 6,
           "util": 14.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 24.47,
-          "idle": 6,
-          "util": 14.3,
+          "kwh": 38.69,
+          "idle": 5,
+          "util": 28.6,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 24.47,
-          "idle": 6,
-          "util": 14.3,
+          "kwh": 53.45,
+          "idle": 4,
+          "util": 42.9,
           "is_peak": 0,
           "congestion": "low"
         }
@@ -1337,23 +2883,27 @@
       "name": "王府井充电站",
       "idle": 6,
       "total": 6,
+      "latitude": 39.912,
+      "longitude": 116.205,
+      "capacity_kw": 847.0,
+      "warning_threshold_kw": 677.6,
       "forecast": {
         "h1": {
-          "kwh": 22.96,
+          "kwh": 100.13,
           "idle": 4,
           "util": 33.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 20.85,
+          "kwh": 81.41,
           "idle": 4,
           "util": 33.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 20.94,
+          "kwh": 100.13,
           "idle": 4,
           "util": 33.3,
           "is_peak": 0,
@@ -1366,23 +2916,27 @@
       "name": "西二旗充电站",
       "idle": 7,
       "total": 7,
+      "latitude": 39.924,
+      "longitude": 116.22,
+      "capacity_kw": 907.0,
+      "warning_threshold_kw": 725.6,
       "forecast": {
         "h1": {
-          "kwh": 19.26,
+          "kwh": 6.44,
           "idle": 6,
           "util": 14.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 23.47,
-          "idle": 6,
-          "util": 14.3,
+          "kwh": 25.83,
+          "idle": 5,
+          "util": 28.6,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 23.17,
+          "kwh": 45.02,
           "idle": 6,
           "util": 14.3,
           "is_peak": 0,
@@ -1395,23 +2949,27 @@
       "name": "通州万达充电站",
       "idle": 5,
       "total": 5,
+      "latitude": 39.876,
+      "longitude": 116.235,
+      "capacity_kw": 487.0,
+      "warning_threshold_kw": 389.6,
       "forecast": {
         "h1": {
-          "kwh": 18.61,
+          "kwh": 12.88,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 18.87,
+          "kwh": 8.78,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 18.86,
+          "kwh": 12.88,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
@@ -1424,23 +2982,27 @@
       "name": "大兴机场充电站",
       "idle": 3,
       "total": 5,
+      "latitude": 39.888,
+      "longitude": 116.25,
+      "capacity_kw": 434.0,
+      "warning_threshold_kw": 347.2,
       "forecast": {
         "h1": {
-          "kwh": 14.89,
+          "kwh": 12.88,
           "idle": 3,
           "util": 40.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 18.34,
+          "kwh": 14.29,
           "idle": 3,
           "util": 40.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 18.34,
+          "kwh": 12.88,
           "idle": 3,
           "util": 40.0,
           "is_peak": 0,
@@ -1453,23 +3015,27 @@
       "name": "外滩充电站",
       "idle": 7,
       "total": 7,
+      "latitude": 31.23,
+      "longitude": 121.335,
+      "capacity_kw": 734.0,
+      "warning_threshold_kw": 587.2,
       "forecast": {
         "h1": {
-          "kwh": 18.72,
+          "kwh": 12.88,
           "idle": 6,
           "util": 14.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 20.7,
-          "idle": 6,
-          "util": 14.3,
+          "kwh": 24.31,
+          "idle": 5,
+          "util": 28.6,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 21.49,
+          "kwh": 12.88,
           "idle": 6,
           "util": 14.3,
           "is_peak": 0,
@@ -1482,25 +3048,29 @@
       "name": "徐家汇充电站",
       "idle": 4,
       "total": 4,
+      "latitude": 31.242,
+      "longitude": 121.35,
+      "capacity_kw": 314.0,
+      "warning_threshold_kw": 251.2,
       "forecast": {
         "h1": {
-          "kwh": 18.59,
-          "idle": 3,
-          "util": 25.0,
+          "kwh": 14.47,
+          "idle": 2,
+          "util": 50.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 18.23,
-          "idle": 3,
-          "util": 25.0,
+          "kwh": 21.34,
+          "idle": 2,
+          "util": 50.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 18.33,
-          "idle": 3,
-          "util": 25.0,
+          "kwh": 14.47,
+          "idle": 2,
+          "util": 50.0,
           "is_peak": 0,
           "congestion": "low"
         }
@@ -1511,23 +3081,27 @@
       "name": "静安寺充电站",
       "idle": 6,
       "total": 6,
+      "latitude": 31.254,
+      "longitude": 121.365,
+      "capacity_kw": 734.0,
+      "warning_threshold_kw": 587.2,
       "forecast": {
         "h1": {
-          "kwh": 23.69,
+          "kwh": 31.29,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 20.07,
+          "kwh": 17.03,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 20.07,
+          "kwh": 31.29,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
@@ -1540,23 +3114,27 @@
       "name": "五角场充电站",
       "idle": 5,
       "total": 5,
+      "latitude": 31.206,
+      "longitude": 121.38,
+      "capacity_kw": 554.0,
+      "warning_threshold_kw": 443.2,
       "forecast": {
         "h1": {
-          "kwh": 18.68,
+          "kwh": 6.17,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 19.11,
-          "idle": 4,
-          "util": 20.0,
+          "kwh": 17.03,
+          "idle": 3,
+          "util": 40.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 19.11,
+          "kwh": 12.88,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
@@ -1569,23 +3147,27 @@
       "name": "上海迪士尼充电站",
       "idle": 6,
       "total": 7,
+      "latitude": 31.218,
+      "longitude": 121.395,
+      "capacity_kw": 907.0,
+      "warning_threshold_kw": 725.6,
       "forecast": {
         "h1": {
-          "kwh": 27.14,
+          "kwh": 30.89,
           "idle": 6,
           "util": 14.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 23.64,
+          "kwh": 28.4,
           "idle": 6,
           "util": 14.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 23.64,
+          "kwh": 6.44,
           "idle": 6,
           "util": 14.3,
           "is_peak": 0,
@@ -1598,25 +3180,29 @@
       "name": "上海火车站充电站",
       "idle": 5,
       "total": 5,
+      "latitude": 31.23,
+      "longitude": 121.41,
+      "capacity_kw": 607.0,
+      "warning_threshold_kw": 485.6,
       "forecast": {
         "h1": {
-          "kwh": 24.04,
+          "kwh": 79.89,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 22.06,
+          "kwh": 79.89,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 22.1,
-          "idle": 4,
-          "util": 20.0,
+          "kwh": 22.51,
+          "idle": 3,
+          "util": 40.0,
           "is_peak": 0,
           "congestion": "low"
         }
@@ -1627,23 +3213,27 @@
       "name": "莘庄充电站",
       "idle": 3,
       "total": 6,
+      "latitude": 31.242,
+      "longitude": 121.425,
+      "capacity_kw": 787.0,
+      "warning_threshold_kw": 629.6,
       "forecast": {
         "h1": {
-          "kwh": 18.98,
+          "kwh": 9.74,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 24.56,
-          "idle": 5,
-          "util": 16.7,
+          "kwh": 27.34,
+          "idle": 4,
+          "util": 33.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 24.36,
+          "kwh": 9.74,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
@@ -1656,25 +3246,29 @@
       "name": "长寿路充电站",
       "idle": 2,
       "total": 4,
+      "latitude": 31.254,
+      "longitude": 121.44,
+      "capacity_kw": 314.0,
+      "warning_threshold_kw": 251.2,
       "forecast": {
         "h1": {
-          "kwh": 23.03,
+          "kwh": 37.58,
           "idle": 3,
           "util": 25.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 19.69,
-          "idle": 4,
-          "util": 0.0,
+          "kwh": 43.65,
+          "idle": 2,
+          "util": 50.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 19.69,
-          "idle": 4,
-          "util": 0.0,
+          "kwh": 14.34,
+          "idle": 2,
+          "util": 50.0,
           "is_peak": 0,
           "congestion": "low"
         }
@@ -1685,25 +3279,29 @@
       "name": "广州塔充电站",
       "idle": 5,
       "total": 7,
+      "latitude": 23.106,
+      "longitude": 113.245,
+      "capacity_kw": 907.0,
+      "warning_threshold_kw": 725.6,
       "forecast": {
         "h1": {
-          "kwh": 21.36,
+          "kwh": 36.12,
           "idle": 5,
           "util": 28.6,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 22.05,
+          "kwh": 14.9,
           "idle": 5,
           "util": 28.6,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 21.85,
-          "idle": 5,
-          "util": 28.6,
+          "kwh": 23.33,
+          "idle": 6,
+          "util": 14.3,
           "is_peak": 0,
           "congestion": "low"
         }
@@ -1714,23 +3312,27 @@
       "name": "北京路步行街充电站",
       "idle": 5,
       "total": 7,
+      "latitude": 23.118,
+      "longitude": 113.26,
+      "capacity_kw": 967.0,
+      "warning_threshold_kw": 773.6,
       "forecast": {
         "h1": {
-          "kwh": 25.75,
+          "kwh": 22.14,
           "idle": 6,
           "util": 14.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 22.36,
-          "idle": 6,
-          "util": 14.3,
+          "kwh": 25.44,
+          "idle": 5,
+          "util": 28.6,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 22.36,
+          "kwh": 22.14,
           "idle": 6,
           "util": 14.3,
           "is_peak": 0,
@@ -1743,23 +3345,27 @@
       "name": "琶洲会展中心充电站",
       "idle": 3,
       "total": 5,
+      "latitude": 23.13,
+      "longitude": 113.275,
+      "capacity_kw": 607.0,
+      "warning_threshold_kw": 485.6,
       "forecast": {
         "h1": {
-          "kwh": 24.88,
+          "kwh": 52.82,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 22.34,
+          "kwh": 53.97,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 22.43,
+          "kwh": 17.26,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
@@ -1772,25 +3378,29 @@
       "name": "广州南站充电站",
       "idle": 4,
       "total": 5,
+      "latitude": 23.142,
+      "longitude": 113.29,
+      "capacity_kw": 494.0,
+      "warning_threshold_kw": 395.2,
       "forecast": {
         "h1": {
-          "kwh": 14.82,
+          "kwh": 12.88,
           "idle": 3,
           "util": 40.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 17.74,
-          "idle": 3,
-          "util": 40.0,
+          "kwh": 18.23,
+          "idle": 2,
+          "util": 60.0,
           "is_peak": 0,
-          "congestion": "low"
+          "congestion": "mid"
         },
         "h24": {
-          "kwh": 17.74,
-          "idle": 3,
-          "util": 40.0,
+          "kwh": 27.27,
+          "idle": 4,
+          "util": 20.0,
           "is_peak": 0,
           "congestion": "low"
         }
@@ -1801,23 +3411,27 @@
       "name": "白云机场充电站",
       "idle": 3,
       "total": 6,
+      "latitude": 23.154,
+      "longitude": 113.305,
+      "capacity_kw": 734.0,
+      "warning_threshold_kw": 587.2,
       "forecast": {
         "h1": {
-          "kwh": 23.3,
+          "kwh": 27.75,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 20.67,
-          "idle": 5,
-          "util": 16.7,
+          "kwh": 44.48,
+          "idle": 4,
+          "util": 33.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 21.16,
+          "kwh": 27.75,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
@@ -1830,25 +3444,29 @@
       "name": "黄埔科学城充电站",
       "idle": 4,
       "total": 4,
+      "latitude": 23.106,
+      "longitude": 113.32,
+      "capacity_kw": 547.0,
+      "warning_threshold_kw": 437.6,
       "forecast": {
         "h1": {
-          "kwh": 28.83,
-          "idle": 3,
-          "util": 25.0,
+          "kwh": 23.7,
+          "idle": 2,
+          "util": 50.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 24.36,
-          "idle": 3,
-          "util": 25.0,
+          "kwh": 40.59,
+          "idle": 2,
+          "util": 50.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 24.3,
-          "idle": 3,
-          "util": 25.0,
+          "kwh": 42.91,
+          "idle": 2,
+          "util": 50.0,
           "is_peak": 0,
           "congestion": "low"
         }
@@ -1859,23 +3477,27 @@
       "name": "沙面岛充电站",
       "idle": 7,
       "total": 7,
+      "latitude": 23.118,
+      "longitude": 113.335,
+      "capacity_kw": 674.0,
+      "warning_threshold_kw": 539.2,
       "forecast": {
         "h1": {
-          "kwh": 25.81,
+          "kwh": 53.34,
           "idle": 6,
           "util": 14.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 22.38,
+          "kwh": 34.05,
           "idle": 6,
           "util": 14.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 22.38,
+          "kwh": 3.87,
           "idle": 6,
           "util": 14.3,
           "is_peak": 0,
@@ -1888,25 +3510,29 @@
       "name": "大学城充电站",
       "idle": 4,
       "total": 5,
+      "latitude": 23.13,
+      "longitude": 113.35,
+      "capacity_kw": 554.0,
+      "warning_threshold_kw": 443.2,
       "forecast": {
         "h1": {
-          "kwh": 24.23,
+          "kwh": 73.56,
           "idle": 3,
           "util": 40.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 21.18,
-          "idle": 4,
-          "util": 20.0,
+          "kwh": 47.47,
+          "idle": 3,
+          "util": 40.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 21.18,
-          "idle": 4,
-          "util": 20.0,
+          "kwh": 73.56,
+          "idle": 3,
+          "util": 40.0,
           "is_peak": 0,
           "congestion": "low"
         }
@@ -1917,23 +3543,27 @@
       "name": "花都广场充电站",
       "idle": 4,
       "total": 6,
+      "latitude": 23.142,
+      "longitude": 113.365,
+      "capacity_kw": 614.0,
+      "warning_threshold_kw": 491.2,
       "forecast": {
         "h1": {
-          "kwh": 21.53,
+          "kwh": 19.32,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 19.95,
+          "kwh": 15.31,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 20.16,
+          "kwh": 6.44,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
@@ -1946,23 +3576,27 @@
       "name": "武林广场充电站",
       "idle": 5,
       "total": 6,
+      "latitude": 30.294,
+      "longitude": 120.27,
+      "capacity_kw": 727.0,
+      "warning_threshold_kw": 581.6,
       "forecast": {
         "h1": {
-          "kwh": 21.14,
+          "kwh": 33.77,
           "idle": 4,
           "util": 33.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 22.49,
+          "kwh": 33.77,
           "idle": 4,
           "util": 33.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 22.29,
+          "kwh": 33.77,
           "idle": 4,
           "util": 33.3,
           "is_peak": 0,
@@ -1975,23 +3609,27 @@
       "name": "钱江新城充电站",
       "idle": 5,
       "total": 5,
+      "latitude": 30.246,
+      "longitude": 120.285,
+      "capacity_kw": 434.0,
+      "warning_threshold_kw": 347.2,
       "forecast": {
         "h1": {
-          "kwh": 19.4,
+          "kwh": 42.15,
           "idle": 3,
           "util": 40.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 18.7,
-          "idle": 4,
-          "util": 20.0,
+          "kwh": 21.8,
+          "idle": 3,
+          "util": 40.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 18.7,
+          "kwh": 2.31,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
@@ -2004,23 +3642,27 @@
       "name": "萧山机场充电站",
       "idle": 5,
       "total": 5,
+      "latitude": 30.258,
+      "longitude": 120.3,
+      "capacity_kw": 494.0,
+      "warning_threshold_kw": 395.2,
       "forecast": {
         "h1": {
-          "kwh": 14.82,
+          "kwh": 6.44,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 18.2,
+          "kwh": 5.58,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 18.2,
+          "kwh": 6.44,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
@@ -2033,23 +3675,27 @@
       "name": "良渚文化村充电站",
       "idle": 5,
       "total": 5,
+      "latitude": 30.27,
+      "longitude": 120.315,
+      "capacity_kw": 487.0,
+      "warning_threshold_kw": 389.6,
       "forecast": {
         "h1": {
-          "kwh": 24.46,
+          "kwh": 48.81,
           "idle": 3,
           "util": 40.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 22.52,
-          "idle": 4,
-          "util": 20.0,
+          "kwh": 33.25,
+          "idle": 3,
+          "util": 40.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 23.0,
+          "kwh": 27.45,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
@@ -2062,23 +3708,27 @@
       "name": "西溪湿地充电站",
       "idle": 5,
       "total": 5,
+      "latitude": 30.282,
+      "longitude": 120.33,
+      "capacity_kw": 607.0,
+      "warning_threshold_kw": 485.6,
       "forecast": {
         "h1": {
-          "kwh": 23.49,
+          "kwh": 51.67,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 20.38,
+          "kwh": 37.51,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 20.38,
+          "kwh": 51.67,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
@@ -2091,23 +3741,27 @@
       "name": "临平银泰充电站",
       "idle": 5,
       "total": 6,
+      "latitude": 30.294,
+      "longitude": 120.345,
+      "capacity_kw": 614.0,
+      "warning_threshold_kw": 491.2,
       "forecast": {
         "h1": {
-          "kwh": 17.27,
+          "kwh": 6.44,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 20.23,
-          "idle": 5,
-          "util": 16.7,
+          "kwh": 9.6,
+          "idle": 4,
+          "util": 33.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 20.62,
+          "kwh": 37.35,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
@@ -2120,23 +3774,27 @@
       "name": "富阳鹿山充电站",
       "idle": 4,
       "total": 6,
+      "latitude": 30.246,
+      "longitude": 120.36,
+      "capacity_kw": 614.0,
+      "warning_threshold_kw": 491.2,
       "forecast": {
         "h1": {
-          "kwh": 16.14,
+          "kwh": 6.44,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 19.98,
+          "kwh": 8.77,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 20.1,
+          "kwh": 4.36,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
@@ -2149,23 +3807,27 @@
       "name": "桐庐富春江充电站",
       "idle": 3,
       "total": 5,
+      "latitude": 30.258,
+      "longitude": 120.375,
+      "capacity_kw": 494.0,
+      "warning_threshold_kw": 395.2,
       "forecast": {
         "h1": {
-          "kwh": 19.37,
+          "kwh": 19.32,
           "idle": 3,
           "util": 40.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 18.78,
+          "kwh": 14.02,
           "idle": 3,
           "util": 40.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 18.88,
+          "kwh": 19.32,
           "idle": 3,
           "util": 40.0,
           "is_peak": 0,
@@ -2178,25 +3840,29 @@
       "name": "九堡客运中心充电站",
       "idle": 1,
       "total": 4,
+      "latitude": 30.27,
+      "longitude": 120.39,
+      "capacity_kw": 314.0,
+      "warning_threshold_kw": 251.2,
       "forecast": {
         "h1": {
-          "kwh": 21.48,
+          "kwh": 42.02,
           "idle": 3,
           "util": 25.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 19.42,
-          "idle": 3,
-          "util": 25.0,
+          "kwh": 13.65,
+          "idle": 2,
+          "util": 50.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 19.42,
-          "idle": 3,
-          "util": 25.0,
+          "kwh": 7.52,
+          "idle": 2,
+          "util": 50.0,
           "is_peak": 0,
           "congestion": "low"
         }
@@ -2207,25 +3873,29 @@
       "name": "夫子庙充电站",
       "idle": 6,
       "total": 6,
+      "latitude": 32.072,
+      "longitude": 119.035,
+      "capacity_kw": 554.0,
+      "warning_threshold_kw": 443.2,
       "forecast": {
         "h1": {
-          "kwh": 23.48,
+          "kwh": 22.55,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 21.02,
+          "kwh": 14.75,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 21.02,
-          "idle": 5,
-          "util": 16.7,
+          "kwh": 10.86,
+          "idle": 4,
+          "util": 33.3,
           "is_peak": 0,
           "congestion": "low"
         }
@@ -2236,23 +3906,27 @@
       "name": "玄武湖充电站",
       "idle": 1,
       "total": 5,
+      "latitude": 32.084,
+      "longitude": 119.05,
+      "capacity_kw": 434.0,
+      "warning_threshold_kw": 347.2,
       "forecast": {
         "h1": {
-          "kwh": 18.23,
+          "kwh": 12.89,
           "idle": 3,
           "util": 40.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 18.42,
+          "kwh": 37.45,
           "idle": 3,
           "util": 40.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 18.42,
+          "kwh": 12.88,
           "idle": 3,
           "util": 40.0,
           "is_peak": 0,
@@ -2265,23 +3939,27 @@
       "name": "南京南站充电站",
       "idle": 3,
       "total": 5,
+      "latitude": 32.036,
+      "longitude": 119.065,
+      "capacity_kw": 434.0,
+      "warning_threshold_kw": 347.2,
       "forecast": {
         "h1": {
-          "kwh": 19.42,
+          "kwh": 9.66,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 18.94,
+          "kwh": 8.75,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 19.04,
+          "kwh": 6.95,
           "idle": 4,
           "util": 20.0,
           "is_peak": 0,
@@ -2294,23 +3972,27 @@
       "name": "中山陵充电站",
       "idle": 4,
       "total": 6,
+      "latitude": 32.048,
+      "longitude": 119.08,
+      "capacity_kw": 847.0,
+      "warning_threshold_kw": 677.6,
       "forecast": {
         "h1": {
-          "kwh": 20.32,
+          "kwh": 1.09,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 20.43,
-          "idle": 5,
-          "util": 16.7,
+          "kwh": 17.23,
+          "idle": 4,
+          "util": 33.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 20.43,
+          "kwh": 1.09,
           "idle": 5,
           "util": 16.7,
           "is_peak": 0,
@@ -2323,25 +4005,29 @@
       "name": "鼓楼广场充电站",
       "idle": 1,
       "total": 4,
+      "latitude": 32.06,
+      "longitude": 119.095,
+      "capacity_kw": 314.0,
+      "warning_threshold_kw": 251.2,
       "forecast": {
         "h1": {
-          "kwh": 19.27,
+          "kwh": 47.28,
           "idle": 3,
           "util": 25.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 18.68,
+          "kwh": 20.42,
           "idle": 3,
           "util": 25.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 18.68,
-          "idle": 3,
-          "util": 25.0,
+          "kwh": 25.19,
+          "idle": 2,
+          "util": 50.0,
           "is_peak": 0,
           "congestion": "low"
         }
@@ -2352,23 +4038,27 @@
       "name": "长江大桥充电站",
       "idle": 4,
       "total": 7,
+      "latitude": 32.072,
+      "longitude": 119.11,
+      "capacity_kw": 847.0,
+      "warning_threshold_kw": 677.6,
       "forecast": {
         "h1": {
-          "kwh": 28.41,
+          "kwh": 40.94,
           "idle": 6,
           "util": 14.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 24.49,
+          "kwh": 33.06,
           "idle": 6,
           "util": 14.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 25.09,
+          "kwh": 40.94,
           "idle": 6,
           "util": 14.3,
           "is_peak": 0,
@@ -2381,23 +4071,27 @@
       "name": "栖霞山充电站",
       "idle": 4,
       "total": 7,
+      "latitude": 32.084,
+      "longitude": 119.125,
+      "capacity_kw": 1027.0,
+      "warning_threshold_kw": 821.6,
       "forecast": {
         "h1": {
-          "kwh": 19.77,
+          "kwh": 6.44,
           "idle": 6,
           "util": 14.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 23.71,
-          "idle": 6,
-          "util": 14.3,
+          "kwh": 12.67,
+          "idle": 5,
+          "util": 28.6,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 23.41,
+          "kwh": 6.44,
           "idle": 6,
           "util": 14.3,
           "is_peak": 0,
@@ -2410,25 +4104,29 @@
       "name": "溧水万达充电站",
       "idle": 4,
       "total": 6,
+      "latitude": 32.036,
+      "longitude": 119.14,
+      "capacity_kw": 674.0,
+      "warning_threshold_kw": 539.2,
       "forecast": {
         "h1": {
-          "kwh": 22.49,
-          "idle": 4,
-          "util": 33.3,
+          "kwh": 66.57,
+          "idle": 3,
+          "util": 50.0,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 21.12,
+          "kwh": 17.44,
           "idle": 4,
           "util": 33.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 21.12,
-          "idle": 4,
-          "util": 33.3,
+          "kwh": 6.44,
+          "idle": 5,
+          "util": 16.7,
           "is_peak": 0,
           "congestion": "low"
         }
@@ -2439,25 +4137,29 @@
       "name": "高淳老街充电站",
       "idle": 4,
       "total": 6,
+      "latitude": 32.048,
+      "longitude": 119.155,
+      "capacity_kw": 667.0,
+      "warning_threshold_kw": 533.6,
       "forecast": {
         "h1": {
-          "kwh": 20.92,
+          "kwh": 16.34,
           "idle": 4,
           "util": 33.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h6": {
-          "kwh": 20.37,
+          "kwh": 30.45,
           "idle": 4,
           "util": 33.3,
           "is_peak": 0,
           "congestion": "low"
         },
         "h24": {
-          "kwh": 20.74,
-          "idle": 4,
-          "util": 33.3,
+          "kwh": 12.88,
+          "idle": 5,
+          "util": 16.7,
           "is_peak": 0,
           "congestion": "low"
         }
@@ -2465,5 +4167,5 @@
     }
   ],
   "alerts": [],
-  "note": "MLlib RandomForestRegressor 预测 1h/6h/24h（seed=20260913）"
+  "note": "ADS 占位预测来自 DWS 最新/近6h/昨日同时段，MLlib 在 --stage train 替换"
 }

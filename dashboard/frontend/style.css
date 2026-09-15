@@ -16,6 +16,7 @@ h1{text-align:center;margin:0;font-size:clamp(20px,1.7vw,32px);letter-spacing:5p
 .period-bar button{border-radius:14px;padding:4px 14px}
 .period-bar button.active{background:#0b4b70;border-color:var(--cyan);color:#e7f8ff}
 .period-bar span{color:var(--muted);font-size:12px;margin-left:4px}
+.targets-bar{display:flex;gap:18px;flex-wrap:wrap;padding:0 0 8px;color:#7a9bb8;font-size:12px}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px;padding:11px 0}
 .kpis article{height:74px;padding:9px 13px;border:1px solid var(--line);background:linear-gradient(110deg,rgba(11,34,65,.95),rgba(5,18,37,.7));position:relative;overflow:hidden}
 .kpis article:before{content:"";position:absolute;left:0;top:18%;height:64%;width:2px;background:var(--cyan);box-shadow:0 0 10px var(--cyan)}
@@ -68,6 +69,7 @@ h1{text-align:center;margin:0;font-size:clamp(20px,1.7vw,32px);letter-spacing:5p
 .success{color:#3fd6ae}
 footer{height:32px;display:flex;align-items:end;justify-content:space-between;color:#60809d;font-size:11px}
 footer .ok{color:#42caab}
+footer .stale{color:#ffae45}
 footer .bad{color:#ff6e6e}
 button{background:transparent;border:1px solid #197db4;color:#7ddfff;padding:5px 15px;cursor:pointer}
 button:hover{background:#0b4b70}
