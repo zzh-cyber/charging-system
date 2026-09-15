@@ -2,9 +2,10 @@
 # -*- coding: utf-8 -*-
 """第二阶段运营大屏 Flask API（NO.119 / 老师（5））。
 
-端口 8081，不直连演示库 MySQL。默认读 dashboard/mock_data.json；
+端口 8081，不直连演示库 MySQL。仓库里若有 ADS 快照
+bigdata/work/ads/kpis/dashboard.json，直接 python3 dashboard/app.py 就会读它；
+没有快照才回落到内置 mock。仍可用 DASHBOARD_DATA_FILE 覆盖路径。
 本机若有 Spark 探查报告，质量区叠 bigdata/work/qa/report.json。
-接真 ADS 时设 DASHBOARD_DATA_FILE 指向流水线写出的 JSON。
 
 矩阵约定：
   GET /api/quality  /api/kpis  /api/load  /api/stations  /api/alerts
@@ -21,8 +22,17 @@ from flask import Flask, jsonify, request, send_from_directory
 
 ROOT = Path(__file__).resolve().parent
 FRONTEND = ROOT / "frontend"
+ADS_DASHBOARD = ROOT.parent / "bigdata" / "work" / "ads" / "kpis" / "dashboard.json"
 DATA_FILE_ENV = os.environ.get("DASHBOARD_DATA_FILE")
-DATA_FILE = Path(DATA_FILE_ENV) if DATA_FILE_ENV else ROOT / "mock_data.json"
+if DATA_FILE_ENV:
+    DATA_FILE = Path(DATA_FILE_ENV)
+elif ADS_DASHBOARD.is_file():
+    DATA_FILE = ADS_DASHBOARD
+else:
+    DATA_FILE = ROOT / "mock_data.json"
+USING_ADS_FILE = bool(DATA_FILE_ENV) or (
+    DATA_FILE.is_file() and DATA_FILE.resolve() == ADS_DASHBOARD.resolve()
+)
 QA_FILE = Path(
     os.environ.get(
         "DASHBOARD_QA_FILE",
@@ -458,7 +468,7 @@ def normalize_snapshot(data: dict) -> dict:
     data.setdefault("yesterday_load", None)
     data.setdefault("windows", {})
     data.setdefault("latest_data_time", data.get("generated_at"))
-    data.setdefault("data_source", "ads" if DATA_FILE_ENV else "mock")
+    data.setdefault("data_source", "ads" if USING_ADS_FILE else "mock")
     data.setdefault("freshness_status", data.get("data_source"))
     return data
 
