@@ -17,6 +17,10 @@ createApp({
     dispatch: [],
     faults: [],
     yesterday_load: [],
+    targets: {},
+    data_source: "",
+    latest_data_time: "",
+    freshness_status: "",
     period: "1",
     window_start: "",
     window_end: "",
@@ -74,8 +78,49 @@ createApp({
     loadTitle() {
       return { "1": "今日充电负荷趋势", "7": "近7日平均负荷趋势", "30": "近30日平均负荷趋势" }[this.period];
     },
+    availabilityPct() {
+      const idle = Number(this.kpis.idle_piles || 0);
+      const busy = Number(this.kpis.busy_piles || 0);
+      const fault = Number(this.kpis.fault_piles || 0);
+      const total = idle + busy + fault;
+      if (!total) return null;
+      return ((total - fault) / total) * 100;
+    },
+    freshnessLine() {
+      const src = this.data_source || "unknown";
+      const stamp = this.latest_data_time || this.generated_at || "";
+      let delay = "";
+      let hours = null;
+      if (stamp) {
+        const t = Date.parse(String(stamp).replace(" ", "T"));
+        if (!Number.isNaN(t)) {
+          hours = Math.max(0, (Date.now() - t) / 3600000);
+          delay = hours < 1 ? "延迟 " + Math.round(hours * 60) + " 分钟" : "延迟 " + hours.toFixed(1) + " 小时";
+        }
+      }
+      let status = this.freshness_status;
+      if (src === "mock") status = "mock";
+      else if (hours != null && hours > 24) status = "stale";
+      const label = { ads: "ADS", mock: "mock", ok: "新鲜", stale: "陈旧" }[status] || status;
+      return [src, stamp || "--", delay, label].filter(Boolean).join(" · ");
+    },
+    freshnessTone() {
+      if ((this.data_source || this.freshness_status) === "mock") return "stale";
+      const stamp = this.latest_data_time || this.generated_at || "";
+      const t = Date.parse(String(stamp).replace(" ", "T"));
+      if (!Number.isNaN(t) && Date.now() - t > 24 * 3600000) return "stale";
+      return "ok";
+    },
   },
   methods: {
+    targetPct(actual, target) {
+      if (actual === undefined || actual === null || target === undefined || target === null || Number(target) === 0) return null;
+      return (Number(actual) / Number(target)) * 100;
+    },
+    formatTarget(v) {
+      if (v === undefined || v === null || v === "") return "--";
+      return Number(v).toLocaleString("zh-CN", { maximumFractionDigits: 2 });
+    },
     kpiLabel(key) {
       if (key === "today_kwh") {
         return { "1": "今日充电量 (kWh)", "7": "近7日充电量 (kWh)", "30": "近30日充电量 (kWh)" }[this.period];
@@ -149,6 +194,10 @@ createApp({
         this.stations = data.stations || [];
         this.alerts = data.alerts || [];
         this.dispatch = data.dispatch || [];
+        this.targets = data.targets || {};
+        this.data_source = data.data_source || "";
+        this.latest_data_time = data.latest_data_time || data.generated_at || "";
+        this.freshness_status = data.freshness_status || "";
         this.faults = (data.faults || []).filter((f) => !f.summary);
         this.error = "";
         await nextTick();

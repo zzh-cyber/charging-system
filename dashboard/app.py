@@ -127,6 +127,8 @@ def mock_data() -> dict:
                 "name": "深圳市民中心充电站",
                 "idle": 2,
                 "total": 4,
+                "latitude": 22.5431,
+                "longitude": 114.0579,
                 "capacity_kw": 240.0,
                 "warning_threshold_kw": 192.0,
                 "forecast": {
@@ -140,6 +142,8 @@ def mock_data() -> dict:
                 "name": "上海陆家嘴充电站",
                 "idle": 1,
                 "total": 4,
+                "latitude": 31.2304,
+                "longitude": 121.4737,
                 "capacity_kw": 240.0,
                 "warning_threshold_kw": 192.0,
                 "forecast": {
@@ -153,6 +157,8 @@ def mock_data() -> dict:
                 "name": "广州天河充电站",
                 "idle": 3,
                 "total": 5,
+                "latitude": 23.1291,
+                "longitude": 113.2644,
                 "capacity_kw": 300.0,
                 "warning_threshold_kw": 240.0,
                 "forecast": {
@@ -166,6 +172,8 @@ def mock_data() -> dict:
                 "name": "北京南站充电站",
                 "idle": 0,
                 "total": 4,
+                "latitude": 39.8650,
+                "longitude": 116.3785,
                 "capacity_kw": 240.0,
                 "warning_threshold_kw": 192.0,
                 "forecast": {
@@ -231,6 +239,31 @@ def mock_data() -> dict:
                 "status": "fault",
             }
         ],
+        "dispatch": [
+            {
+                "source_station_id": 31,
+                "source_station_name": "北京南站充电站",
+                "source_predicted_occupancy": 88.0,
+                "recommended_station_id": 1,
+                "recommended_station_name": "深圳市民中心充电站",
+                "recommended_idle_piles": 2,
+                "recommended_occupancy": 50.0,
+                "distance_km": 1932.4,
+                "expected_improvement": 38.0,
+                "reason": "预测占用 88%，引导至空闲站（空闲 2 桩）",
+                "created_at": "2026-09-13T21:00:00",
+                "from_name": "北京南站充电站",
+                "to_name": "深圳市民中心充电站",
+                "from_id": 31,
+                "to_id": 1,
+            }
+        ],
+        "targets": {
+            "date": "2026-09-13",
+            "charge_kwh_target": 1190.2,
+            "revenue_target": 1785.40,
+            "availability_target": 90.0,
+        },
         "yesterday_load": yday,
         "windows": {
             "1": {
@@ -246,6 +279,12 @@ def mock_data() -> dict:
                 },
                 "load_today": load_today,
                 "yesterday_load": yday,
+                "targets": {
+                    "date": "2026-09-13",
+                    "charge_kwh_target": 1190.2,
+                    "revenue_target": 1785.40,
+                    "availability_target": 90.0,
+                },
             },
             "7": {
                 "start": "2026-09-07",
@@ -264,6 +303,12 @@ def mock_data() -> dict:
                 "yesterday_load": stamp(
                     [{"hour": h, "kwh": round(36 + (h % 12) * 8.0, 1)} for h in range(24)]
                 ),
+                "targets": {
+                    "date": "2026-09-13",
+                    "charge_kwh_target": 7640.1,
+                    "revenue_target": 11460.2,
+                    "availability_target": 90.0,
+                },
             },
             "30": {
                 "start": "2026-08-15",
@@ -280,6 +325,12 @@ def mock_data() -> dict:
                     [{"hour": h, "kwh": round(50 + (h % 12) * 10.2, 1)} for h in range(24)]
                 ),
                 "yesterday_load": None,
+                "targets": {
+                    "date": "2026-09-13",
+                    "charge_kwh_target": None,
+                    "revenue_target": None,
+                    "availability_target": 90.0,
+                },
             },
         },
         "latest_data_time": "2026-09-13T21:00:00",
@@ -332,6 +383,8 @@ def apply_period(data: dict, period: str) -> dict:
     if win.get("load_today") is not None:
         data["load_today"] = win["load_today"]
     data["yesterday_load"] = win.get("yesterday_load")
+    if win.get("targets") is not None:
+        data["targets"] = win["targets"]
     data["window_start"] = win.get("start")
     data["window_end"] = win.get("end")
     return data
@@ -387,6 +440,7 @@ def normalize_snapshot(data: dict) -> dict:
     kpis["alert_count"] = len(data.get("alerts") or [])
     data["kpis"] = kpis
     data.setdefault("dispatch", [])
+    data.setdefault("targets", {})
     data.setdefault("faults", [])
     data.setdefault("load_today", [])
     data.setdefault("load_forecast_24h", [])
@@ -443,12 +497,16 @@ def api_load():
 
 @app.get("/api/stations")
 def api_stations():
-    return jsonify({"stations": load_snapshot().get("stations", [])})
+    period = parse_period()
+    snap = apply_period(normalize_snapshot(load_snapshot()), period)
+    return jsonify({"stations": snap.get("stations", []), "period": snap.get("period")})
 
 
 @app.get("/api/alerts")
 def api_alerts():
-    return jsonify({"alerts": load_snapshot().get("alerts", [])})
+    period = parse_period()
+    snap = apply_period(normalize_snapshot(load_snapshot()), period)
+    return jsonify({"alerts": snap.get("alerts", []), "period": snap.get("period")})
 
 
 @app.get("/")
