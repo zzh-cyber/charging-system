@@ -23,6 +23,29 @@ ORDER_DATA_PATH = PROJECT_ROOT / "bigdata" / "ods_user" / "ods_ug_charge_order.c
 STATION_DATA_PATH = PROJECT_ROOT / "bigdata" / "out" / "ods_station.csv"
 PILE_DATA_PATH = PROJECT_ROOT / "bigdata" / "out" / "ods_pile.csv"
 OUTPUT_DIR = PROJECT_ROOT / "bigdata" / "work" / "ads" / "user_groups"
+SIM_NOW = "2026-09-13 21:00:00"
+WINDOW_30D_START = "2026-08-14 21:00:00"  # sim_now - 30 days，对齐邓的 cutoff30
+WINDOW_30D_END = "2026-09-14 00:00:00"
+EXPECTED_FREQUENCY = {"high": 1349, "medium": 3149, "low": 3712, "inactive": 3037}
+EXPECTED_VALUE = {"high": 2249, "medium": 5623, "low": 3375}
+AGE_LABEL = {
+    "under_25": "25岁以下",
+    "25_34": "25-34岁",
+    "35_44": "35-44岁",
+    "45_54": "45-54岁",
+    "55_plus": "55岁以上",
+    "unknown": "未知",
+}
+SOURCE_LABEL = {
+    "android": "Android",
+    "ios": "iOS",
+    "web": "Web",
+    "qt": "Qt",
+    "offline": "线下",
+    "unknown": "未知",
+}
+AGE_KEYS = ("under_25", "25_34", "35_44", "45_54", "55_plus", "unknown")
+SOURCE_KEYS = ("android", "ios", "web", "qt", "offline", "unknown")
 
 USER_SCHEMA = StructType(
     [
@@ -100,6 +123,7 @@ def main() -> None:
     spark = (
         SparkSession.builder.master("local[*]")
         .appName("user-groups-pipeline")
+        .config("spark.sql.session.timeZone", "Asia/Shanghai")
         .getOrCreate()
     )
     try:
@@ -165,8 +189,8 @@ def main() -> None:
         )
         metrics_30d = (
             valid_settled_orders.filter(
-                (col("start_time") >= lit("2026-08-14 00:00:00").cast("timestamp"))
-                & (col("start_time") < lit("2026-09-14 00:00:00").cast("timestamp"))
+                (col("end_time") >= lit(WINDOW_30D_START).cast("timestamp"))
+                & (col("end_time") < lit(WINDOW_30D_END).cast("timestamp"))
             )
             .groupBy("user_id")
             .agg(
@@ -219,12 +243,14 @@ def main() -> None:
             .count()
             .collect()
         }
+        frequency_distribution = {
+            key: frequency_distribution.get(key, 0) for key in EXPECTED_FREQUENCY
+        }
         print(f"frequency distribution: {frequency_distribution}")
-        expected_frequency = {"high": 1349, "medium": 3149, "low": 3712, "inactive": 3037}
-        if frequency_distribution != expected_frequency:
-            print(
+        if frequency_distribution != EXPECTED_FREQUENCY:
+            raise ValueError(
                 "frequency distribution mismatch: "
-                f"expected={expected_frequency}, actual={frequency_distribution}"
+                f"expected={EXPECTED_FREQUENCY}, actual={frequency_distribution}"
             )
 
         value_window = Window.orderBy(col("amount_30d").desc(), col("user_id").asc())
@@ -239,12 +265,12 @@ def main() -> None:
             row["value_key"]: row["count"]
             for row in ranked_metrics.groupBy("value_key").count().collect()
         }
+        value_distribution = {key: value_distribution.get(key, 0) for key in EXPECTED_VALUE}
         print(f"value distribution: {value_distribution}")
-        expected_value = {"high": 2249, "medium": 5623, "low": 3375}
-        if value_distribution != expected_value:
-            print(
+        if value_distribution != EXPECTED_VALUE:
+            raise ValueError(
                 "value distribution mismatch: "
-                f"expected={expected_value}, actual={value_distribution}"
+                f"expected={EXPECTED_VALUE}, actual={value_distribution}"
             )
 
         period_orders = valid_settled_orders.withColumn(
@@ -265,17 +291,25 @@ def main() -> None:
         preferred_period = period_ranked.filter(col("period_rank") == 1).select(
             "user_id", col("period").alias("preferred_period")
         )
-        pile_counts = period_orders.join(pile_types, "pile_id").groupBy("user_id", "pile_type").agg(
-            count("id").alias("pile_orders")
-        )
-        pile_ranked = pile_counts.withColumn(
-            "pile_rank", row_number().over(
-                Window.partitionBy("user_id").orderBy(col("pile_orders").desc(), col("pile_type").asc())
+        pile_ratio = (
+            valid_settled_orders.join(pile_types, "pile_id", "left")
+            .groupBy("user_id")
+            .agg(
+                count("id").alias("pile_orders"),
+                spark_sum(when(col("pile_type") == "fast", lit(1)).otherwise(lit(0))).alias(
+                    "fast_orders"
+                ),
             )
+            .withColumn(
+                "preferred_pile_type",
+                when(col("pile_orders") <= 0, "mixed")
+                .when(col("fast_orders") / col("pile_orders") >= 0.6, "fast")
+                .when(col("fast_orders") / col("pile_orders") <= 0.4, "slow")
+                .otherwise("mixed"),
+            )
+            .select("user_id", "preferred_pile_type")
         )
-        preferred_pile = pile_ranked.filter(col("pile_rank") == 1).select(
-            "user_id", col("pile_type").alias("preferred_pile_type")
-        )
+        preferred_pile = pile_ratio
         behavior_orders = valid_settled_orders.withColumn(
             "behavior_time", coalesce(col("start_time"), col("end_time"))
         ).join(pile_types, "pile_id", "left")
@@ -284,9 +318,9 @@ def main() -> None:
             countDistinct(when(col("pile_type") == "fast", col("id"))).alias("fast_orders"),
             countDistinct(
                 when(
-                    (col("behavior_time") >= lit("2026-08-14 00:00:00").cast("timestamp"))
-                    & (col("behavior_time") < lit("2026-09-14 00:00:00").cast("timestamp")),
-                    to_date("behavior_time"),
+                    (col("end_time") >= lit(WINDOW_30D_START).cast("timestamp"))
+                    & (col("end_time") < lit(WINDOW_30D_END).cast("timestamp")),
+                    to_date("end_time"),
                 )
             ).alias("active_days_30d"),
         )
@@ -382,24 +416,37 @@ def main() -> None:
 
         frequency_distribution_dashboard = [
             {"name": label, "value": frequency_distribution.get(key, 0), "level": key}
-            for key, label in (("high", "高频"), ("medium", "中频"), ("low", "低频"), ("inactive", "沉默"))
+            for key, label in (
+                ("high", "高频用户"),
+                ("medium", "中频用户"),
+                ("low", "低频用户"),
+                ("inactive", "沉默用户"),
+            )
         ]
         value_distribution_dashboard = [
             {"name": label, "value": value_distribution.get(key, 0), "level": key}
             for key, label in (("high", "高价值"), ("medium", "中价值"), ("low", "低价值"))
         ]
+        age_counts = {
+            (row["age_group"] or "unknown"): row["count"]
+            for row in users.groupBy("age_group").count().collect()
+        }
+        source_counts = {
+            (row["registration_source"] or "unknown"): row["count"]
+            for row in users.groupBy("registration_source").count().collect()
+        }
         attribute_distribution_dashboard = {
             "age": [
-                {"name": row["age_group"] or "未知", "value": row["count"]}
-                for row in users.groupBy("age_group").count().collect()
+                {"name": AGE_LABEL[key], "value": int(age_counts.get(key, 0))}
+                for key in AGE_KEYS
             ],
             "city": [
                 {"name": row["city"] or "未知", "value": row["count"]}
                 for row in users.groupBy("city").count().collect()
             ],
             "source": [
-                {"name": row["registration_source"] or "未知", "value": row["count"]}
-                for row in users.groupBy("registration_source").count().collect()
+                {"name": SOURCE_LABEL[key], "value": int(source_counts.get(key, 0))}
+                for key in SOURCE_KEYS
             ],
         }
         period_counts_dashboard = {
@@ -417,8 +464,8 @@ def main() -> None:
             for period in ("凌晨", "上午", "下午", "晚间")
         ]
         new_users_30d = users.filter(
-            (col("created_at") >= lit("2026-08-14 00:00:00").cast("timestamp"))
-            & (col("created_at") < lit("2026-09-14 00:00:00").cast("timestamp"))
+            (col("created_at") >= lit(WINDOW_30D_START).cast("timestamp"))
+            & (col("created_at") < lit(WINDOW_30D_END).cast("timestamp"))
         ).count()
         overview_dashboard = {
             "total_users": user_count,
@@ -508,6 +555,7 @@ def main() -> None:
         insights.sort(key=lambda item: (item["priority"], item["title"]))
         print(f"insights: {insights}")
         dashboard_payload = {
+            "generated_at": SIM_NOW,
             "behavior_comparison": behavior_comparison,
             "overview": overview_dashboard,
             "frequency_distribution": frequency_distribution_dashboard,
