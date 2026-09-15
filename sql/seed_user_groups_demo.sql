@@ -36,6 +36,17 @@ USE charging_system;
 -- 会是不同的「今天」，压在边界上的行会飘。
 SET @anchor = NOW();
 
+-- ⚠️⚠️ 想给「N 天前那一天」配一个固定钟点，**绝不能写
+--     TIMESTAMP(DATE_ADD(@anchor, INTERVAL -N DAY), '10:00:00')**。
+-- MySQL 的 TIMESTAMP(expr1, expr2) 是把 expr2 当作**时间间隔加到** expr1 上，
+-- 不是「把 expr1 的时分秒换成 expr2」。上面那行等于「N 天前 + 10 小时」，
+-- 于是：① anchor 小时 ≥ 14 时日期会跨到后一天；② 时分秒变成 anchor 的
+-- 时分秒 +10h，每次重跑都不一样；③ 订单的「凌晨/上午/下午/晚间」四段
+-- 会被整体旋转 anchor 小时，时段分析全错。
+-- 正确写法是把日期和钟点拼起来再转 DATETIME：
+--     CAST(CONCAT(DATE(DATE_ADD(@anchor, INTERVAL -N DAY)), ' 10:00:00') AS DATETIME)
+-- 下面所有固定钟点的地方都照这个写；3.5 有一条自检专门守这个坑。
+
 -- ===== 0. 执行前基线自检：不符合预期就先别往下跑 =====
 SELECT '执行前' AS stage,
        (SELECT COUNT(*) FROM `user`)                                        AS 用户数,
@@ -69,21 +80,21 @@ INSERT INTO seed_ug_user
     (phone, is_new, nickname, gender, age_group, city, vehicle_type,
      registration_source, balance, status, created_days, active_days)
 VALUES
-('11111111111',0,'','male','45_54','上海','commercial','offline',0.00,'normal',136,5),
+('11111111111',0,'','male','45_54','上海','commercial','offline',0.00,'normal',136,6),
 ('11111112333',0,'','male','under_25','上海','mpv','qt',0.00,'normal',107,32),
-('12222222222',0,'','female','under_25','上海','suv','qt',0.00,'normal',135,5),
+('12222222222',0,'','female','under_25','上海','suv','qt',0.00,'normal',135,6),
 ('12223333344',0,'','unknown','35_44','广州','suv','ios',0.00,'normal',173,59),
 ('12312312311',0,'','unknown','45_54','上海','commercial','android',0.00,'normal',122,63),
-('12314566666',0,'','male','under_25','南京','other','offline',0.00,'normal',125,4),
-('12325758990',0,'','female','45_54','杭州','commercial','ios',0.00,'normal',116,5),
+('12314566666',0,'','male','under_25','南京','other','offline',0.00,'normal',125,5),
+('12325758990',0,'','female','45_54','杭州','commercial','ios',0.00,'normal',116,6),
 ('12332423342',0,'','female','35_44','广州','other','qt',0.00,'normal',159,50),
-('12333334343',0,'','female','35_44','上海','commercial','qt',0.00,'normal',147,3),
+('12333334343',0,'','female','35_44','上海','commercial','qt',0.00,'normal',147,4),
 ('12342432423',0,'','female','55_plus','北京','sedan','ios',0.00,'normal',102,71),
 ('12343241232',0,'','female','35_44','上海','mpv','ios',0.00,'normal',164,64),
 ('12343424324',0,'','male','35_44','杭州','other','web',0.00,'normal',124,87),
 ('12344342555',0,'','male','45_54','上海','sedan','android',0.00,'normal',171,73),
 ('12345566777',0,'','female','25_34','北京','suv','qt',0.00,'normal',144,44),
-('12347827983',0,'','unknown','unknown','杭州','unknown','unknown',0.00,'normal',160,5),
+('12347827983',0,'','unknown','unknown','杭州','unknown','unknown',0.00,'normal',160,6),
 ('12367899999',0,'','male','25_34','北京','other','qt',0.00,'normal',103,58),
 ('12467890000',0,'','female','45_54','广州','suv','ios',0.00,'normal',155,41),
 ('12467899000',0,'','female','under_25','广州','commercial','web',0.00,'normal',125,73),
@@ -102,9 +113,9 @@ VALUES
 ('13788940290',0,'','female','35_44','杭州','mpv','qt',0.00,'normal',146,38),
 ('13788943412',0,'','male','25_34','广州','commercial','web',0.00,'normal',155,81),
 ('13800000001',0,'','male','35_44','北京','sedan','offline',0.00,'normal',172,50),
-('13800138001',0,'','male','35_44','杭州','mpv','offline',0.00,'normal',152,6),
-('13800138002',0,'','male','35_44','南京','suv','web',0.00,'normal',124,7),
-('13800138006',0,'','male','55_plus','广州','mpv','web',0.00,'normal',128,6),
+('13800138001',0,'','male','35_44','杭州','mpv','offline',0.00,'normal',152,7),
+('13800138002',0,'','male','35_44','南京','suv','web',0.00,'normal',124,8),
+('13800138006',0,'','male','55_plus','广州','mpv','web',0.00,'normal',128,7),
 ('13888940239',0,'','male','45_54','南京','sedan','offline',0.00,'normal',167,13),
 ('13888940280',0,'','female','25_34','南京','other','web',0.00,'normal',135,75),
 ('13900000099',0,'','female','35_44','北京','mpv','android',0.00,'normal',112,17),
@@ -198,9 +209,11 @@ SET u.gender              = s.gender,
     u.city                = s.city,
     u.vehicle_type        = s.vehicle_type,
     u.registration_source = s.registration_source,
-    u.created_at          = TIMESTAMP(DATE_ADD(@anchor, INTERVAL -s.created_days DAY), '10:00:00'),
-    u.last_active_at      = TIMESTAMP(DATE_ADD(@anchor, INTERVAL -s.active_days DAY),
-                                      CONCAT(LPAD(s.active_days * 7 % 24, 2, '0'), ':30:00'))
+    u.created_at          = CAST(CONCAT(DATE(DATE_ADD(@anchor, INTERVAL -s.created_days DAY)),
+                                        ' 10:00:00') AS DATETIME),
+    u.last_active_at      = CAST(CONCAT(DATE(DATE_ADD(@anchor, INTERVAL -s.active_days DAY)),
+                                        ' ',
+                                        LPAD(s.active_days * 7 % 24, 2, '0'), ':30:00') AS DATETIME)
 WHERE s.is_new = 0;
 
 -- 新增 80 人。LEFT JOIN + IS NULL 保证重复执行不重复插入。
@@ -209,9 +222,11 @@ INSERT INTO `user`
      registration_source, balance, status, created_at, last_active_at)
 SELECT s.phone, s.nickname, s.gender, s.age_group, s.city, s.vehicle_type,
        s.registration_source, s.balance, s.status,
-       TIMESTAMP(DATE_ADD(@anchor, INTERVAL -s.created_days DAY), '10:00:00'),
-       TIMESTAMP(DATE_ADD(@anchor, INTERVAL -s.active_days DAY),
-                 CONCAT(LPAD(s.active_days * 7 % 24, 2, '0'), ':30:00'))
+       CAST(CONCAT(DATE(DATE_ADD(@anchor, INTERVAL -s.created_days DAY)),
+                   ' 10:00:00') AS DATETIME),
+       CAST(CONCAT(DATE(DATE_ADD(@anchor, INTERVAL -s.active_days DAY)),
+                   ' ',
+                   LPAD(s.active_days * 7 % 24, 2, '0'), ':30:00') AS DATETIME)
 FROM seed_ug_user s
 LEFT JOIN `user` u ON u.phone = s.phone
 WHERE s.is_new = 1 AND u.id IS NULL;
@@ -731,8 +746,8 @@ SELECT o.order_no, u.id, p.station_id, p.id, o.status, st.price,
 FROM (SELECT o.*,
              CASE WHEN o.anchor_min IS NOT NULL
                   THEN DATE_ADD(@anchor, INTERVAL -o.anchor_min MINUTE)
-                  ELSE TIMESTAMP(DATE_ADD(@anchor, INTERVAL -o.start_days DAY),
-                                 o.start_time_s)
+                  ELSE CAST(CONCAT(DATE(DATE_ADD(@anchor, INTERVAL -o.start_days DAY)),
+                                   ' ', o.start_time_s) AS DATETIME)
              END AS start_at
       FROM seed_ug_order o) o
 JOIN `user` u   ON u.phone = o.phone
@@ -916,7 +931,21 @@ UNION ALL SELECT '充电动量与已充时长不符', COUNT(*) FROM charge_order
 UNION ALL SELECT '本批订单号重复', COUNT(*) - COUNT(DISTINCT order_no) FROM charge_order
   WHERE order_no LIKE BINARY 'UG%'
 UNION ALL SELECT '本批手机号重复', COUNT(*) - COUNT(DISTINCT phone) FROM `user`
-  WHERE phone LIKE '1370000%';
+  WHERE phone LIKE '1370000%'
+-- 开始时刻必须**正好等于**模板钟点。历史上这里用过
+-- TIMESTAMP(date, 'HH:MM:SS')，那玩意儿是把间隔加上去，会把
+-- 凌晨/上午/下午/晚间四段整体旋转 anchor 小时，时段分析全错。
+-- anchor_min 非空的是 charging/reserved 这类「多少分钟前」的单，
+-- 它们本来就不走模板钟点，排除掉。
+UNION ALL SELECT '开始时刻≠模板钟点', COUNT(*) FROM charge_order o
+  JOIN seed_ug_order g ON g.order_no = o.order_no
+  WHERE o.order_no LIKE BINARY 'UG%' AND g.start_time_s IS NOT NULL
+    AND g.anchor_min IS NULL
+    AND TIME(o.start_time) <> g.start_time_s
+-- 存量用户的注册钟点也必须是写死的 10:00:00（新增的同样）
+UNION ALL SELECT '注册钟点≠10:00:00', COUNT(*) FROM `user`
+  WHERE TIME(created_at) <> '10:00:00'
+    AND (phone LIKE '1370000%' OR phone IN (SELECT phone FROM seed_ug_user WHERE is_new = 0));
 SELECT item AS 检查项, n AS 命中, IF(n = 0, 'OK', '*** 有脏数据 ***') AS 结果
 FROM seed_ug_dirty;
 
@@ -929,7 +958,9 @@ SELECT u.phone AS 账号, u.balance AS 余额, u.status AS 状态,
 FROM `user` u WHERE u.phone = '13800138001';
 -- 生成时的实测值：余额 592.50、订单 60 笔、本批订单 0 笔。
 
--- 3.7 结论：把 3.2~3.5 的判定全加一遍，15 项全 1 才算过
+-- 3.7 结论：3.2~3.5 的判定全过**且**脏数据项数为 0 才算通过。
+-- 早先这条只看前面那 15 项，脏数据有命中时照样打 ✅，很容易看漏。
+SET @n_dirty = (SELECT COUNT(*) FROM seed_ug_dirty WHERE n <> 0);
 SELECT IF(
     (@n_batch_user = 80)
   + (@n_all_user   = 120)
@@ -945,10 +976,11 @@ SELECT IF(
   + (@p_slow  * 100.0 / @n_all_user BETWEEN 20 AND 30)
   + (@p_mixed * 100.0 / @n_all_user BETWEEN 25 AND 35)
   + (@a24 > @a25)
-  + (@a84 > @a85) = 15,
-  '✅ 行数、比例、名次边界自检全部通过',
+  + (@a84 > @a85) = 15
+  AND @n_dirty = 0,
+  '✅ 行数、比例、名次边界、脏数据自检全部通过',
   '❌ 有项目不符，请回看上面的表') AS 结论,
-  (SELECT COUNT(*) FROM seed_ug_dirty WHERE n <> 0) AS 脏数据项数;
+  @n_dirty AS 脏数据项数;
 
 DROP TEMPORARY TABLE IF EXISTS seed_ug_user;
 DROP TEMPORARY TABLE IF EXISTS seed_ug_order;

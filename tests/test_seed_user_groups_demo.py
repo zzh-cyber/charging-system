@@ -102,8 +102,30 @@ def test_schema_v5():
 
 
 # ---------------------------------------------------------------------------
-# 二、幂等：重跑 seed 前后行数零变化
+# 二、幂等：重跑 seed 前后零变化
 # ---------------------------------------------------------------------------
+# ⚠️ 必须连内容一起比，不能只比行数。踩过的坑：seed 里曾用
+# TIMESTAMP(date, '10:00:00') 造注册时间，而 MySQL 的 TIMESTAMP(expr1, expr2)
+# 是**把 expr2 当间隔加上去**，于是每次重跑都会把存量 40 人的 created_at
+# 改成一个新值 —— 行数一个不差，内容天天在漂。只比行数的测试全绿放过了它。
+#
+# GROUP_CONCAT 默认只留 1024 字符，会静默截断让指纹变成摆设，
+# 所以每条前面先 SET SESSION 抬上限。SET 不产出结果行，所以取最后一行。
+# ORDER BY 属于 GROUP_CONCAT，要写在 CONCAT_WS(...) 的外面：
+#   GROUP_CONCAT(CONCAT_WS('|', a, b) ORDER BY a)   ✓
+#   GROUP_CONCAT(CONCAT_WS('|', a, b ORDER BY a))   ✗ 语法错
+_GC = "SET SESSION group_concat_max_len = 4194304; "
+
+USERS_FP = (_GC +
+            "SELECT MD5(GROUP_CONCAT(CONCAT_WS('|', id, phone, created_at, "
+            "IFNULL(last_active_at, '-')) ORDER BY id)) FROM `user`;")
+
+ORDERS_FP = (_GC +
+             "SELECT MD5(GROUP_CONCAT(CONCAT_WS('|', order_no, status, reserve_time, "
+             "IFNULL(start_time, '-'), IFNULL(end_time, '-'), kwh, amount) "
+             "ORDER BY order_no)) FROM charge_order "
+             "WHERE order_no LIKE BINARY '{}%';".format(ORDER_BATCH))
+
 SNAPSHOT = """
 SELECT (SELECT COUNT(*) FROM `user`)                                       ,
        (SELECT COUNT(*) FROM `user` WHERE phone LIKE '{p}')                ,
@@ -116,16 +138,35 @@ SELECT (SELECT COUNT(*) FROM `user`)                                       ,
 SNAP_NAMES = ["全库用户", "本批用户", "全库订单", "本批订单", "本批已结算"]
 
 
+def _last(sql):
+    rows = db(sql)
+    return rows[-1][0] if rows else None
+
+
+def fingerprint():
+    return [_last(USERS_FP), _last(ORDERS_FP)]
+
+
 def test_idempotent(dry):
-    print("\n[2] 幂等：重复执行 seed 行数不变")
+    print("\n[2] 幂等：重复执行 seed 前后零变化")
     if dry:
         print("  ⏭  --dry，跳过复跑（未验证幂等）")
         return
+
     before = db(SNAPSHOT)[0]
+    fp_before = fingerprint()
+    if not all(fp_before) or "NULL" in fp_before:
+        check("内容指纹可算出（防 SQL 写错静默跳过）", False, str(fp_before))
+        return
     run_seed()
     after = db(SNAPSHOT)[0]
+    fp_after = fingerprint()
+
     for name, b, a in zip(SNAP_NAMES, before, after):
         check("复跑后 %s 不变" % name, b == a, "%s -> %s" % (b, a))
+    for name, b, a in zip(["全库用户内容指纹", "本批订单内容指纹"], fp_before, fp_after):
+        check("复跑后 %s 不变" % name, b == a,
+              "%s -> %s" % (b[:12], a[:12]))
 
 
 # ---------------------------------------------------------------------------
@@ -359,6 +400,45 @@ def test_constraints():
         check("high 用户最近活跃都在 30 天内", fresh == 0, "命中 %d 人" % fresh)
 
 
+def test_timestamp_shape():
+    """时间戳必须长成**预期那个样子**，不能只是「不报错」。
+
+    这一组是给一个真实 bug 立的碑：seed 里曾用
+        TIMESTAMP(DATE_ADD(@anchor, INTERVAL -N DAY), '10:00:00')
+    造注册时间。MySQL 的 TIMESTAMP(expr1, expr2) 把 expr2 当**间隔加**上去，
+    所以结果是「N 天前 + 10 小时」：日期在 anchor 小时 ≥ 14 时跨天，
+    时分秒跟着 anchor 漂。订单那边同款写法会把「凌晨/上午/下午/晚间」
+    四段整体旋转 anchor 小时 —— 时段分析全错，而所有占比断言依然全绿。
+    """
+    print("\n[7] 时间戳形状（守 TIMESTAMP(expr1, expr2) 那个坑）")
+
+    n = int(one("SELECT COUNT(*) FROM `user` WHERE phone LIKE '%s' "
+                "AND TIME(created_at) <> '10:00:00'" % PHONE_BATCH))
+    check("新增用户注册钟点都是 10:00:00", n == 0, "命中 %d 人" % n)
+
+    # 存量 40 人也一样 —— 他们的 created_at 是被 seed 的 UPDATE 每次重写的，
+    # 修复前会漂成 10:02:27 这种 anchor 派生值。
+    n2 = int(one("SELECT COUNT(*) FROM `user` WHERE phone NOT LIKE '%s' "
+                 "AND TIME(created_at) <> '10:00:00'" % PHONE_BATCH))
+    check("存量用户注册钟点都是 10:00:00", n2 == 0, "命中 %d 人" % n2)
+
+    n3 = int(one("SELECT COUNT(*) FROM `user` WHERE phone LIKE '%s' "
+                 "AND TIME_FORMAT(last_active_at, '%%i:%%s') <> '30:00'"
+                 % PHONE_BATCH))
+    check("新增用户最近活跃的分钟秒是 :30:00（不是 anchor 漂出来的值）",
+          n3 == 0, "命中 %d 人" % n3)
+
+    # 时段四段：凌晨 0-4 / 上午 7-11 / 下午 13-17 / 晚间 19-22。
+    # charging 是「多少分钟前」算的，落在任意钟点，按设计排除；
+    # cancelled/reserved 没有 start_time，自动被 IS NOT NULL 排除。
+    bands = "0,1,2,3,4,7,8,9,10,11,13,14,15,16,17,19,20,21,22"
+    n4 = int(one("SELECT COUNT(*) FROM charge_order "
+                 "WHERE order_no LIKE BINARY '%s%%' AND start_time IS NOT NULL "
+                 "  AND status <> 'charging' AND HOUR(start_time) NOT IN (%s)"
+                 % (ORDER_BATCH, bands)))
+    check("订单开始时刻都落在约定的四个时段内", n4 == 0, "命中 %d 笔" % n4)
+
+
 def main():
     dry = "--dry" in sys.argv
     if not os.path.exists(SEED):
@@ -381,6 +461,7 @@ def main():
     test_pref()
     test_value()
     test_constraints()
+    test_timestamp_shape()
 
     print("\n" + "=" * 74)
     if failed:
