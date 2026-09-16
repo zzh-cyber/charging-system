@@ -1,5 +1,13 @@
 const { createApp, nextTick } = Vue;
 
+const dashboardTooltip = (options = {}) => ({
+  confine: false,
+  appendTo: () => document.body,
+  transitionDuration: 0.15,
+  extraCssText: "z-index: 1000; pointer-events: none; max-width: 320px; white-space: normal; word-break: break-word;",
+  ...options,
+});
+
 createApp({
   data: () => ({
     generated_at: "",
@@ -200,6 +208,9 @@ createApp({
       return value >= 80 ? "high" : value >= 50 ? "mid" : "low";
     },
     stationPower(s) { return Number(s.power_kw ?? s.load_kw ?? s.forecast?.h1?.kwh ?? 0).toFixed(1); },
+    rankedStations() {
+      return (this.stations || []).slice().sort((a, b) => this.stationUtil(b) - this.stationUtil(a));
+    },
     severity(a) { return String(a.severity || '').toLowerCase().includes('high') || a.severity === '红' ? 'red' : String(a.severity || '').toLowerCase().includes('medium') || a.severity === '橙' ? 'orange' : 'yellow'; },
     severityLabel(a) { return {red:'红色',orange:'橙色',yellow:'黄色'}[this.severity(a)]; },
     showStation(s) { if (!s || String(s.station_id||'').startsWith('fallback-')) return; this.selectedStation=s; this.drawer='station'; },
@@ -259,7 +270,7 @@ createApp({
         const c = (this.charts[ref] = echarts.init(this.$refs[ref]));
         c.setOption({
           textStyle: { color: "#7899b6" },
-          tooltip: { trigger: "axis" },
+          tooltip: dashboardTooltip({ trigger: "axis" }),
           grid: { left: 48, right: 18, top: 22, bottom: 28 },
           xAxis: { type: "category", data: x, axisLine: { lineStyle: { color: "#244d70" } }, axisLabel: { color: "#6688a5" } },
           yAxis: { type: "value", splitLine: { lineStyle: { color: "rgba(62,130,180,.15)" } }, axisLabel: { color: "#6688a5" } },
@@ -307,7 +318,7 @@ createApp({
         const c = (this.charts.load = echarts.init(this.$refs.load));
         c.setOption({
           textStyle: { color: "#7899b6" },
-          tooltip: { trigger: "axis" },
+          tooltip: dashboardTooltip({ trigger: "axis" }),
           legend: { top: 0, right: 8, textStyle: { color: "#7899b6", fontSize: 11 } },
           grid: { left: 48, right: 18, top: 28, bottom: 28 },
           xAxis: { type: "category", data: this.load_today.map((x) => x.hour + "时"), axisLine: { lineStyle: { color: "#244d70" } }, axisLabel: { color: "#6688a5" } },
@@ -320,7 +331,7 @@ createApp({
         const values = [Number(this.kpis.idle_piles || 0), Number(this.kpis.busy_piles || 0), Number(this.kpis.fault_piles || 0)];
         const total = values.reduce((a, b) => a + b, 0);
         const c = (this.charts.piles = echarts.init(this.$refs.piles));
-        c.setOption({ tooltip: { trigger: "item" }, legend: { bottom: 0, textStyle: { color: "#7899b6" } }, title: { text: String(total), subtext: "充电桩总数", left: "center", top: "32%", textStyle: { color: "#dcf6ff", fontSize: 24 }, subtextStyle: { color: "#6688a5" } }, series: [{ type: "pie", radius: ["55%", "75%"], center: ["50%", "45%"], label: { show: false }, data: [{ value: values[0], name: "空闲", itemStyle: { color: "#13dabb" } }, { value: values[1], name: "在用", itemStyle: { color: "#438cff" } }, { value: values[2], name: "故障", itemStyle: { color: "#ff6559" } }] }] });
+        c.setOption({ tooltip: dashboardTooltip({ trigger: "item" }), legend: { bottom: 0, textStyle: { color: "#7899b6" } }, title: { text: String(total), subtext: "充电桩总数", left: "center", top: "32%", textStyle: { color: "#dcf6ff", fontSize: 24 }, subtextStyle: { color: "#6688a5" } }, series: [{ type: "pie", radius: ["55%", "75%"], center: ["50%", "45%"], label: { show: false }, data: [{ value: values[0], name: "空闲", itemStyle: { color: "#13dabb" } }, { value: values[1], name: "在用", itemStyle: { color: "#438cff" } }, { value: values[2], name: "故障", itemStyle: { color: "#ff6559" } }] }] });
       }
       if (this.$refs.forecast) {
         if (this.charts.forecast) this.charts.forecast.dispose();
@@ -334,7 +345,7 @@ createApp({
         const c = (this.charts.forecast = echarts.init(this.$refs.forecast));
         c.setOption({
           textStyle: { color: "#7899b6" },
-          tooltip: { trigger: "axis", formatter: (items) => { const p=items[0], flagged=p&&p.dataIndex===peakIndex; return p ? `${p.axisValue}<br/>预测负荷：${p.value} kWh${flagged?'<br/><b style="color:#ff7568">峰值预警：是</b>':''}` : ''; } },
+          tooltip: dashboardTooltip({ trigger: "axis", formatter: (items) => { const p=items[0], flagged=p&&p.dataIndex===peakIndex; return p ? `${p.axisValue}<br/>预测负荷：${p.value} kWh${flagged?'<br/><b style="color:#ff7568">峰值预警：是</b>':''}` : ''; } }),
           grid: { left: 48, right: 18, top: 42, bottom: 28 },
           xAxis: { type: "category", data: labels, axisLine: { lineStyle: { color: "#244d70" } }, axisLabel: { color: "#6688a5", interval: 3 } },
           yAxis: { type: "value", splitLine: { lineStyle: { color: "rgba(62,130,180,.15)" } }, axisLabel: { color: "#6688a5" } },
@@ -349,18 +360,18 @@ createApp({
           xAxis: { type: "value", max: 100, show: false },
           yAxis: {
             type: "category",
-            data: this.stations.slice(0, 8).map((x) => x.name), axisLabel: { color: "#83a7c4", width: 95, overflow: "truncate" }, axisLine: { show: false }, axisTick: { show: false }
+            data: this.rankedStations().slice(0, 8).map((x) => x.name), axisLabel: { color: "#83a7c4", width: 95, overflow: "truncate" }, axisLine: { show: false }, axisTick: { show: false }
           },
           series: [
             {
               type: "bar",
-              data: this.stations.slice(0, 8).map((x) => Number(this.stationUtil(x).toFixed(1))), barWidth: 8,
+              data: this.rankedStations().slice(0, 8).map((x) => Number(this.stationUtil(x).toFixed(1))), barWidth: 8,
               itemStyle: { color: { type: "linear", x: 0, y: 0, x2: 1, y2: 0, colorStops: [{ offset: 0, color: "#1679ff" }, { offset: 1, color: "#19e0dc" }] }, borderRadius: 4 },
               label: { show: true, formatter: "{c}%" },
             },
           ],
         });
-        c.on("click", (p) => { const station=this.stations.slice(0,8)[p.dataIndex]; if(station)this.showStation(station); });
+        c.on("click", (p) => { const station=this.rankedStations().slice(0,8)[p.dataIndex]; if(station)this.showStation(station); });
       }
       if (this.$refs.heatmap) {
         if (this.charts.heatmap) this.charts.heatmap.dispose();
@@ -383,7 +394,7 @@ createApp({
         const values = points.map((x) => x[2]);
         const max = Math.max(...values, 1);
         c.setOption({
-          tooltip: { formatter: (p) => `${days[p.value[1]]} ${hours[p.value[0]]}时<br/>充电量：${p.value[2]} kWh` },
+          tooltip: dashboardTooltip({ formatter: (p) => `${days[p.value[1]]} ${hours[p.value[0]]}时<br/>充电量：${p.value[2]} kWh` }),
           grid: { left: 38, right: 10, top: 8, bottom: 42 },
           xAxis: { type: "category", data: hours, axisLabel: { color: "#6688a5", fontSize: 8, interval: (index,value)=>Number(value)%4===0 }, axisLine: { lineStyle: { color: "#244d70" } } },
           yAxis: { type: "category", data: days.map((d) => dayNames[Number(d) - 1] || d), axisLabel: { color: "#7899b6" }, axisLine: { show: false }, axisTick: { show: false } },
@@ -397,21 +408,17 @@ createApp({
         const c = (this.charts.mix = echarts.init(this.$refs.mix));
         const data = this.pile_types.map((x) => ({ name: x.type === "直流" ? "快充（直流）" : x.type === "交流" ? "慢充（交流）" : x.type, value: Number(x.busy || 0) + Number(x.idle || 0) }));
         const total = data.reduce((sum, x) => sum + x.value, 0);
-        c.setOption({ color: ["#26dded", "#568eff", "#b28cff", "#72e2c3"], tooltip: { trigger: "item", formatter: "{b}<br/>{d}%（{c} 桩）" }, legend: { bottom: 0, left:"center", icon: "circle", itemWidth: 6, itemHeight: 6, itemGap:5, textStyle: { color: "#7899b6", fontSize: 9 } }, title: { text: String(total), subtext: "桩总数", left: "center", top: "29%", textStyle: { color: "#e7f8ff", fontSize: 17 }, subtextStyle: { color: "#7899b6", fontSize: 9 } }, series: [{ type: "pie", radius: ["43%", "64%"], center: ["52%", "42%"], startAngle: 90, avoidLabelOverlap: true, label: { show: false }, emphasis: { label: { show: true, color: "#e7f8ff", formatter: "{d}%" } }, data, itemStyle: { borderColor: "#081d39", borderWidth: 2 } }] });
+        c.setOption({ color: ["#26dded", "#568eff", "#b28cff", "#72e2c3"], tooltip: dashboardTooltip({ trigger: "item", formatter: "{b}<br/>{d}%（{c} 桩）" }), legend: { bottom: 0, left:"center", icon: "circle", itemWidth: 6, itemHeight: 6, itemGap:5, textStyle: { color: "#7899b6", fontSize: 9 } }, title: { text: String(total), subtext: "桩总数", left: "center", top: "29%", textStyle: { color: "#e7f8ff", fontSize: 17 }, subtextStyle: { color: "#7899b6", fontSize: 9 } }, series: [{ type: "pie", radius: ["43%", "64%"], center: ["52%", "42%"], startAngle: 90, avoidLabelOverlap: true, label: { show: false }, emphasis: { label: { show: true, color: "#e7f8ff", formatter: "{d}%" } }, data, itemStyle: { borderColor: "#081d39", borderWidth: 2 } }] });
       }
       if (this.$refs.regions) {
         if (this.charts.regions) this.charts.regions.dispose();
         const c = (this.charts.regions = echarts.init(this.$refs.regions));
         const rows = [...(this.regions || [])].sort((a,b)=>Number(b.kwh||0)-Number(a.kwh||0)).slice(0, 6);
-        c.setOption({ grid:{left:72,right:74,top:5,bottom:8},xAxis:{type:"value",show:false},yAxis:{type:"category",inverse:true,data:rows.map(x=>x.city||x.region||"--"),axisLabel:{color:"#8fb2cc",fontSize:10,width:62,overflow:'truncate'},axisLine:{show:false},axisTick:{show:false}},tooltip:{trigger:"item",formatter:(p)=>{const r=rows[p.dataIndex]||{};return `${r.city||'--'}<br/>充电量：${this.display(r.kwh,' kWh')}<br/>营收：¥${this.display(r.amount)}<br/>收益：${this.display(r.yuan_per_kwh,' 元/kWh')}`}},series:[{type:"bar",data:rows.map(x=>Number(x.kwh||0)),barWidth:8,itemStyle:{color:{type:'linear',x:0,y:0,x2:1,y2:0,colorStops:[{offset:0,color:'#176dca'},{offset:1,color:'#2bd5e8'}]},borderRadius:4},label:{show:true,position:'right',distance:7,color:'#ffbd65',fontSize:9,formatter:(p)=>'¥'+Number(rows[p.dataIndex]?.amount||0).toLocaleString('zh-CN',{maximumFractionDigits:0})}}]});
+        c.setOption({ grid:{left:72,right:74,top:5,bottom:8},xAxis:{type:"value",show:false},yAxis:{type:"category",inverse:true,data:rows.map(x=>x.city||x.region||"--"),axisLabel:{color:"#8fb2cc",fontSize:10,width:62,overflow:'truncate'},axisLine:{show:false},axisTick:{show:false}},tooltip:dashboardTooltip({trigger:"item",formatter:(p)=>{const r=rows[p.dataIndex]||{};return `${r.city||'--'}<br/>充电量：${this.display(r.kwh,' kWh')}<br/>营收：¥${this.display(r.amount)}<br/>收益：${this.display(r.yuan_per_kwh,' 元/kWh')}`}}),series:[{type:"bar",data:rows.map(x=>Number(x.kwh||0)),barWidth:8,itemStyle:{color:{type:'linear',x:0,y:0,x2:1,y2:0,colorStops:[{offset:0,color:'#176dca'},{offset:1,color:'#2bd5e8'}]},borderRadius:4},label:{show:true,position:'right',distance:7,color:'#ffbd65',fontSize:9,formatter:(p)=>'¥'+Number(rows[p.dataIndex]?.amount||0).toLocaleString('zh-CN',{maximumFractionDigits:0})}}]});
       }
     },
     visibleStations() {
-      if (this.stations.length >= 8) return this.stations.slice(0, 8);
-      const names = ["深圳市民中心", "北京南站", "上海陆家嘴", "广州天河", "杭州西湖", "南京新街口", "成都天府", "重庆江北"];
-      const result = this.stations.slice();
-      for (let i = result.length; i < 8; i++) result.push({ station_id: "fallback-" + i, name: names[i], idle: 0, total: 0 });
-      return result;
+      return this.rankedStations();
     },
     highlight(id) {
       const idx = this.stations.findIndex((s) => s.station_id === id);

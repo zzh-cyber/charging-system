@@ -37,9 +37,6 @@
       <nav class="targets-bar">
       <span>经营目标：电量 {{ formatTarget(targets.charge_kwh_target) }} kWh · {{ targetPct(kpis.today_kwh,targets.charge_kwh_target)==null?'上期不足':'完成 '+targetPct(kpis.today_kwh,targets.charge_kwh_target).toFixed(1)+'%' }}；营收 {{ formatTarget(targets.revenue_target) }} 元 · {{ targetPct(kpis.today_revenue,targets.revenue_target)==null?'上期不足':'完成 '+targetPct(kpis.today_revenue,targets.revenue_target).toFixed(1)+'%' }}</span>
       <span>可用率 {{ availabilityPct == null ? '--' : availabilityPct.toFixed(1)+'%' }}</span>
-      <span>平均周转率 {{ display(summary.avg_turnover_rate,'%') }}</span>
-      <span>单桩日均 {{ display(summary.avg_daily_kwh_per_pile,' kWh') }}</span>
-      <span>单桩营收 ¥{{ display(summary.avg_daily_revenue_per_pile) }}</span>
       </nav>
       <main class="dashboard-grid">
         <div class="column left-column">
@@ -84,7 +81,7 @@
           </section>
           <section class="panel stations-board">
           <h2>站点实时运行态势</h2>
-            <div class="station-cards">
+            <div class="station-cards station-cards-scroll">
               <article v-for="s in visibleStations()" :key="s.station_id" @click="showStation(s)">
                 <div>
                 <strong>{{ s.name }}</strong>
