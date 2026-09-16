@@ -1,49 +1,611 @@
-const {createApp}=Vue;
-createApp({
-  data(){return{clock:'',generatedAt:'2026-09-14 15:30:00',loading:false,error:'',dataSource:'mock',drawFrequencyData:null,drawValueData:null,drawAttributeData:null,drawPeriodData:null,drawStationData:null,drawTrendData:null,drawBehaviorData:null,period:'30天',dimension:'frequency',attributeTab:'age',activeFilter:'',filterType:'',filterValue:'',page:1,pageSize:10,userTotal:4,periods:['7天','30天','90天'],attributeTabs:[{key:'age',name:'年龄'},{key:'city',name:'城市'},{key:'source',name:'来源'}],charts:{},
-    kpis:[{label:'用户总数',value:'12,680',color:'purple',change:'↑ 8.6%'},{label:'活跃用户',value:'8,326',color:'green',change:'↑ 6.2%'},{label:'近30天新增',value:'1,365',color:'blue',change:'↑ 12.4%'},{label:'沉默用户',value:'2,146',color:'orange',change:'↓ 3.1%'},{label:'累计订单',value:'56,820',color:'purple',change:'↑ 9.8%'},{label:'累计充电量',unit:'kWh',value:'928,640',color:'blue'},{label:'累计消费',unit:'元',value:'1,280,600',color:'pink'}],
-    insights:[{icon:'⚠',title:'建议开展沉默用户唤醒',content:'可针对近30天未充电用户发放限时优惠券。',reason:'沉默用户占比16.9%',priority:1},{icon:'◈',title:'引导晚高峰用户错峰充电',content:'建议将部分晚间订单引导至18点前。',reason:'晚间充电订单占比43.2%',priority:2},{icon:'★',title:'加强高价值用户维护',content:'为高价值用户提供预约及积分权益。',reason:'高价值用户贡献消费额48.6%',priority:2}],
-    users:[{name:'用户8821',phone:'138****8821',level:'高频·高价值',levelClass:'high',orders:36,kwh:'628.5',amount:'836.20',preference:'晚间 / 快充',active:'今天 14:22'},{name:'用户3679',phone:'186****3679',level:'中频·高价值',levelClass:'high',orders:18,kwh:'421.3',amount:'582.90',preference:'下午 / 混合',active:'今天 11:06'},{name:'用户1096',phone:'159****1096',level:'中频·中价值',levelClass:'',orders:12,kwh:'260.8',amount:'338.40',preference:'上午 / 慢充',active:'昨天 20:15'},{name:'用户5218',phone:'177****5218',level:'低频·低价值',levelClass:'low',orders:3,kwh:'48.2',amount:'62.60',preference:'晚间 / 快充',active:'09-11 18:42'}]
-  }},
-  computed:{statusText(){return this.dataSource==='api'?'真实数据连接正常':'演示数据（等待后端接口）'},totalPages(){return Math.max(1,Math.ceil(this.userTotal/this.pageSize))}},
-  mounted(){this.tick();this.clockTimer=setInterval(this.tick,1000);this.autoTimer=setInterval(()=>{if(!document.hidden)this.loadDashboard(false)},300000);this.visibilityHandler=()=>{if(!document.hidden)this.loadDashboard(false)};document.addEventListener('visibilitychange',this.visibilityHandler);this.resizeHandler=()=>Object.values(this.charts).forEach(c=>c.resize());window.addEventListener('resize',this.resizeHandler);this.$nextTick(()=>{this.drawAll();this.loadDashboard()})},
-  beforeUnmount(){clearInterval(this.clockTimer);clearInterval(this.autoTimer);document.removeEventListener('visibilitychange',this.visibilityHandler);window.removeEventListener('resize',this.resizeHandler);Object.values(this.charts).forEach(c=>c.dispose())},
-  methods:{
-    tick(){this.clock=new Date().toLocaleString('zh-CN',{hour12:false}).replaceAll('/','-')},
-    base(ref){if(!this.charts[ref])this.charts[ref]=echarts.init(this.$refs[ref]);return this.charts[ref]},
-    drawAll(){this.drawFrequency();this.drawValue();this.drawAttribute();this.drawPeriod();this.drawTrend();this.drawBehavior();this.drawStation()},
-    ring(ref,data,centerText){const chart=this.base(ref);chart.setOption({color:['#9b6cff','#eb68d6','#58a6ff','#54e0df'],tooltip:{trigger:'item'},legend:{bottom:3,textStyle:{color:'#918cac'},itemWidth:10,itemHeight:7},graphic:{type:'text',left:'center',top:'39%',style:{text:centerText,fill:'#f0ecff',font:'700 20px Microsoft YaHei',textAlign:'center'}},series:[{type:'pie',radius:['48%','68%'],center:['50%','45%'],label:{show:false},itemStyle:{borderColor:'#100d25',borderWidth:2},data}]});chart.off('click');chart.on('click',p=>this.selectSegment(ref,p.name,p.data?.level||p.data?.key||''))},
-    drawFrequency(){const raw=this.drawFrequencyData||[{name:'高频用户',value:1268},{name:'中频用户',value:3424},{name:'低频用户',value:5842},{name:'沉默用户',value:2146}];const total=raw.reduce((s,x)=>s+(x.value??x.count??0),0);this.ring('frequency',raw.map(x=>({name:x.name||x.label||x.level,value:x.value??x.count??0,level:x.level||x.key||''})),`${this.metric(total,'0')}\n用户`)},
-    drawValue(){const raw=this.drawValueData||[{name:'高价值',value:2536},{name:'中价值',value:6340},{name:'低价值',value:3804}];this.ring('value',raw.map(x=>({name:x.name||x.label||x.level,value:x.value??x.count??0,level:x.level||x.key||''})),'价值\n分层')},
-    switchAttribute(k){this.attributeTab=k;this.drawAttribute()},
-    drawAttribute(){const sets={age:[['25岁以下',1260],['25-34岁',4380],['35-44岁',3960],['45-54岁',2180],['55岁以上',900]],city:[['深圳',4680],['广州',3020],['上海',2180],['北京',1760],['其他',1040]],source:[['Android',6320],['iOS',4060],['Web',1420],['Qt',880]]};const raw=this.drawAttributeData?.[this.attributeTab]||sets[this.attributeTab];const d=raw.map(x=>Array.isArray(x)?x:[x.name||x.label,x.value??x.count??0]);this.base('attribute').setOption({grid:{left:76,right:20,top:18,bottom:25},xAxis:{type:'value',axisLabel:{color:'#77718e'},splitLine:{lineStyle:{color:'#20183c'}}},yAxis:{type:'category',data:d.map(x=>x[0]),axisLabel:{color:'#aaa1c4'},axisLine:{show:false}},series:[{type:'bar',data:d.map(x=>x[1]),barWidth:10,itemStyle:{borderRadius:6,color:new echarts.graphic.LinearGradient(0,0,1,0,[{offset:0,color:'#7141d1'},{offset:1,color:'#ed6bd7'}])},label:{show:true,position:'right',color:'#c4b8dc'}}]})},
-    drawPeriod(){const raw=this.drawPeriodData||[['凌晨',9.6],['上午',22.8],['下午',24.4],['晚间',43.2]];const d=raw.map(x=>Array.isArray(x)?x:[x.name||x.period,x.value??x.ratio??0]);this.base('period').setOption({grid:{left:42,right:18,top:20,bottom:28},xAxis:{type:'category',data:d.map(x=>x[0]),axisLabel:{color:'#918cac'},axisLine:{lineStyle:{color:'#33275a'}}},yAxis:{type:'value',axisLabel:{color:'#716b85',formatter:'{value}%'},splitLine:{lineStyle:{color:'#20183c'}}},series:[{type:'bar',barWidth:24,data:d.map(x=>x[1]),label:{show:true,position:'top',formatter:'{c}%',color:'#cfc3e9'},itemStyle:{borderRadius:[5,5,0,0],color:new echarts.graphic.LinearGradient(0,1,0,0,[{offset:0,color:'#5731ad'},{offset:1,color:'#db6adc'}])}}]})},
-    drawTrend(){let days,series;if(this.drawTrendData?.length){days=this.drawTrendData.map(x=>x.date||x.day||x.label);series=[{name:'活跃用户',data:this.drawTrendData.map(x=>x.active_users??x.active??0)},{name:'新增用户',data:this.drawTrendData.map(x=>x.new_users??x.new??0)},{name:'消费金额',data:this.drawTrendData.map(x=>x.amount??x.total_amount??0)}]}else{days=Array.from({length:this.period==='7天'?7:this.period==='30天'?15:18},(_,i)=>`${i+1}日`);const wave=(base,amp)=>days.map((_,i)=>Math.round(base+Math.sin(i*.75)*amp+i*base*.025));series=[{name:'活跃用户',data:wave(1420,310)},{name:'新增用户',data:wave(110,42)},{name:'消费金额',data:wave(42000,13000)}]}this.base('trend').setOption({color:['#a477ff','#ed69d6','#57dcd9'],tooltip:{trigger:'axis'},legend:{top:10,textStyle:{color:'#a8a0bd'},data:series.map(x=>x.name)},grid:{left:55,right:58,top:48,bottom:35},xAxis:{type:'category',data:days,axisLabel:{color:'#817991'},axisLine:{lineStyle:{color:'#34275c'}}},yAxis:[{type:'value',axisLabel:{color:'#817991'},splitLine:{lineStyle:{color:'#211940'}}},{type:'value',axisLabel:{color:'#817991'}}],series:series.map((x,i)=>({name:x.name,type:'line',smooth:true,symbolSize:5,yAxisIndex:i===2?1:0,data:x.data,areaStyle:i===0?{color:'#8c5cff22'}:undefined}))})},
-    drawBehavior(){const names=this.dimension==='frequency'?['高频用户','中频用户','低频用户']:['高价值','中价值','低价值'];const data=this.drawBehaviorData?.length?this.drawBehaviorData.map(x=>({name:x.name||x.group||'',value:x.values||x.value||[]})):[{name:names[0],value:[92,88,91,85,72,78]},{name:names[1],value:[63,60,58,66,64,55]},{name:names[2],value:[28,31,25,34,45,38]}];this.base('behavior').setOption({color:['#ae7bff','#e96bd5','#54dacf'],tooltip:{},legend:{right:15,top:12,textStyle:{color:'#918cac'}},radar:{radius:'67%',indicator:['订单频率','充电量','消费能力','活跃天数','快充比例','站点集中'].map(name=>({name,max:100})),axisName:{color:'#a99fc2'},splitLine:{lineStyle:{color:'#3a2861'}},splitArea:{areaStyle:{color:['#120d28','#171031']}},axisLine:{lineStyle:{color:'#3d2a67'}}},series:[{type:'radar',data}]})},
-    drawStation(){const raw=this.drawStationData?.length?this.drawStationData:[['市民中心站',1842],['福田CBD站',1510],['南山科技园站',1328],['北京国贸站',1136],['上海陆家嘴站',986],['广州天河站',842]];const d=raw.map(x=>Array.isArray(x)?x:[x.name||x.station_name,x.user_count??x.count??0]);this.base('station').setOption({grid:{left:90,right:28,top:15,bottom:20},xAxis:{type:'value',axisLabel:{show:false},splitLine:{show:false}},yAxis:{type:'category',inverse:true,data:d.map(x=>x[0]),axisLabel:{color:'#aaa1c4',width:76,overflow:'truncate'},axisLine:{show:false},axisTick:{show:false}},series:[{type:'bar',barWidth:9,data:d.map(x=>x[1]),label:{show:true,position:'right',color:'#b7acd0'},itemStyle:{borderRadius:5,color:new echarts.graphic.LinearGradient(0,0,1,0,[{offset:0,color:'#7544d4'},{offset:1,color:'#e965d2'}])}}]})},
-    adminToken(){return localStorage.getItem('admin_token')||sessionStorage.getItem('admin_token')||localStorage.getItem('token')||''},
-    async api(path,options={}){const headers={Accept:'application/json',...(options.headers||{})};const token=this.adminToken();if(token)headers.Authorization=`Bearer ${token}`;const response=await fetch(path,{...options,headers});if(response.status===401||response.status===403){const error=new Error(response.status===401?'管理员登录已失效':'当前账号无管理权限');error.auth=true;throw error}if(!response.ok)throw new Error(`HTTP ${response.status}`);const body=await response.json();if(body&&typeof body==='object'&&'code' in body&&body.code!==0){const error=new Error(body.msg||`接口错误 ${body.code}`);error.auth=body.code===9;throw error}return body&&body.data?body.data:body},
-    handleError(error,prefix){this.error=`${prefix}：${error.message}`;if(error.auth){localStorage.removeItem('admin_token');sessionStorage.removeItem('admin_token');this.dataSource='mock'}},
-    metric(value,fallback){return value===undefined||value===null?fallback:Number(value).toLocaleString('zh-CN',{maximumFractionDigits:2})},
-    applyDashboard(data){const o=data.overview||{};this.kpis=[{label:'用户总数',value:this.metric(o.total_users,'0'),color:'purple'},{label:'活跃用户',value:this.metric(o.active_users_30d,'0'),color:'green'},{label:'近30天新增',value:this.metric(o.new_users_30d,'0'),color:'blue'},{label:'沉默用户',value:this.metric(o.inactive_users_30d,'0'),color:'orange'},{label:'累计订单',value:this.metric(o.total_orders,'0'),color:'purple'},{label:'累计充电量',unit:'kWh',value:this.metric(o.total_kwh,'0'),color:'blue'},{label:'累计消费',unit:'元',value:this.metric(o.total_amount,'0'),color:'pink'}];
+const  {
+  createApp
+}
+=Vue;
+createApp( {
+  // ==================== ① 页面数据与初始数据 ====================
+  data() {
+    return {
+      clock:'',generatedAt:'2026-09-14 15:30:00',loading:false,error:'',dataSource:'mock',drawFrequencyData:null,drawValueData:null,drawAttributeData:null,drawPeriodData:null,drawStationData:null,drawTrendData:null,drawBehaviorData:null,period:'30天',dimension:'frequency',attributeTab:'age',activeFilter:'',filterType:'',filterValue:'',page:1,pageSize:10,userTotal:4,periods:['7天','30天','90天'],attributeTabs:[ {
+        key:'age',name:'年龄'
+      }
+      , {
+        key:'city',name:'城市'
+      }
+      , {
+        key:'source',name:'来源'
+      }
+      ],charts: {
+      }
+      ,
+      kpis:[ {
+        label:'用户总数',value:'12,680',color:'purple',change:'↑ 8.6%'
+      }
+      , {
+        label:'活跃用户',value:'8,326',color:'green',change:'↑ 6.2%'
+      }
+      , {
+        label:'近30天新增',value:'1,365',color:'blue',change:'↑ 12.4%'
+      }
+      , {
+        label:'沉默用户',value:'2,146',color:'orange',change:'↓ 3.1%'
+      }
+      , {
+        label:'累计订单',value:'56,820',color:'purple',change:'↑ 9.8%'
+      }
+      , {
+        label:'累计充电量',unit:'kWh',value:'928,640',color:'blue'
+      }
+      , {
+        label:'累计消费',unit:'元',value:'1,280,600',color:'pink'
+      }
+      ],
+      insights:[ {
+        icon:'⚠',title:'建议开展沉默用户唤醒',content:'可针对近30天未充电用户发放限时优惠券。',reason:'沉默用户占比16.9%',priority:1
+      }
+      , {
+        icon:'◈',title:'引导晚高峰用户错峰充电',content:'建议将部分晚间订单引导至18点前。',reason:'晚间充电订单占比43.2%',priority:2
+      }
+      , {
+        icon:'★',title:'加强高价值用户维护',content:'为高价值用户提供预约及积分权益。',reason:'高价值用户贡献消费额48.6%',priority:2
+      }
+      ],
+      users:[ {
+        name:'用户8821',phone:'138****8821',level:'高频·高价值',levelClass:'high',orders:36,kwh:'628.5',amount:'836.20',preference:'晚间 / 快充',active:'今天 14:22'
+      }
+      , {
+        name:'用户3679',phone:'186****3679',level:'中频·高价值',levelClass:'high',orders:18,kwh:'421.3',amount:'582.90',preference:'下午 / 混合',active:'今天 11:06'
+      }
+      , {
+        name:'用户1096',phone:'159****1096',level:'中频·中价值',levelClass:'',orders:12,kwh:'260.8',amount:'338.40',preference:'上午 / 慢充',active:'昨天 20:15'
+      }
+      , {
+        name:'用户5218',phone:'177****5218',level:'低频·低价值',levelClass:'low',orders:3,kwh:'48.2',amount:'62.60',preference:'晚间 / 快充',active:'09-11 18:42'
+      }
+      ]
+    }
+  }
+  ,
+  // ==================== ② 计算属性 ====================
+  computed: {
+    statusText() {
+      return this.dataSource==='api'?'真实数据连接正常':'演示数据（等待后端接口）'
+    }
+    ,totalPages() {
+      return Math.max(1,Math.ceil(this.userTotal/this.pageSize))
+    }
+  }
+  ,
+  // ==================== ③ 页面初始化与资源清理 ====================
+  mounted() {
+    this.tick();this.clockTimer=setInterval(this.tick,1000);this.autoTimer=setInterval(()=> {
+      if(!document.hidden)this.loadDashboard(false)
+    }
+    ,300000);this.visibilityHandler=()=> {
+      if(!document.hidden)this.loadDashboard(false)
+    }
+    ;document.addEventListener('visibilitychange',this.visibilityHandler);this.resizeHandler=()=>Object.values(this.charts).forEach(c=>c.resize());window.addEventListener('resize',this.resizeHandler);this.$nextTick(()=> {
+      this.drawAll();this.loadDashboard()
+    }
+    )
+  }
+  ,
+  beforeUnmount() {
+    clearInterval(this.clockTimer);clearInterval(this.autoTimer);document.removeEventListener('visibilitychange',this.visibilityHandler);window.removeEventListener('resize',this.resizeHandler);Object.values(this.charts).forEach(c=>c.dispose())
+  }
+  ,
+  methods: {
+      // ==================== ④ ECharts 图表绘制 ====================
+    tick() {
+      this.clock=new Date().toLocaleString('zh-CN', {
+        hour12:false
+      }
+      ).replaceAll('/','-')
+    }
+    ,
+    base(ref) {
+      if(!this.charts[ref])this.charts[ref]=echarts.init(this.$refs[ref]);return this.charts[ref]
+    }
+    ,
+    drawAll() {
+      this.drawFrequency();this.drawValue();this.drawAttribute();this.drawPeriod();this.drawTrend();this.drawBehavior();this.drawStation()
+    }
+    ,
+    ring(ref,data,centerText) {
+      const chart=this.base(ref);chart.setOption( {
+        color:['#9b6cff','#eb68d6','#58a6ff','#54e0df'],tooltip: {
+          trigger:'item'
+        }
+        ,legend: {
+          bottom:3,textStyle: {
+            color:'#918cac'
+          }
+          ,itemWidth:10,itemHeight:7
+        }
+        ,graphic: {
+          type:'text',left:'center',top:'39%',style: {
+            text:centerText,fill:'#f0ecff',font:'700 20px Microsoft YaHei',textAlign:'center'
+          }
+        }
+        ,series:[ {
+          type:'pie',radius:['48%','68%'],center:['50%','45%'],label: {
+            show:false
+          }
+          ,itemStyle: {
+            borderColor:'#100d25',borderWidth:2
+          }
+          ,data
+        }
+        ]
+      }
+      );chart.off('click');chart.on('click',p=>this.selectSegment(ref,p.name,p.data?.level||p.data?.key||''))
+    }
+    ,
+    drawFrequency() {
+      const raw=this.drawFrequencyData||[ {
+        name:'高频用户',value:1268
+      }
+      , {
+        name:'中频用户',value:3424
+      }
+      , {
+        name:'低频用户',value:5842
+      }
+      , {
+        name:'沉默用户',value:2146
+      }
+      ];const total=raw.reduce((s,x)=>s+(x.value??x.count??0),0);this.ring('frequency',raw.map(x=>( {
+        name:x.name||x.label||x.level,value:x.value??x.count??0,level:x.level||x.key||''
+      }
+      )),`${this.metric(total,'0')}\n用户`)
+    }
+    ,
+    drawValue() {
+      const raw=this.drawValueData||[ {
+        name:'高价值',value:2536
+      }
+      , {
+        name:'中价值',value:6340
+      }
+      , {
+        name:'低价值',value:3804
+      }
+      ];this.ring('value',raw.map(x=>( {
+        name:x.name||x.label||x.level,value:x.value??x.count??0,level:x.level||x.key||''
+      }
+      )),'价值\n分层')
+    }
+    ,
+    switchAttribute(k) {
+      this.attributeTab=k;this.drawAttribute()
+    }
+    ,
+    drawAttribute() {
+      const sets= {
+        age:[['25岁以下',1260],['25-34岁',4380],['35-44岁',3960],['45-54岁',2180],['55岁以上',900]],city:[['深圳',4680],['广州',3020],['上海',2180],['北京',1760],['其他',1040]],source:[['Android',6320],['iOS',4060],['Web',1420],['Qt',880]]
+      }
+      ;const raw=this.drawAttributeData?.[this.attributeTab]||sets[this.attributeTab];const d=raw.map(x=>Array.isArray(x)?x:[x.name||x.label,x.value??x.count??0]);this.base('attribute').setOption( {
+        grid: {
+          left:76,right:20,top:18,bottom:25
+        }
+        ,xAxis: {
+          type:'value',axisLabel: {
+            color:'#77718e'
+          }
+          ,splitLine: {
+            lineStyle: {
+              color:'#20183c'
+            }
+          }
+        }
+        ,yAxis: {
+          type:'category',data:d.map(x=>x[0]),axisLabel: {
+            color:'#aaa1c4'
+          }
+          ,axisLine: {
+            show:false
+          }
+        }
+        ,series:[ {
+          type:'bar',data:d.map(x=>x[1]),barWidth:10,itemStyle: {
+            borderRadius:6,color:new echarts.graphic.LinearGradient(0,0,1,0,[ {
+              offset:0,color:'#7141d1'
+            }
+            , {
+              offset:1,color:'#ed6bd7'
+            }
+            ])
+          }
+          ,label: {
+            show:true,position:'right',color:'#c4b8dc'
+          }
+        }
+        ]
+      }
+      )
+    }
+    ,
+    drawPeriod() {
+      const raw=this.drawPeriodData||[['凌晨',9.6],['上午',22.8],['下午',24.4],['晚间',43.2]];const d=raw.map(x=>Array.isArray(x)?x:[x.name||x.period,x.value??x.ratio??0]);this.base('period').setOption( {
+        grid: {
+          left:42,right:18,top:20,bottom:28
+        }
+        ,xAxis: {
+          type:'category',data:d.map(x=>x[0]),axisLabel: {
+            color:'#918cac'
+          }
+          ,axisLine: {
+            lineStyle: {
+              color:'#33275a'
+            }
+          }
+        }
+        ,yAxis: {
+          type:'value',axisLabel: {
+            color:'#716b85',formatter:'{value}%'
+          }
+          ,splitLine: {
+            lineStyle: {
+              color:'#20183c'
+            }
+          }
+        }
+        ,series:[ {
+          type:'bar',barWidth:24,data:d.map(x=>x[1]),label: {
+            show:true,position:'top',formatter:'{c}%',color:'#cfc3e9'
+          }
+          ,itemStyle: {
+            borderRadius:[5,5,0,0],color:new echarts.graphic.LinearGradient(0,1,0,0,[ {
+              offset:0,color:'#5731ad'
+            }
+            , {
+              offset:1,color:'#db6adc'
+            }
+            ])
+          }
+        }
+        ]
+      }
+      )
+    }
+    ,
+    drawTrend() {
+      let days,series;if(this.drawTrendData?.length) {
+        days=this.drawTrendData.map(x=>x.date||x.day||x.label);series=[ {
+          name:'活跃用户',data:this.drawTrendData.map(x=>x.active_users??x.active??0)
+        }
+        , {
+          name:'新增用户',data:this.drawTrendData.map(x=>x.new_users??x.new??0)
+        }
+        , {
+          name:'消费金额',data:this.drawTrendData.map(x=>x.amount??x.total_amount??0)
+        }
+        ]
+      }
+      else {
+        days=Array.from( {
+          length:this.period==='7天'?7:this.period==='30天'?15:18
+        }
+        ,(_,i)=>`${i+1}日`);const wave=(base,amp)=>days.map((_,i)=>Math.round(base+Math.sin(i*.75)*amp+i*base*.025));series=[ {
+          name:'活跃用户',data:wave(1420,310)
+        }
+        , {
+          name:'新增用户',data:wave(110,42)
+        }
+        , {
+          name:'消费金额',data:wave(42000,13000)
+        }
+        ]
+      }
+      this.base('trend').setOption( {
+        color:['#a477ff','#ed69d6','#57dcd9'],tooltip: {
+          trigger:'axis'
+        }
+        ,legend: {
+          top:10,textStyle: {
+            color:'#a8a0bd'
+          }
+          ,data:series.map(x=>x.name)
+        }
+        ,grid: {
+          left:55,right:58,top:48,bottom:35
+        }
+        ,xAxis: {
+          type:'category',data:days,axisLabel: {
+            color:'#817991'
+          }
+          ,axisLine: {
+            lineStyle: {
+              color:'#34275c'
+            }
+          }
+        }
+        ,yAxis:[ {
+          type:'value',axisLabel: {
+            color:'#817991'
+          }
+          ,splitLine: {
+            lineStyle: {
+              color:'#211940'
+            }
+          }
+        }
+        , {
+          type:'value',axisLabel: {
+            color:'#817991'
+          }
+        }
+        ],series:series.map((x,i)=>( {
+          name:x.name,type:'line',smooth:true,symbolSize:5,yAxisIndex:i===2?1:0,data:x.data,areaStyle:i===0? {
+            color:'#8c5cff22'
+          }
+          :undefined
+        }
+        ))
+      }
+      )
+    }
+    ,
+    drawBehavior() {
+      const names=this.dimension==='frequency'?['高频用户','中频用户','低频用户']:['高价值','中价值','低价值'];const data=this.drawBehaviorData?.length?this.drawBehaviorData.map(x=>( {
+        name:x.name||x.group||'',value:x.values||x.value||[]
+      }
+      )):[ {
+        name:names[0],value:[92,88,91,85,72,78]
+      }
+      , {
+        name:names[1],value:[63,60,58,66,64,55]
+      }
+      , {
+        name:names[2],value:[28,31,25,34,45,38]
+      }
+      ];this.base('behavior').setOption( {
+        color:['#ae7bff','#e96bd5','#54dacf'],tooltip: {
+        }
+        ,legend: {
+          right:15,top:12,textStyle: {
+            color:'#918cac'
+          }
+        }
+        ,radar: {
+          radius:'67%',indicator:['订单频率','充电量','消费能力','活跃天数','快充比例','站点集中'].map(name=>( {
+            name,max:100
+          }
+          )),axisName: {
+            color:'#a99fc2'
+          }
+          ,splitLine: {
+            lineStyle: {
+              color:'#3a2861'
+            }
+          }
+          ,splitArea: {
+            areaStyle: {
+              color:['#120d28','#171031']
+            }
+          }
+          ,axisLine: {
+            lineStyle: {
+              color:'#3d2a67'
+            }
+          }
+        }
+        ,series:[ {
+          type:'radar',data
+        }
+        ]
+      }
+      )
+    }
+    ,
+    drawStation() {
+      const raw=this.drawStationData?.length?this.drawStationData:[['市民中心站',1842],['福田CBD站',1510],['南山科技园站',1328],['北京国贸站',1136],['上海陆家嘴站',986],['广州天河站',842]];const d=raw.map(x=>Array.isArray(x)?x:[x.name||x.station_name,x.user_count??x.count??0]);this.base('station').setOption( {
+        grid: {
+          left:90,right:28,top:15,bottom:20
+        }
+        ,xAxis: {
+          type:'value',axisLabel: {
+            show:false
+          }
+          ,splitLine: {
+            show:false
+          }
+        }
+        ,yAxis: {
+          type:'category',inverse:true,data:d.map(x=>x[0]),axisLabel: {
+            color:'#aaa1c4',width:76,overflow:'truncate'
+          }
+          ,axisLine: {
+            show:false
+          }
+          ,axisTick: {
+            show:false
+          }
+        }
+        ,series:[ {
+          type:'bar',barWidth:9,data:d.map(x=>x[1]),label: {
+            show:true,position:'right',color:'#b7acd0'
+          }
+          ,itemStyle: {
+            borderRadius:5,color:new echarts.graphic.LinearGradient(0,0,1,0,[ {
+              offset:0,color:'#7544d4'
+            }
+            , {
+              offset:1,color:'#e965d2'
+            }
+            ])
+          }
+        }
+        ]
+      }
+      )
+    }
+    ,
+      // ==================== ⑤ 接口请求与数据处理 ====================
+    adminToken() {
+      return localStorage.getItem('admin_token')||sessionStorage.getItem('admin_token')||localStorage.getItem('token')||''
+    }
+    ,
+    async api(path,options= {
+    }
+    ) {
+      const headers= {
+        Accept:'application/json',...(options.headers|| {
+        }
+        )
+      }
+      ;const token=this.adminToken();if(token)headers.Authorization=`Bearer ${token}`;const response=await fetch(path, {
+        ...options,headers
+      }
+      );if(response.status===401||response.status===403) {
+        const error=new Error(response.status===401?'管理员登录已失效':'当前账号无管理权限');error.auth=true;throw error
+      }
+      if(!response.ok)throw new Error(`HTTP ${response.status}`);const body=await response.json();if(body&&typeof body==='object'&&'code' in body&&body.code!==0) {
+        const error=new Error(body.msg||`接口错误 ${body.code}`);error.auth=body.code===9;throw error
+      }
+      return body&&body.data?body.data:body
+    }
+    ,
+    handleError(error,prefix) {
+      this.error=`${prefix}：${error.message}`;if(error.auth) {
+        localStorage.removeItem('admin_token');sessionStorage.removeItem('admin_token');this.dataSource='mock'
+      }
+    }
+    ,
+    metric(value,fallback) {
+      return value===undefined||value===null?fallback:Number(value).toLocaleString('zh-CN', {
+        maximumFractionDigits:2
+      }
+      )
+    }
+    ,
+    //把后端数据放到页面各模块
+    applyDashboard(data) {
+      const o=data.overview|| {
+      }
+      ;this.kpis=[ {
+        label:'用户总数',value:this.metric(o.total_users,'0'),color:'purple'
+      }
+      , {
+        label:'活跃用户',value:this.metric(o.active_users_30d,'0'),color:'green'
+      }
+      , {
+        label:'近30天新增',value:this.metric(o.new_users_30d,'0'),color:'blue'
+      }
+      , {
+        label:'沉默用户',value:this.metric(o.inactive_users_30d,'0'),color:'orange'
+      }
+      , {
+        label:'累计订单',value:this.metric(o.total_orders,'0'),color:'purple'
+      }
+      , {
+        label:'累计充电量',unit:'kWh',value:this.metric(o.total_kwh,'0'),color:'blue'
+      }
+      , {
+        label:'累计消费',unit:'元',value:this.metric(o.total_amount,'0'),color:'pink'
+      }
+      ];
       const seg=data.frequency_distribution||data.segments?.frequency;if(Array.isArray(seg)&&seg.length)this.drawFrequencyData=seg;
       const val=data.value_distribution||data.segments?.value;if(Array.isArray(val)&&val.length)this.drawValueData=val;
-      const attrs=data.attribute_distribution||data.attributes;if(attrs&&typeof attrs==='object')this.drawAttributeData={age:attrs.age||attrs.age_group,city:attrs.city,source:attrs.source||attrs.registration_source};
-      if(Array.isArray(data.insights))this.insights=data.insights.map(x=>({icon:x.icon||'◈',title:x.title||'运营建议',content:x.content||'',reason:x.reason||'',priority:Number(x.priority)||2}));
+      const attrs=data.attribute_distribution||data.attributes;if(attrs&&typeof attrs==='object')this.drawAttributeData= {
+        age:attrs.age||attrs.age_group,city:attrs.city,source:attrs.source||attrs.registration_source
+      }
+      ;
+      if(Array.isArray(data.insights))this.insights=data.insights.map(x=>( {
+        icon:x.icon||'◈',title:x.title||'运营建议',content:x.content||'',reason:x.reason||'',priority:Number(x.priority)||2
+      }
+      ));
       if(Array.isArray(data.period_distribution))this.drawPeriodData=data.period_distribution;
       if(Array.isArray(data.station_preferences))this.drawStationData=data.station_preferences;
       if(Array.isArray(data.trends))this.drawTrendData=data.trends;
       if(Array.isArray(data.behavior_comparison))this.drawBehaviorData=data.behavior_comparison;
-      if(Array.isArray(data.users)){this.users=this.mapUsers(data.users);this.userTotal=data.user_total??data.users_total??data.users.length}
-      if(data.generated_at)this.generatedAt=data.generated_at;this.dataSource='api';this.error='';this.$nextTick(this.drawAll)},
-    mapUsers(items){return items.map(x=>{const freqKey=x.frequency_key||x.frequency_level;const valueKey=x.value_key||x.value_level;return{name:x.nickname||x.name||'用户',phone:x.phone_masked||x.phone||'',level:[x.frequency_level,x.value_level].filter(Boolean).join('·')||x.level||'用户',levelClass:(freqKey==='high'||valueKey==='high')?'high':(valueKey==='low'||freqKey==='inactive'||freqKey==='low'?'low':''),orders:x.total_orders??x.orders??0,kwh:x.total_kwh??x.kwh??0,amount:x.total_amount??x.amount??0,preference:[x.preferred_period,x.preferred_pile_type].filter(Boolean).join(' / ')||'--',active:x.last_active_at||x.active||'--'}})},
-    levelKey(name){const map={'高频用户':'high','中频用户':'medium','低频用户':'low','沉默用户':'inactive','高价值':'high','中价值':'medium','低价值':'low'};return map[name]||name},
-    selectSegment(ref,name,key){this.filterType=ref==='frequency'?'frequency_level':'value_level';this.filterValue=key||this.levelKey(name);this.activeFilter=name;this.page=1;this.loadUsers()},
-    clearFilter(){this.filterType='';this.filterValue='';this.activeFilter='';this.page=1;this.loadUsers()},
-    changePage(step){const next=this.page+step;if(next<1||next>this.totalPages)return;this.page=next;this.loadUsers()},
-    async loadUsers(){const params=new URLSearchParams({page:this.page,page_size:this.pageSize});if(this.filterType&&this.filterValue)params.set(this.filterType,this.filterValue);try{const data=await this.api(`/api/admin/user-groups/users?${params}`);const items=data.items||data.users||[];this.users=this.mapUsers(items);this.userTotal=data.total??items.length}catch(error){this.handleError(error,'用户明细暂不可用')}},
-    async changePeriod(p){this.period=p;const map={'7天':'7d','30天':'30d','90天':'90d'};try{const data=await this.api(`/api/admin/user-groups/trends?period=${map[p]}&granularity=day`);this.drawTrendData=data.items||data.trends||data;this.drawTrend()}catch(error){this.handleError(error,'趋势接口暂不可用');this.drawTrend()}},
-    async loadDashboard(showLoading=true){if(showLoading)this.loading=true;try{const data=await this.api('/api/admin/user-groups/dashboard');this.applyDashboard(data)}catch(error){this.dataSource='mock';this.handleError(error,'后端接口暂不可用')}finally{if(showLoading)this.loading=false}},
-    async refresh(){this.loading=true;try{await this.api('/api/admin/user-groups/refresh',{method:'POST',headers:{'Content-Type':'application/json'}})}catch(error){this.handleError(error,'刷新接口暂不可用')}finally{await this.loadDashboard(false);this.loading=false}}
+      if(Array.isArray(data.users)) {
+        this.users=this.mapUsers(data.users);this.userTotal=data.user_total??data.users_total??data.users.length
+      }
+      if(data.generated_at)this.generatedAt=data.generated_at;this.dataSource='api';this.error='';this.$nextTick(this.drawAll)
+    }
+    ,
+    mapUsers(items) {
+      return items.map(x=> {
+        const freqKey=x.frequency_key||x.frequency_level;const valueKey=x.value_key||x.value_level;return {
+          name:x.nickname||x.name||'用户',phone:x.phone_masked||x.phone||'',level:[x.frequency_level,x.value_level].filter(Boolean).join('·')||x.level||'用户',levelClass:(freqKey==='high'||valueKey==='high')?'high':(valueKey==='low'||freqKey==='inactive'||freqKey==='low'?'low':''),orders:x.total_orders??x.orders??0,kwh:x.total_kwh??x.kwh??0,amount:x.total_amount??x.amount??0,preference:[x.preferred_period,x.preferred_pile_type].filter(Boolean).join(' / ')||'--',active:x.last_active_at||x.active||'--'
+        }
+      }
+      )
+    }
+    ,
+      // ==================== ⑥ 用户交互、筛选、分页、刷新 ====================
+    levelKey(name) {
+      const map= {
+        '高频用户':'high','中频用户':'medium','低频用户':'low','沉默用户':'inactive','高价值':'high','中价值':'medium','低价值':'low'
+      }
+      ;return map[name]||name
+    }
+    ,
+    selectSegment(ref,name,key) {
+      this.filterType=ref==='frequency'?'frequency_level':'value_level';this.filterValue=key||this.levelKey(name);this.activeFilter=name;this.page=1;this.loadUsers()
+    }
+    ,
+    clearFilter() {
+      this.filterType='';this.filterValue='';this.activeFilter='';this.page=1;this.loadUsers()
+    }
+    ,
+    changePage(step) {
+      const next=this.page+step;if(next<1||next>this.totalPages)return;this.page=next;this.loadUsers()
+    }
+    ,
+    async loadUsers() {
+      const params=new URLSearchParams( {
+        page:this.page,page_size:this.pageSize
+      }
+      );if(this.filterType&&this.filterValue)params.set(this.filterType,this.filterValue);try {
+        const data=await this.api(`/api/admin/user-groups/users?${params}`);const items=data.items||data.users||[];this.users=this.mapUsers(items);this.userTotal=data.total??items.length
+      }
+      catch(error) {
+        this.handleError(error,'用户明细暂不可用')
+      }
+    }
+    ,
+    async changePeriod(p) {
+      this.period=p;const map= {
+        '7天':'7d','30天':'30d','90天':'90d'
+      }
+      ;try {
+        const data=await this.api(`/api/admin/user-groups/trends?period=${map[p]}&granularity=day`);this.drawTrendData=data.items||data.trends||data;this.drawTrend()
+      }
+      catch(error) {
+        this.handleError(error,'趋势接口暂不可用');this.drawTrend()
+      }
+    }
+    ,
+    async loadDashboard(showLoading=true) {
+      if(showLoading)this.loading=true;try {
+        const data=await this.api('/api/admin/user-groups/dashboard');this.applyDashboard(data)
+      }
+      catch(error) {
+        this.dataSource='mock';this.handleError(error,'后端接口暂不可用')
+      }
+      finally {
+        if(showLoading)this.loading=false
+      }
+    }
+    ,
+    async refresh() {
+      this.loading=true;try {
+        await this.api('/api/admin/user-groups/refresh', {
+          method:'POST',headers: {
+            'Content-Type':'application/json'
+          }
+        }
+        )
+      }
+      catch(error) {
+        this.handleError(error,'刷新接口暂不可用')
+      }
+      finally {
+        await this.loadDashboard(false);this.loading=false
+      }
+    }
   }
-}).mount('#user-groups-app');
+}
+).mount('#user-groups-app');
