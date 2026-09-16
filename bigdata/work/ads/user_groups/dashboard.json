@@ -1,0 +1,1270 @@
+{
+  "generated_at": "2026-09-13 21:00:00",
+  "behavior_comparison": [
+    {
+      "name": "高频用户",
+      "group": "高频用户",
+      "values": [
+        100.0,
+        100.0,
+        100.0,
+        100.0,
+        79.7,
+        76.3
+      ]
+    },
+    {
+      "name": "中频用户",
+      "group": "中频用户",
+      "values": [
+        50.6,
+        52.3,
+        48.0,
+        54.2,
+        85.5,
+        83.4
+      ]
+    },
+    {
+      "name": "低频用户",
+      "group": "低频用户",
+      "values": [
+        18.3,
+        19.1,
+        18.6,
+        20.8,
+        100.0,
+        100.0
+      ]
+    }
+  ],
+  "overview": {
+    "total_users": 11247,
+    "inactive_users_30d": 3037,
+    "active_users_30d": 8210,
+    "new_users_30d": 3366,
+    "total_orders": 35093,
+    "total_kwh": 1289215.99,
+    "total_amount": 1794441.94
+  },
+  "frequency_distribution": [
+    {
+      "name": "高频用户",
+      "value": 1349,
+      "level": "high"
+    },
+    {
+      "name": "中频用户",
+      "value": 3149,
+      "level": "medium"
+    },
+    {
+      "name": "低频用户",
+      "value": 3712,
+      "level": "low"
+    },
+    {
+      "name": "沉默用户",
+      "value": 3037,
+      "level": "inactive"
+    }
+  ],
+  "value_distribution": [
+    {
+      "name": "高价值",
+      "value": 2249,
+      "level": "high"
+    },
+    {
+      "name": "中价值",
+      "value": 5623,
+      "level": "medium"
+    },
+    {
+      "name": "低价值",
+      "value": 3375,
+      "level": "low"
+    }
+  ],
+  "attribute_distribution": {
+    "age": [
+      {
+        "name": "25岁以下",
+        "value": 1401
+      },
+      {
+        "name": "25-34岁",
+        "value": 3298
+      },
+      {
+        "name": "35-44岁",
+        "value": 2854
+      },
+      {
+        "name": "45-54岁",
+        "value": 1812
+      },
+      {
+        "name": "55岁以上",
+        "value": 1452
+      },
+      {
+        "name": "未知",
+        "value": 430
+      }
+    ],
+    "city": [
+      {
+        "name": "南京",
+        "value": 1147
+      },
+      {
+        "name": "杭州",
+        "value": 1319
+      },
+      {
+        "name": "深圳",
+        "value": 2413
+      },
+      {
+        "name": "上海",
+        "value": 1789
+      },
+      {
+        "name": "北京",
+        "value": 1541
+      },
+      {
+        "name": "广州",
+        "value": 2007
+      },
+      {
+        "name": "其他",
+        "value": 1031
+      }
+    ],
+    "source": [
+      {
+        "name": "Android",
+        "value": 4396
+      },
+      {
+        "name": "iOS",
+        "value": 3693
+      },
+      {
+        "name": "Web",
+        "value": 1562
+      },
+      {
+        "name": "Qt",
+        "value": 981
+      },
+      {
+        "name": "线下",
+        "value": 264
+      },
+      {
+        "name": "未知",
+        "value": 351
+      }
+    ]
+  },
+  "period_distribution": [
+    {
+      "name": "凌晨",
+      "value": 3.4
+    },
+    {
+      "name": "上午",
+      "value": 30.3
+    },
+    {
+      "name": "下午",
+      "value": 34.6
+    },
+    {
+      "name": "晚间",
+      "value": 31.7
+    }
+  ],
+  "station_preferences": [
+    {
+      "station_id": 2,
+      "name": "福田CBD充电站",
+      "user_count": 769
+    },
+    {
+      "station_id": 13,
+      "name": "广州珠江新城充电站",
+      "user_count": 597
+    },
+    {
+      "station_id": 25,
+      "name": "光明科学城充电站",
+      "user_count": 544
+    },
+    {
+      "station_id": 50,
+      "name": "白云机场充电站",
+      "user_count": 449
+    },
+    {
+      "station_id": 8,
+      "name": "上海陆家嘴充电站",
+      "user_count": 420
+    },
+    {
+      "station_id": 4,
+      "name": "北京国贸充电站",
+      "user_count": 414
+    }
+  ],
+  "trends": [
+    {
+      "date": "2026-08-15",
+      "active_users": 0,
+      "new_users": 264,
+      "amount": 0.0
+    },
+    {
+      "date": "2026-08-16",
+      "active_users": 0,
+      "new_users": 246,
+      "amount": 0.0
+    },
+    {
+      "date": "2026-08-17",
+      "active_users": 453,
+      "new_users": 249,
+      "amount": 23573.7
+    },
+    {
+      "date": "2026-08-18",
+      "active_users": 528,
+      "new_users": 229,
+      "amount": 28030.5
+    },
+    {
+      "date": "2026-08-19",
+      "active_users": 603,
+      "new_users": 202,
+      "amount": 33193.61
+    },
+    {
+      "date": "2026-08-20",
+      "active_users": 582,
+      "new_users": 220,
+      "amount": 31971.8
+    },
+    {
+      "date": "2026-08-21",
+      "active_users": 690,
+      "new_users": 215,
+      "amount": 37848.39
+    },
+    {
+      "date": "2026-08-22",
+      "active_users": 681,
+      "new_users": 196,
+      "amount": 37099.62
+    },
+    {
+      "date": "2026-08-23",
+      "active_users": 704,
+      "new_users": 180,
+      "amount": 38709.8
+    },
+    {
+      "date": "2026-08-24",
+      "active_users": 751,
+      "new_users": 150,
+      "amount": 41786.26
+    },
+    {
+      "date": "2026-08-25",
+      "active_users": 791,
+      "new_users": 138,
+      "amount": 43775.5
+    },
+    {
+      "date": "2026-08-26",
+      "active_users": 826,
+      "new_users": 128,
+      "amount": 46495.82
+    },
+    {
+      "date": "2026-08-27",
+      "active_users": 833,
+      "new_users": 116,
+      "amount": 46507.78
+    },
+    {
+      "date": "2026-08-28",
+      "active_users": 891,
+      "new_users": 114,
+      "amount": 49370.09
+    },
+    {
+      "date": "2026-08-29",
+      "active_users": 910,
+      "new_users": 103,
+      "amount": 51016.68
+    },
+    {
+      "date": "2026-08-30",
+      "active_users": 990,
+      "new_users": 100,
+      "amount": 55888.9
+    },
+    {
+      "date": "2026-08-31",
+      "active_users": 994,
+      "new_users": 86,
+      "amount": 56786.88
+    },
+    {
+      "date": "2026-09-01",
+      "active_users": 1018,
+      "new_users": 60,
+      "amount": 57245.45
+    },
+    {
+      "date": "2026-09-02",
+      "active_users": 1055,
+      "new_users": 61,
+      "amount": 58217.88
+    },
+    {
+      "date": "2026-09-03",
+      "active_users": 1106,
+      "new_users": 60,
+      "amount": 62169.54
+    },
+    {
+      "date": "2026-09-04",
+      "active_users": 1160,
+      "new_users": 46,
+      "amount": 65291.19
+    },
+    {
+      "date": "2026-09-05",
+      "active_users": 1156,
+      "new_users": 52,
+      "amount": 65384.56
+    },
+    {
+      "date": "2026-09-06",
+      "active_users": 1182,
+      "new_users": 25,
+      "amount": 67392.49
+    },
+    {
+      "date": "2026-09-07",
+      "active_users": 1201,
+      "new_users": 30,
+      "amount": 67898.94
+    },
+    {
+      "date": "2026-09-08",
+      "active_users": 1301,
+      "new_users": 32,
+      "amount": 75510.58
+    },
+    {
+      "date": "2026-09-09",
+      "active_users": 1253,
+      "new_users": 16,
+      "amount": 70577.87
+    },
+    {
+      "date": "2026-09-10",
+      "active_users": 1322,
+      "new_users": 12,
+      "amount": 76118.46
+    },
+    {
+      "date": "2026-09-11",
+      "active_users": 1336,
+      "new_users": 6,
+      "amount": 78935.94
+    },
+    {
+      "date": "2026-09-12",
+      "active_users": 1456,
+      "new_users": 5,
+      "amount": 84851.2
+    },
+    {
+      "date": "2026-09-13",
+      "active_users": 1541,
+      "new_users": 3,
+      "amount": 91357.49
+    }
+  ],
+  "trends_7d": [
+    {
+      "date": "2026-09-07",
+      "active_users": 1201,
+      "new_users": 30,
+      "amount": 67898.94
+    },
+    {
+      "date": "2026-09-08",
+      "active_users": 1301,
+      "new_users": 32,
+      "amount": 75510.58
+    },
+    {
+      "date": "2026-09-09",
+      "active_users": 1253,
+      "new_users": 16,
+      "amount": 70577.87
+    },
+    {
+      "date": "2026-09-10",
+      "active_users": 1322,
+      "new_users": 12,
+      "amount": 76118.46
+    },
+    {
+      "date": "2026-09-11",
+      "active_users": 1336,
+      "new_users": 6,
+      "amount": 78935.94
+    },
+    {
+      "date": "2026-09-12",
+      "active_users": 1456,
+      "new_users": 5,
+      "amount": 84851.2
+    },
+    {
+      "date": "2026-09-13",
+      "active_users": 1541,
+      "new_users": 3,
+      "amount": 91357.49
+    }
+  ],
+  "trends_90d": [
+    {
+      "date": "2026-06-16",
+      "active_users": 53,
+      "new_users": 93,
+      "amount": 2270.52
+    },
+    {
+      "date": "2026-06-17",
+      "active_users": 49,
+      "new_users": 94,
+      "amount": 2245.33
+    },
+    {
+      "date": "2026-06-18",
+      "active_users": 38,
+      "new_users": 67,
+      "amount": 1759.18
+    },
+    {
+      "date": "2026-06-19",
+      "active_users": 50,
+      "new_users": 99,
+      "amount": 2380.89
+    },
+    {
+      "date": "2026-06-20",
+      "active_users": 55,
+      "new_users": 72,
+      "amount": 2533.5
+    },
+    {
+      "date": "2026-06-21",
+      "active_users": 59,
+      "new_users": 89,
+      "amount": 2728.57
+    },
+    {
+      "date": "2026-06-22",
+      "active_users": 39,
+      "new_users": 92,
+      "amount": 1905.27
+    },
+    {
+      "date": "2026-06-23",
+      "active_users": 44,
+      "new_users": 89,
+      "amount": 2064.45
+    },
+    {
+      "date": "2026-06-24",
+      "active_users": 56,
+      "new_users": 92,
+      "amount": 2502.78
+    },
+    {
+      "date": "2026-06-25",
+      "active_users": 55,
+      "new_users": 113,
+      "amount": 2742.59
+    },
+    {
+      "date": "2026-06-26",
+      "active_users": 64,
+      "new_users": 95,
+      "amount": 2989.3
+    },
+    {
+      "date": "2026-06-27",
+      "active_users": 61,
+      "new_users": 108,
+      "amount": 2875.94
+    },
+    {
+      "date": "2026-06-28",
+      "active_users": 75,
+      "new_users": 118,
+      "amount": 3530.6
+    },
+    {
+      "date": "2026-06-29",
+      "active_users": 66,
+      "new_users": 89,
+      "amount": 3352.24
+    },
+    {
+      "date": "2026-06-30",
+      "active_users": 77,
+      "new_users": 96,
+      "amount": 3531.58
+    },
+    {
+      "date": "2026-07-01",
+      "active_users": 64,
+      "new_users": 117,
+      "amount": 3121.05
+    },
+    {
+      "date": "2026-07-02",
+      "active_users": 65,
+      "new_users": 114,
+      "amount": 2847.5
+    },
+    {
+      "date": "2026-07-03",
+      "active_users": 79,
+      "new_users": 104,
+      "amount": 3770.85
+    },
+    {
+      "date": "2026-07-04",
+      "active_users": 77,
+      "new_users": 118,
+      "amount": 3688.76
+    },
+    {
+      "date": "2026-07-05",
+      "active_users": 68,
+      "new_users": 100,
+      "amount": 3197.19
+    },
+    {
+      "date": "2026-07-06",
+      "active_users": 76,
+      "new_users": 129,
+      "amount": 3642.44
+    },
+    {
+      "date": "2026-07-07",
+      "active_users": 72,
+      "new_users": 120,
+      "amount": 3330.34
+    },
+    {
+      "date": "2026-07-08",
+      "active_users": 83,
+      "new_users": 134,
+      "amount": 3882.72
+    },
+    {
+      "date": "2026-07-09",
+      "active_users": 80,
+      "new_users": 133,
+      "amount": 3939.14
+    },
+    {
+      "date": "2026-07-10",
+      "active_users": 90,
+      "new_users": 112,
+      "amount": 4306.44
+    },
+    {
+      "date": "2026-07-11",
+      "active_users": 83,
+      "new_users": 113,
+      "amount": 3829.43
+    },
+    {
+      "date": "2026-07-12",
+      "active_users": 82,
+      "new_users": 111,
+      "amount": 3868.62
+    },
+    {
+      "date": "2026-07-13",
+      "active_users": 97,
+      "new_users": 100,
+      "amount": 4783.73
+    },
+    {
+      "date": "2026-07-14",
+      "active_users": 88,
+      "new_users": 112,
+      "amount": 3934.82
+    },
+    {
+      "date": "2026-07-15",
+      "active_users": 103,
+      "new_users": 130,
+      "amount": 4719.97
+    },
+    {
+      "date": "2026-07-16",
+      "active_users": 86,
+      "new_users": 99,
+      "amount": 3973.39
+    },
+    {
+      "date": "2026-07-17",
+      "active_users": 77,
+      "new_users": 109,
+      "amount": 3706.16
+    },
+    {
+      "date": "2026-07-18",
+      "active_users": 115,
+      "new_users": 119,
+      "amount": 5492.82
+    },
+    {
+      "date": "2026-07-19",
+      "active_users": 89,
+      "new_users": 128,
+      "amount": 3960.78
+    },
+    {
+      "date": "2026-07-20",
+      "active_users": 108,
+      "new_users": 119,
+      "amount": 5229.99
+    },
+    {
+      "date": "2026-07-21",
+      "active_users": 90,
+      "new_users": 117,
+      "amount": 4305.72
+    },
+    {
+      "date": "2026-07-22",
+      "active_users": 114,
+      "new_users": 128,
+      "amount": 5482.67
+    },
+    {
+      "date": "2026-07-23",
+      "active_users": 97,
+      "new_users": 137,
+      "amount": 4583.24
+    },
+    {
+      "date": "2026-07-24",
+      "active_users": 114,
+      "new_users": 122,
+      "amount": 5548.92
+    },
+    {
+      "date": "2026-07-25",
+      "active_users": 107,
+      "new_users": 118,
+      "amount": 5424.97
+    },
+    {
+      "date": "2026-07-26",
+      "active_users": 107,
+      "new_users": 129,
+      "amount": 4894.36
+    },
+    {
+      "date": "2026-07-27",
+      "active_users": 125,
+      "new_users": 109,
+      "amount": 5954.73
+    },
+    {
+      "date": "2026-07-28",
+      "active_users": 126,
+      "new_users": 130,
+      "amount": 5772.71
+    },
+    {
+      "date": "2026-07-29",
+      "active_users": 113,
+      "new_users": 134,
+      "amount": 5236.56
+    },
+    {
+      "date": "2026-07-30",
+      "active_users": 123,
+      "new_users": 130,
+      "amount": 5836.51
+    },
+    {
+      "date": "2026-07-31",
+      "active_users": 116,
+      "new_users": 128,
+      "amount": 5448.7
+    },
+    {
+      "date": "2026-08-01",
+      "active_users": 117,
+      "new_users": 149,
+      "amount": 5569.79
+    },
+    {
+      "date": "2026-08-02",
+      "active_users": 135,
+      "new_users": 138,
+      "amount": 6478.1
+    },
+    {
+      "date": "2026-08-03",
+      "active_users": 129,
+      "new_users": 135,
+      "amount": 6181.46
+    },
+    {
+      "date": "2026-08-04",
+      "active_users": 106,
+      "new_users": 145,
+      "amount": 5076.18
+    },
+    {
+      "date": "2026-08-05",
+      "active_users": 128,
+      "new_users": 134,
+      "amount": 6257.76
+    },
+    {
+      "date": "2026-08-06",
+      "active_users": 124,
+      "new_users": 143,
+      "amount": 5911.41
+    },
+    {
+      "date": "2026-08-07",
+      "active_users": 139,
+      "new_users": 105,
+      "amount": 6944.06
+    },
+    {
+      "date": "2026-08-08",
+      "active_users": 134,
+      "new_users": 164,
+      "amount": 6377.2
+    },
+    {
+      "date": "2026-08-09",
+      "active_users": 116,
+      "new_users": 174,
+      "amount": 5093.68
+    },
+    {
+      "date": "2026-08-10",
+      "active_users": 136,
+      "new_users": 169,
+      "amount": 6577.34
+    },
+    {
+      "date": "2026-08-11",
+      "active_users": 132,
+      "new_users": 195,
+      "amount": 6325.93
+    },
+    {
+      "date": "2026-08-12",
+      "active_users": 139,
+      "new_users": 175,
+      "amount": 6559.91
+    },
+    {
+      "date": "2026-08-13",
+      "active_users": 16,
+      "new_users": 190,
+      "amount": 954.23
+    },
+    {
+      "date": "2026-08-14",
+      "active_users": 0,
+      "new_users": 223,
+      "amount": 0.0
+    },
+    {
+      "date": "2026-08-15",
+      "active_users": 0,
+      "new_users": 264,
+      "amount": 0.0
+    },
+    {
+      "date": "2026-08-16",
+      "active_users": 0,
+      "new_users": 246,
+      "amount": 0.0
+    },
+    {
+      "date": "2026-08-17",
+      "active_users": 453,
+      "new_users": 249,
+      "amount": 23573.7
+    },
+    {
+      "date": "2026-08-18",
+      "active_users": 528,
+      "new_users": 229,
+      "amount": 28030.5
+    },
+    {
+      "date": "2026-08-19",
+      "active_users": 603,
+      "new_users": 202,
+      "amount": 33193.61
+    },
+    {
+      "date": "2026-08-20",
+      "active_users": 582,
+      "new_users": 220,
+      "amount": 31971.8
+    },
+    {
+      "date": "2026-08-21",
+      "active_users": 690,
+      "new_users": 215,
+      "amount": 37848.39
+    },
+    {
+      "date": "2026-08-22",
+      "active_users": 681,
+      "new_users": 196,
+      "amount": 37099.62
+    },
+    {
+      "date": "2026-08-23",
+      "active_users": 704,
+      "new_users": 180,
+      "amount": 38709.8
+    },
+    {
+      "date": "2026-08-24",
+      "active_users": 751,
+      "new_users": 150,
+      "amount": 41786.26
+    },
+    {
+      "date": "2026-08-25",
+      "active_users": 791,
+      "new_users": 138,
+      "amount": 43775.5
+    },
+    {
+      "date": "2026-08-26",
+      "active_users": 826,
+      "new_users": 128,
+      "amount": 46495.82
+    },
+    {
+      "date": "2026-08-27",
+      "active_users": 833,
+      "new_users": 116,
+      "amount": 46507.78
+    },
+    {
+      "date": "2026-08-28",
+      "active_users": 891,
+      "new_users": 114,
+      "amount": 49370.09
+    },
+    {
+      "date": "2026-08-29",
+      "active_users": 910,
+      "new_users": 103,
+      "amount": 51016.68
+    },
+    {
+      "date": "2026-08-30",
+      "active_users": 990,
+      "new_users": 100,
+      "amount": 55888.9
+    },
+    {
+      "date": "2026-08-31",
+      "active_users": 994,
+      "new_users": 86,
+      "amount": 56786.88
+    },
+    {
+      "date": "2026-09-01",
+      "active_users": 1018,
+      "new_users": 60,
+      "amount": 57245.45
+    },
+    {
+      "date": "2026-09-02",
+      "active_users": 1055,
+      "new_users": 61,
+      "amount": 58217.88
+    },
+    {
+      "date": "2026-09-03",
+      "active_users": 1106,
+      "new_users": 60,
+      "amount": 62169.54
+    },
+    {
+      "date": "2026-09-04",
+      "active_users": 1160,
+      "new_users": 46,
+      "amount": 65291.19
+    },
+    {
+      "date": "2026-09-05",
+      "active_users": 1156,
+      "new_users": 52,
+      "amount": 65384.56
+    },
+    {
+      "date": "2026-09-06",
+      "active_users": 1182,
+      "new_users": 25,
+      "amount": 67392.49
+    },
+    {
+      "date": "2026-09-07",
+      "active_users": 1201,
+      "new_users": 30,
+      "amount": 67898.94
+    },
+    {
+      "date": "2026-09-08",
+      "active_users": 1301,
+      "new_users": 32,
+      "amount": 75510.58
+    },
+    {
+      "date": "2026-09-09",
+      "active_users": 1253,
+      "new_users": 16,
+      "amount": 70577.87
+    },
+    {
+      "date": "2026-09-10",
+      "active_users": 1322,
+      "new_users": 12,
+      "amount": 76118.46
+    },
+    {
+      "date": "2026-09-11",
+      "active_users": 1336,
+      "new_users": 6,
+      "amount": 78935.94
+    },
+    {
+      "date": "2026-09-12",
+      "active_users": 1456,
+      "new_users": 5,
+      "amount": 84851.2
+    },
+    {
+      "date": "2026-09-13",
+      "active_users": 1541,
+      "new_users": 3,
+      "amount": 91357.49
+    }
+  ],
+  "users": [
+    {
+      "user_id": 100001,
+      "nickname": "用户0001",
+      "gender": "male",
+      "age_group": "25_34",
+      "city": "深圳",
+      "vehicle_type": "suv",
+      "registration_source": "ios",
+      "created_at": "2026-08-20 07:44:58",
+      "last_active_at": "2026-09-13 00:23:08",
+      "status": "normal",
+      "total_orders": 1,
+      "total_kwh": 40.67,
+      "total_amount": 61.01,
+      "orders_30d": 1,
+      "kwh_30d": 40.67,
+      "amount_30d": 61.01,
+      "frequency_key": "low",
+      "value_rank": 7208,
+      "value_key": "medium",
+      "preferred_period": "晚间",
+      "preferred_pile_type": "慢充",
+      "phone_masked": "137****0000",
+      "frequency_level": "低频",
+      "value_level": "中价值"
+    },
+    {
+      "user_id": 100002,
+      "nickname": "用户0002",
+      "gender": "female",
+      "age_group": "35_44",
+      "city": "杭州",
+      "vehicle_type": "sedan",
+      "registration_source": "android",
+      "created_at": "2026-08-15 02:37:35",
+      "last_active_at": "2026-09-11 08:50:56",
+      "status": "normal",
+      "total_orders": 8,
+      "total_kwh": 236.57,
+      "total_amount": 341.21,
+      "orders_30d": 8,
+      "kwh_30d": 236.57,
+      "amount_30d": 341.21,
+      "frequency_key": "high",
+      "value_rank": 1902,
+      "value_key": "high",
+      "preferred_period": "晚间",
+      "preferred_pile_type": "混合",
+      "phone_masked": "137****0001",
+      "frequency_level": "高频",
+      "value_level": "高价值"
+    },
+    {
+      "user_id": 100003,
+      "nickname": "用户0003",
+      "gender": "female",
+      "age_group": "35_44",
+      "city": "杭州",
+      "vehicle_type": "sedan",
+      "registration_source": "ios",
+      "created_at": "2026-07-27 07:43:42",
+      "last_active_at": "2026-07-27 19:45:33",
+      "status": "normal",
+      "total_orders": 1,
+      "total_kwh": 42.2,
+      "total_amount": 63.3,
+      "orders_30d": 0,
+      "kwh_30d": 0.0,
+      "amount_30d": 0.0,
+      "frequency_key": "inactive",
+      "value_rank": 8211,
+      "value_key": "low",
+      "preferred_period": "晚间",
+      "preferred_pile_type": "快充",
+      "phone_masked": "137****0002",
+      "frequency_level": "沉默",
+      "value_level": "低价值"
+    },
+    {
+      "user_id": 100004,
+      "nickname": "用户0004",
+      "gender": "male",
+      "age_group": "45_54",
+      "city": "其他",
+      "vehicle_type": "sedan",
+      "registration_source": "ios",
+      "created_at": "2026-09-01 10:49:00",
+      "last_active_at": "2026-09-09 10:28:43",
+      "status": "normal",
+      "total_orders": 2,
+      "total_kwh": 84.85,
+      "total_amount": 127.28,
+      "orders_30d": 2,
+      "kwh_30d": 84.85,
+      "amount_30d": 127.28,
+      "frequency_key": "low",
+      "value_rank": 3942,
+      "value_key": "medium",
+      "preferred_period": "上午",
+      "preferred_pile_type": "混合",
+      "phone_masked": "137****0003",
+      "frequency_level": "低频",
+      "value_level": "中价值"
+    },
+    {
+      "user_id": 100005,
+      "nickname": "用户0005",
+      "gender": "male",
+      "age_group": "25_34",
+      "city": "上海",
+      "vehicle_type": "sedan",
+      "registration_source": "android",
+      "created_at": "2026-08-23 18:42:17",
+      "last_active_at": "2026-09-12 00:21:32",
+      "status": "normal",
+      "total_orders": 6,
+      "total_kwh": 240.25,
+      "total_amount": 357.22,
+      "orders_30d": 6,
+      "kwh_30d": 240.25,
+      "amount_30d": 357.22,
+      "frequency_key": "medium",
+      "value_rank": 1664,
+      "value_key": "high",
+      "preferred_period": "上午",
+      "preferred_pile_type": "混合",
+      "phone_masked": "137****0004",
+      "frequency_level": "中频",
+      "value_level": "高价值"
+    },
+    {
+      "user_id": 100006,
+      "nickname": "用户0006",
+      "gender": "male",
+      "age_group": "35_44",
+      "city": "北京",
+      "vehicle_type": "suv",
+      "registration_source": "android",
+      "created_at": "2026-07-24 01:37:42",
+      "last_active_at": "2026-09-11 08:47:12",
+      "status": "normal",
+      "total_orders": 4,
+      "total_kwh": 143.68,
+      "total_amount": 180.81,
+      "orders_30d": 3,
+      "kwh_30d": 113.82,
+      "amount_30d": 147.96,
+      "frequency_key": "medium",
+      "value_rank": 3176,
+      "value_key": "medium",
+      "preferred_period": "上午",
+      "preferred_pile_type": "混合",
+      "phone_masked": "137****0005",
+      "frequency_level": "中频",
+      "value_level": "中价值"
+    },
+    {
+      "user_id": 100007,
+      "nickname": "用户0007",
+      "gender": "unknown",
+      "age_group": "35_44",
+      "city": "北京",
+      "vehicle_type": "sedan",
+      "registration_source": "ios",
+      "created_at": "2026-08-23 11:49:04",
+      "last_active_at": "2026-09-02 17:53:17",
+      "status": "normal",
+      "total_orders": 3,
+      "total_kwh": 122.62,
+      "total_amount": 134.89,
+      "orders_30d": 3,
+      "kwh_30d": 122.62,
+      "amount_30d": 134.89,
+      "frequency_key": "medium",
+      "value_rank": 3626,
+      "value_key": "medium",
+      "preferred_period": "下午",
+      "preferred_pile_type": "慢充",
+      "phone_masked": "137****0006",
+      "frequency_level": "中频",
+      "value_level": "中价值"
+    },
+    {
+      "user_id": 100008,
+      "nickname": "用户0008",
+      "gender": "male",
+      "age_group": "45_54",
+      "city": "深圳",
+      "vehicle_type": "suv",
+      "registration_source": "ios",
+      "created_at": "2026-08-15 14:24:42",
+      "last_active_at": "2026-09-10 19:17:09",
+      "status": "normal",
+      "total_orders": 1,
+      "total_kwh": 36.15,
+      "total_amount": 57.84,
+      "orders_30d": 1,
+      "kwh_30d": 36.15,
+      "amount_30d": 57.84,
+      "frequency_key": "low",
+      "value_rank": 7385,
+      "value_key": "medium",
+      "preferred_period": "晚间",
+      "preferred_pile_type": "快充",
+      "phone_masked": "137****0007",
+      "frequency_level": "低频",
+      "value_level": "中价值"
+    },
+    {
+      "user_id": 100009,
+      "nickname": "用户0009",
+      "gender": "female",
+      "age_group": "under_25",
+      "city": "广州",
+      "vehicle_type": "suv",
+      "registration_source": "android",
+      "created_at": "2026-08-25 01:00:36",
+      "last_active_at": "2026-09-12 16:43:05",
+      "status": "normal",
+      "total_orders": 2,
+      "total_kwh": 60.18,
+      "total_amount": 78.24,
+      "orders_30d": 2,
+      "kwh_30d": 60.18,
+      "amount_30d": 78.24,
+      "frequency_key": "low",
+      "value_rank": 6330,
+      "value_key": "medium",
+      "preferred_period": "下午",
+      "preferred_pile_type": "混合",
+      "phone_masked": "137****0008",
+      "frequency_level": "低频",
+      "value_level": "中价值"
+    },
+    {
+      "user_id": 100010,
+      "nickname": "用户0010",
+      "gender": "male",
+      "age_group": "45_54",
+      "city": "北京",
+      "vehicle_type": "unknown",
+      "registration_source": "ios",
+      "created_at": "2026-08-24 00:35:00",
+      "last_active_at": "2026-08-30 16:59:36",
+      "status": "normal",
+      "total_orders": 1,
+      "total_kwh": 42.51,
+      "total_amount": 63.77,
+      "orders_30d": 1,
+      "kwh_30d": 42.51,
+      "amount_30d": 63.77,
+      "frequency_key": "low",
+      "value_rank": 7057,
+      "value_key": "medium",
+      "preferred_period": "下午",
+      "preferred_pile_type": "快充",
+      "phone_masked": "137****0009",
+      "frequency_level": "低频",
+      "value_level": "中价值"
+    }
+  ],
+  "user_total": 11247,
+  "insights": [
+    {
+      "icon": "⚠",
+      "title": "建议开展沉默用户唤醒",
+      "content": "可针对近30天未充电用户发放限时优惠券。",
+      "reason": "沉默用户占比27.0%",
+      "priority": 1
+    },
+    {
+      "icon": "★",
+      "title": "加强高价值用户维护",
+      "content": "为高价值用户提供预约及积分权益。",
+      "reason": "高价值用户贡献消费额51.8%",
+      "priority": 2
+    }
+  ]
+}

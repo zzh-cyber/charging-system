@@ -6,8 +6,13 @@ out/
 
 # Spark coalesce 临时目录（保留 qa/report.json 与 dwd csv）
 bigdata/work/**/_spark/
-# ADS 是流水线运行产物；大屏通过 DASHBOARD_DATA_FILE 读取，不随前端提交。
-bigdata/work/ads/
+# ADS 产物默认忽略。用 ads/* 才能再放行两份大屏快照。
+bigdata/work/ads/*
+!bigdata/work/ads/kpis/
+!bigdata/work/ads/kpis/dashboard.json
+!bigdata/work/ads/user_groups/
+!bigdata/work/ads/user_groups/dashboard.json
+!bigdata/work/ads/user_groups/users.json
 dashboard/ads_snapshot.json
 dashboard.log
 
