@@ -31,10 +31,12 @@ createApp({
     ],
     now: "",
     error: "",
+    loading: false, faultModal: false,
+    drawer: "", selectedStation: null, selectedFault: null, eventTab: "alerts", note: "",
     charts: {},
     kpiOrder: [
       "today_kwh",
-      "today_revenue",
+      "today_revenue", "order_count",
       "total_kwh",
       "total_revenue",
       "active_stations",
@@ -42,7 +44,6 @@ createApp({
       "busy_piles",
       "fault_piles",
       "peak_hour",
-      "alert_count",
     ],
     qualityOrder: [
       "ods_rows",
@@ -62,9 +63,9 @@ createApp({
       busy_piles: "在用桩",
       fault_piles: "故障桩",
       peak_hour: "高峰小时",
-      alert_count: "预警数",
+      alert_count: "预警数", order_count: "有效订单",
     },
-    kpiUnits: { today_kwh: "kWh", today_revenue: "元", total_kwh: "kWh", total_revenue: "元", active_stations: "个", idle_piles: "个", busy_piles: "个", fault_piles: "个" },
+    kpiUnits: { today_kwh: "kWh", today_revenue: "元", order_count: "单", total_kwh: "kWh", total_revenue: "元", active_stations: "个", idle_piles: "个", busy_piles: "个", fault_piles: "个" },
     qualityLabels: {
       ods_rows: "ODS 总行数",
       null_start_time: "空 start_time",
@@ -90,12 +91,13 @@ createApp({
       const src = this.data_source || "unknown";
       const stamp = this.latest_data_time || this.generated_at || "";
       let delay = "";
+      if (this.delay_hours != null) delay = "延迟 " + Number(this.delay_hours).toFixed(1) + " 小时";
       let hours = null;
       if (stamp) {
         const t = Date.parse(String(stamp).replace(" ", "T"));
         if (!Number.isNaN(t)) {
           hours = Math.max(0, (Date.now() - t) / 3600000);
-          delay = hours < 1 ? "延迟 " + Math.round(hours * 60) + " 分钟" : "延迟 " + hours.toFixed(1) + " 小时";
+          if (this.delay_hours == null) delay = hours < 1 ? "延迟 " + Math.round(hours * 60) + " 分钟" : "延迟 " + hours.toFixed(1) + " 小时";
         }
       }
       let status = this.freshness_status;
@@ -111,6 +113,10 @@ createApp({
       if (!Number.isNaN(t) && Date.now() - t > 24 * 3600000) return "stale";
       return "ok";
     },
+    averageOrderValue() { const n=Number(this.kpis.order_count||0), r=Number(this.kpis.today_revenue||0); return n ? (r/n).toFixed(2) : "--"; },
+    weekdayWeekendRatio() { const w=Number(this.weekday_weekend.weekday_kwh||0), e=Number(this.weekday_weekend.weekend_kwh||0); return w+e ? (w/(w+e)*100).toFixed(1)+"% / "+(e/(w+e)*100).toFixed(1)+"%" : "--"; },
+    eventTabs() { return [{key:"alerts",label:"拥堵预警",items:this.alerts},{key:"device_warnings",label:"设备告警",items:this.device_warnings},{key:"overstay_records",label:"超时占位",items:this.overstay_records},{key:"active_tickets",label:"工单",items:this.active_tickets}]; },
+    activeEvents() { return (this.eventTabs.find(x=>x.key===this.eventTab)||{}).items||[]; },
   },
   methods: {
     targetPct(actual, target) {
@@ -168,7 +174,20 @@ createApp({
       const value = this.stationUtil(s);
       return value >= 80 ? "high" : value >= 50 ? "mid" : "low";
     },
+    stationPower(s) { return Number(s.power_kw ?? s.load_kw ?? s.forecast?.h1?.kwh ?? 0).toFixed(1); },
+    severity(a) { return String(a.severity || '').toLowerCase().includes('high') || a.severity === '红' ? 'red' : String(a.severity || '').toLowerCase().includes('medium') || a.severity === '橙' ? 'orange' : 'yellow'; },
+    severityLabel(a) { return {red:'红色',orange:'橙色',yellow:'黄色'}[this.severity(a)]; },
+    showStation(s) { if (!s || String(s.station_id||'').startsWith('fallback-')) return; this.selectedStation=s; this.drawer='station'; },
+    showFault(f) { this.selectedFault=f; this.drawer='fault'; },
+    showQuality() { this.drawer='quality'; },
+    closeDrawer() { this.drawer=''; },
+    display(v,unit='') { return v===undefined||v===null||v===''?'--':Number.isFinite(Number(v))?Number(v).toLocaleString('zh-CN',{maximumFractionDigits:2})+unit:String(v); },
+    faultDuration(f) { const t=Date.parse(String((f||{}).fault_time||'').replace(' ','T')); if(Number.isNaN(t))return '--'; const mins=Math.max(0,Math.floor((Date.now()-t)/60000)); return mins<60?mins+' 分钟':(mins/60).toFixed(1)+' 小时'; },
+    statusLabel(status) { return ({fault:'故障',idle:'空闲',busy:'在用',offline:'离线'})[status] || status || '--'; },
+    timeOnly(value) { const match=String(value||'').match(/(?:T|\s)(\d{2}:\d{2})/); return match?match[1]:'--'; },
     async refresh() {
+      if (this.loading) return;
+      this.loading = true;
       try {
         const r = await fetch("/api/dashboard?period=" + this.period);
         if (!r.ok) throw Error("HTTP " + r.status);
@@ -198,13 +217,15 @@ createApp({
         this.data_source = data.data_source || "";
         this.latest_data_time = data.latest_data_time || data.generated_at || "";
         this.freshness_status = data.freshness_status || "";
+        this.delay_hours = data.delay_hours;
+        this.note = data.note || "";
         this.faults = (data.faults || []).filter((f) => !f.summary);
         this.error = "";
         await nextTick();
         this.draw();
       } catch (e) {
         this.error = "数据加载失败：" + e.message;
-      }
+      } finally { this.loading = false; }
     },
     draw() {
       const line = (ref, x, series) => {
@@ -254,11 +275,10 @@ createApp({
             itemStyle: { color: "#ffae45" },
           });
         }
-        const warn = Number((this.load_today[0] || {}).warning_threshold_kw);
-        const maxKwh = Math.max(0, ...this.load_today.map((x) => Number(x.kwh) || 0));
-        const markLine = warn && maxKwh && warn <= maxKwh * 4
-          ? { silent: true, data: [{ yAxis: warn, name: "预警阈值", label: { formatter: "预警 {c} kW", color: "#ff826d" }, lineStyle: { color: "#ff6559", type: "dashed" } }] }
-          : undefined;
+        if (this.load_hour_avg.length && this.load_hour_avg.every(x => x.hour != null && x.kwh != null)) {
+          const averageByHour = new Map(this.load_hour_avg.map(x => [Number(x.hour), Number(x.kwh)]));
+          series.push({ name:"历史小时均值", type:"line", smooth:true, symbol:"none", data:this.load_today.map(x=>averageByHour.get(Number(x.hour))??null), lineStyle:{width:1,type:"dashed",opacity:.32,color:"#8fb1cc"}, itemStyle:{opacity:.32,color:"#7899b6"} });
+        }
         const c = (this.charts.load = echarts.init(this.$refs.load));
         c.setOption({
           textStyle: { color: "#7899b6" },
@@ -267,7 +287,7 @@ createApp({
           grid: { left: 48, right: 18, top: 28, bottom: 28 },
           xAxis: { type: "category", data: this.load_today.map((x) => x.hour + "时"), axisLine: { lineStyle: { color: "#244d70" } }, axisLabel: { color: "#6688a5" } },
           yAxis: { type: "value", splitLine: { lineStyle: { color: "rgba(62,130,180,.15)" } }, axisLabel: { color: "#6688a5" } },
-          series: series.map((s, i) => (i === 0 && markLine ? { ...s, markLine } : s)),
+          series,
         });
       }
       if (this.$refs.piles) {
@@ -301,6 +321,7 @@ createApp({
             },
           ],
         });
+        c.on("click", (p) => { const station=this.stations.slice(0,8)[p.dataIndex]; if(station)this.showStation(station); });
       }
       if (this.$refs.heatmap) {
         if (this.charts.heatmap) this.charts.heatmap.dispose();
@@ -311,7 +332,7 @@ createApp({
           const xs = Array.isArray(contract.x_axis) ? contract.x_axis : [];
           const ys = Array.isArray(contract.y_axis) ? contract.y_axis : [];
           const c = (this.charts.heatmap = echarts.init(this.$refs.heatmap));
-          c.setOption({ grid:{left:42,right:10,top:8,bottom:42}, xAxis:{type:"category",data:xs.map(x=>x+"时"),axisLabel:{color:"#6688a5"}}, yAxis:{type:"category",data:ys,axisLabel:{color:"#7899b6"}}, visualMap:{min:Number(contract.min_val)||0,max:Number(contract.max_val)||1,orient:"horizontal",left:"center",bottom:0,show:true,itemWidth:70,itemHeight:7,textStyle:{color:"#6688a5",fontSize:9},inRange:{color:["#10244a","#146fa4","#20d9d0","#ffd35a","#ff7048"]}}, series:[{type:"heatmap",data:source,itemStyle:{borderColor:"#0a1631",borderWidth:2,borderRadius:2}}]});
+          c.setOption({ grid:{left:42,right:10,top:8,bottom:28,containLabel:true}, xAxis:{type:"category",data:xs.map(x=>x+"时"),axisLabel:{color:"#6688a5",fontSize:9,interval:(index,value)=>Number(String(value).replace('时',''))%4!==0},axisTick:{show:false}}, yAxis:{type:"category",data:ys,axisLabel:{color:"#7899b6",fontSize:9},axisTick:{show:false}}, visualMap:{show:false,min:Number(contract.min_val)||0,max:Number(contract.max_val)||1,inRange:{color:["#10244a","#146fa4","#20d9d0","#ffd35a","#ff7048"]}}, series:[{type:"heatmap",data:source,itemStyle:{borderColor:"#0a1631",borderWidth:2,borderRadius:2}}]});
         } else {
         const source = this.load_hour_avg.length ? this.load_hour_avg : this.load_today;
         const dayNames = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
@@ -325,9 +346,9 @@ createApp({
         c.setOption({
           tooltip: { formatter: (p) => `${days[p.value[1]]} ${hours[p.value[0]]}时<br/>充电量：${p.value[2]} kWh` },
           grid: { left: 38, right: 10, top: 8, bottom: 42 },
-          xAxis: { type: "category", data: hours, axisLabel: { color: "#6688a5", interval: 3 }, axisLine: { lineStyle: { color: "#244d70" } } },
+          xAxis: { type: "category", data: hours, axisLabel: { color: "#6688a5", interval: (index,value)=>Number(value)%4!==0 }, axisLine: { lineStyle: { color: "#244d70" } } },
           yAxis: { type: "category", data: days.map((d) => dayNames[Number(d) - 1] || d), axisLabel: { color: "#7899b6" }, axisLine: { show: false }, axisTick: { show: false } },
-          visualMap: { min: 0, max, orient: "horizontal", left: "center", bottom: 0, itemWidth: 70, itemHeight: 7, text: ["高", "低"], textStyle: { color: "#6688a5", fontSize: 9 }, calculable: false, inRange: { color: ["#384c9e", "#287cff", "#22dce5", "#ffe36e"] } },
+          visualMap: { show: false, min: 0, max, inRange: { color: ["#384c9e", "#287cff", "#22dce5", "#ffe36e"] } },
           series: [{ type: "heatmap", data: points, label: { show: false }, itemStyle: { borderColor: "#081d39", borderWidth: 3, borderRadius: 2 } }],
         });
         }
@@ -338,6 +359,12 @@ createApp({
         const data = this.pile_types.map((x) => ({ name: x.type === "直流" ? "快充（直流）" : x.type === "交流" ? "慢充（交流）" : x.type, value: Number(x.busy || 0) + Number(x.idle || 0) }));
         const total = data.reduce((sum, x) => sum + x.value, 0);
         c.setOption({ color: ["#26dded", "#568eff", "#b28cff", "#72e2c3"], tooltip: { trigger: "item", formatter: "{b}<br/>{d}%（{c} 桩）" }, legend: { bottom: 0, icon: "circle", itemWidth: 7, itemHeight: 7, textStyle: { color: "#7899b6", fontSize: 11 } }, title: { text: String(total), subtext: "桩总数", left: "center", top: "30%", textStyle: { color: "#e7f8ff", fontSize: 22 }, subtextStyle: { color: "#7899b6", fontSize: 10 } }, series: [{ type: "pie", radius: ["48%", "72%"], center: ["50%", "43%"], startAngle: 90, avoidLabelOverlap: true, label: { show: false }, emphasis: { label: { show: true, color: "#e7f8ff", formatter: "{d}%" } }, data, itemStyle: { borderColor: "#081d39", borderWidth: 2 } }] });
+      }
+      if (this.$refs.regions) {
+        if (this.charts.regions) this.charts.regions.dispose();
+        const c = (this.charts.regions = echarts.init(this.$refs.regions));
+        const rows = [...(this.regions || [])].sort((a,b)=>Number(b.kwh||0)-Number(a.kwh||0)).slice(0, 6);
+        c.setOption({ grid:{left:72,right:74,top:5,bottom:8},xAxis:{type:"value",show:false},yAxis:{type:"category",inverse:true,data:rows.map(x=>x.city||x.region||"--"),axisLabel:{color:"#8fb2cc",fontSize:10,width:62,overflow:'truncate'},axisLine:{show:false},axisTick:{show:false}},tooltip:{trigger:"item",formatter:(p)=>{const r=rows[p.dataIndex]||{};return `${r.city||'--'}<br/>充电量：${this.display(r.kwh,' kWh')}<br/>营收：¥${this.display(r.amount)}<br/>收益：${this.display(r.yuan_per_kwh,' 元/kWh')}`}},series:[{type:"bar",data:rows.map(x=>Number(x.kwh||0)),barWidth:8,itemStyle:{color:{type:'linear',x:0,y:0,x2:1,y2:0,colorStops:[{offset:0,color:'#176dca'},{offset:1,color:'#2bd5e8'}]},borderRadius:4},label:{show:true,position:'right',distance:7,color:'#ffbd65',fontSize:9,formatter:(p)=>'¥'+Number(rows[p.dataIndex]?.amount||0).toLocaleString('zh-CN',{maximumFractionDigits:0})}}]});
       }
     },
     visibleStations() {
@@ -356,11 +383,19 @@ createApp({
       this.stations = copy;
       this.draw();
     },
+    enableDragScroll() {
+      [this.$refs.dispatchScroll, this.$refs.faultScroll].filter(Boolean).forEach((el) => {
+        let down = false, startY = 0, startTop = 0;
+        el.addEventListener('mousedown', (e) => { down = true; startY = e.clientY; startTop = el.scrollTop; el.classList.add('dragging'); e.preventDefault(); });
+        el.addEventListener('mousemove', (e) => { if (down) el.scrollTop = startTop - (e.clientY - startY); });
+        ['mouseup','mouseleave'].forEach((name) => el.addEventListener(name, () => { down = false; el.classList.remove('dragging'); }));
+      });
+    },
   },
   mounted() {
     const tick = () => { this.now = new Date().toLocaleString("zh-CN", { hour12: false }); };
     tick(); this.clockTimer = setInterval(tick, 1000);
     let resizeTimer; window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => Object.values(this.charts).forEach((c) => c && c.resize()), 120); });
-    this.refresh();
+    this.refresh().then(() => this.$nextTick(() => this.enableDragScroll()));
   },
 }).mount("#app");
