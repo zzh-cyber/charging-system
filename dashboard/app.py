@@ -113,7 +113,10 @@ def mock_data() -> dict:
         # legacy chart series for backwards compatibility.
         "load_hour_avg": [{"hour": h, "kwh": round(40 + (h % 12) * 8.5, 2)} for h in range(24)],
         "charge_heatmap": {"x_axis": list(range(0, 24, 2)), "y_axis": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"], "series_data": [[x, y, round(20 + ((x + y * 3) % 12) * 6.5, 2)] for y in range(7) for x in range(12)], "min_val": 0, "max_val": 100},
-        "summary": {"avg_turnover_rate": 3.2, "avg_daily_kwh_per_pile": 42.6, "avg_daily_revenue_per_pile": 63.8},
+        # No reliable source/defined business formula exists for the optional
+        # turnover and per-pile summary metrics; keep the payload empty rather
+        # than publishing fabricated demo values.
+        "summary": {},
         "station_rank": [], "overstay_records": [], "device_warnings": [], "active_tickets": [],
         "weekday_weekend": {
             "weekday_kwh": 423647.05,
