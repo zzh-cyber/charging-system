@@ -43,7 +43,7 @@
         <div ref="trend" class="chart"></div>
       </section>
       <section class="panel behavior-panel">
-        <h2>不同用户群体行为对比 <nav><button :class="{active:dimension==='frequency'}" @click="dimension='frequency';drawBehavior()">按频率</button><button :class="{active:dimension==='value'}" @click="dimension='value';drawBehavior()">按价值</button></nav></h2>
+        <h2>不同用户群体行为对比 <nav><button class="active" disabled>按频率</button></nav></h2>
         <div ref="behavior" class="chart"></div>
       </section>
       <section class="panel users-panel">
