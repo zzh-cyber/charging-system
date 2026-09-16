@@ -118,6 +118,9 @@ createApp({
     eventTabs() { return [{key:"alerts",label:"拥堵预警",items:this.alerts},{key:"device_warnings",label:"设备告警",items:this.device_warnings},{key:"overstay_records",label:"超时占位",items:this.overstay_records},{key:"active_tickets",label:"工单",items:this.active_tickets}]; },
     activeEvents() { return (this.eventTabs.find(x=>x.key===this.eventTab)||{}).items||[]; },
   },
+  watch: {
+    eventTab() { this.$nextTick(() => { const el = document.querySelector('.event-body'); if (el) el.scrollTop = 0; }); },
+  },
   methods: {
     targetPct(actual, target) {
       if (actual === undefined || actual === null || target === undefined || target === null || Number(target) === 0) return null;
@@ -149,6 +152,28 @@ createApp({
       const sign = d > 0 ? "+" : "";
       const unit = key === "today_revenue" ? "元" : "kWh";
       return (this.period === "1" ? "较昨日 " : "较上期 ") + sign + d.toFixed(1) + " " + unit;
+    },
+    trendData(key) {
+      const previousKeys = { today_kwh: "yesterday_kwh", today_revenue: "yesterday_revenue" };
+      const previousKey = previousKeys[key];
+      if (!previousKey || this.period !== "1") return null;
+      const currentRaw = this.kpis[key];
+      const previousRaw = this.kpis[previousKey];
+      const current = currentRaw === null || currentRaw === undefined || currentRaw === "" ? NaN : Number(currentRaw);
+      const previous = previousRaw === null || previousRaw === undefined || previousRaw === "" ? NaN : Number(previousRaw);
+      const previousLabel = key === "today_revenue"
+        ? "昨日营收：" + (Number.isFinite(previous) ? "¥" + previous.toLocaleString("zh-CN", { maximumFractionDigits: 2 }) : "--")
+        : "昨日充电量：" + (Number.isFinite(previous) ? previous.toLocaleString("zh-CN", { maximumFractionDigits: 2 }) + " kWh" : "--");
+      if (!Number.isFinite(current) || !Number.isFinite(previous) || previous === 0)
+        return { text: "--", tone: "flat", title: "较昨日 --\n" + previousLabel };
+      const rate = (current - previous) / previous * 100;
+      const arrow = rate > 0 ? "↑" : rate < 0 ? "↓" : "—";
+      const sign = rate > 0 ? "+" : "";
+      return {
+        text: `${arrow} ${Math.abs(rate).toFixed(1)}%`,
+        tone: rate > 0 ? "up" : rate < 0 ? "down" : "flat",
+        title: `较昨日 ${sign}${rate.toFixed(1)}%\n${previousLabel}`,
+      };
     },
     format(v, k) {
       if (v === undefined || v === null || v === "") return "--";
@@ -297,11 +322,25 @@ createApp({
         const c = (this.charts.piles = echarts.init(this.$refs.piles));
         c.setOption({ tooltip: { trigger: "item" }, legend: { bottom: 0, textStyle: { color: "#7899b6" } }, title: { text: String(total), subtext: "充电桩总数", left: "center", top: "32%", textStyle: { color: "#dcf6ff", fontSize: 24 }, subtextStyle: { color: "#6688a5" } }, series: [{ type: "pie", radius: ["55%", "75%"], center: ["50%", "45%"], label: { show: false }, data: [{ value: values[0], name: "空闲", itemStyle: { color: "#13dabb" } }, { value: values[1], name: "在用", itemStyle: { color: "#438cff" } }, { value: values[2], name: "故障", itemStyle: { color: "#ff6559" } }] }] });
       }
-      line(
-        "forecast",
-        this.load_forecast_24h.map((x) => "+" + (x.offset != null ? x.offset : x.hour) + "h"),
-        this.load_forecast_24h.map((x) => x.kwh)
-      );
+      if (this.$refs.forecast) {
+        if (this.charts.forecast) this.charts.forecast.dispose();
+        const rows = this.load_forecast_24h || [];
+        const labels = rows.map((x) => "+" + (x.offset != null ? x.offset : x.hour) + "h");
+        const values = rows.map((x) => Number(x.kwh));
+        const flagged = rows.map((x,index) => (x.is_peak || x.peak_flag || x.warning || String(x.congestion || "").toLowerCase() === "high") ? index : -1).filter((index) => index >= 0);
+        let peakIndex = flagged.reduce((best,index) => best < 0 || values[index] > values[best] ? index : best, -1);
+        if (peakIndex < 0 && values.length) peakIndex = values.reduce((best, value, index) => Number.isFinite(value) && (best < 0 || value > values[best]) ? index : best, -1);
+        const peak = peakIndex >= 0 ? { coord: [labels[peakIndex], values[peakIndex]], value: values[peakIndex] } : null;
+        const c = (this.charts.forecast = echarts.init(this.$refs.forecast));
+        c.setOption({
+          textStyle: { color: "#7899b6" },
+          tooltip: { trigger: "axis", formatter: (items) => { const p=items[0], flagged=p&&p.dataIndex===peakIndex; return p ? `${p.axisValue}<br/>预测负荷：${p.value} kWh${flagged?'<br/><b style="color:#ff7568">峰值预警：是</b>':''}` : ''; } },
+          grid: { left: 48, right: 18, top: 42, bottom: 28 },
+          xAxis: { type: "category", data: labels, axisLine: { lineStyle: { color: "#244d70" } }, axisLabel: { color: "#6688a5", interval: 3 } },
+          yAxis: { type: "value", splitLine: { lineStyle: { color: "rgba(62,130,180,.15)" } }, axisLabel: { color: "#6688a5" } },
+          series: [{ type:"line", smooth:true, data:values, symbolSize:4, lineStyle:{width:2,color:"#22d7ff"}, areaStyle:{color:{type:"linear",x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:"rgba(25,190,255,.55)"},{offset:1,color:"rgba(25,100,255,.02)"}]}}, itemStyle:{color:"#42d9ff"}, markPoint:peak?{symbol:"circle",symbolSize:13,itemStyle:{color:"#ff6257",shadowBlur:14,shadowColor:"#ff493d"},label:{show:true,formatter:"高峰预警",position:"top",distance:7,color:"#fff",fontSize:10,padding:[3,6],backgroundColor:"rgba(207,55,48,.9)",borderRadius:3},data:[peak]}:undefined }]
+        });
+      }
       if (this.$refs.stations) {
         if (this.charts.stations) this.charts.stations.dispose();
         const c = (this.charts.stations = echarts.init(this.$refs.stations));
@@ -332,7 +371,7 @@ createApp({
           const xs = Array.isArray(contract.x_axis) ? contract.x_axis : [];
           const ys = Array.isArray(contract.y_axis) ? contract.y_axis : [];
           const c = (this.charts.heatmap = echarts.init(this.$refs.heatmap));
-          c.setOption({ grid:{left:42,right:10,top:8,bottom:28,containLabel:true}, xAxis:{type:"category",data:xs.map(x=>x+"时"),axisLabel:{color:"#6688a5",fontSize:9,interval:(index,value)=>Number(String(value).replace('时',''))%4!==0},axisTick:{show:false}}, yAxis:{type:"category",data:ys,axisLabel:{color:"#7899b6",fontSize:9},axisTick:{show:false}}, visualMap:{show:false,min:Number(contract.min_val)||0,max:Number(contract.max_val)||1,inRange:{color:["#10244a","#146fa4","#20d9d0","#ffd35a","#ff7048"]}}, series:[{type:"heatmap",data:source,itemStyle:{borderColor:"#0a1631",borderWidth:2,borderRadius:2}}]});
+          c.setOption({ grid:{left:38,right:6,top:8,bottom:32,containLabel:true}, xAxis:{type:"category",data:xs.map(x=>x+"时"),axisLabel:{color:"#6688a5",fontSize:8,interval:(index,value)=>Number(String(value).replace('时',''))%4===0},axisTick:{show:false}}, yAxis:{type:"category",data:ys,axisLabel:{color:"#7899b6",fontSize:8},axisTick:{show:false}}, visualMap:{show:false,min:Number(contract.min_val)||0,max:Number(contract.max_val)||1,inRange:{color:["#10244a","#146fa4","#20d9d0","#ffd35a","#ff7048"]}}, series:[{type:"heatmap",data:source,itemStyle:{borderColor:"#0a1631",borderWidth:2,borderRadius:2}}]});
         } else {
         const source = this.load_hour_avg.length ? this.load_hour_avg : this.load_today;
         const dayNames = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
@@ -346,7 +385,7 @@ createApp({
         c.setOption({
           tooltip: { formatter: (p) => `${days[p.value[1]]} ${hours[p.value[0]]}时<br/>充电量：${p.value[2]} kWh` },
           grid: { left: 38, right: 10, top: 8, bottom: 42 },
-          xAxis: { type: "category", data: hours, axisLabel: { color: "#6688a5", interval: (index,value)=>Number(value)%4!==0 }, axisLine: { lineStyle: { color: "#244d70" } } },
+          xAxis: { type: "category", data: hours, axisLabel: { color: "#6688a5", fontSize: 8, interval: (index,value)=>Number(value)%4===0 }, axisLine: { lineStyle: { color: "#244d70" } } },
           yAxis: { type: "category", data: days.map((d) => dayNames[Number(d) - 1] || d), axisLabel: { color: "#7899b6" }, axisLine: { show: false }, axisTick: { show: false } },
           visualMap: { show: false, min: 0, max, inRange: { color: ["#384c9e", "#287cff", "#22dce5", "#ffe36e"] } },
           series: [{ type: "heatmap", data: points, label: { show: false }, itemStyle: { borderColor: "#081d39", borderWidth: 3, borderRadius: 2 } }],
@@ -358,7 +397,7 @@ createApp({
         const c = (this.charts.mix = echarts.init(this.$refs.mix));
         const data = this.pile_types.map((x) => ({ name: x.type === "直流" ? "快充（直流）" : x.type === "交流" ? "慢充（交流）" : x.type, value: Number(x.busy || 0) + Number(x.idle || 0) }));
         const total = data.reduce((sum, x) => sum + x.value, 0);
-        c.setOption({ color: ["#26dded", "#568eff", "#b28cff", "#72e2c3"], tooltip: { trigger: "item", formatter: "{b}<br/>{d}%（{c} 桩）" }, legend: { bottom: 0, icon: "circle", itemWidth: 7, itemHeight: 7, textStyle: { color: "#7899b6", fontSize: 11 } }, title: { text: String(total), subtext: "桩总数", left: "center", top: "30%", textStyle: { color: "#e7f8ff", fontSize: 22 }, subtextStyle: { color: "#7899b6", fontSize: 10 } }, series: [{ type: "pie", radius: ["48%", "72%"], center: ["50%", "43%"], startAngle: 90, avoidLabelOverlap: true, label: { show: false }, emphasis: { label: { show: true, color: "#e7f8ff", formatter: "{d}%" } }, data, itemStyle: { borderColor: "#081d39", borderWidth: 2 } }] });
+        c.setOption({ color: ["#26dded", "#568eff", "#b28cff", "#72e2c3"], tooltip: { trigger: "item", formatter: "{b}<br/>{d}%（{c} 桩）" }, legend: { bottom: 0, left:"center", icon: "circle", itemWidth: 6, itemHeight: 6, itemGap:5, textStyle: { color: "#7899b6", fontSize: 9 } }, title: { text: String(total), subtext: "桩总数", left: "center", top: "29%", textStyle: { color: "#e7f8ff", fontSize: 17 }, subtextStyle: { color: "#7899b6", fontSize: 9 } }, series: [{ type: "pie", radius: ["43%", "64%"], center: ["52%", "42%"], startAngle: 90, avoidLabelOverlap: true, label: { show: false }, emphasis: { label: { show: true, color: "#e7f8ff", formatter: "{d}%" } }, data, itemStyle: { borderColor: "#081d39", borderWidth: 2 } }] });
       }
       if (this.$refs.regions) {
         if (this.charts.regions) this.charts.regions.dispose();
@@ -392,10 +431,10 @@ createApp({
       });
     },
   },
-  mounted() {
+    mounted() {
     const tick = () => { this.now = new Date().toLocaleString("zh-CN", { hour12: false }); };
     tick(); this.clockTimer = setInterval(tick, 1000);
     let resizeTimer; window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => Object.values(this.charts).forEach((c) => c && c.resize()), 120); });
-    this.refresh().then(() => this.$nextTick(() => this.enableDragScroll()));
+    this.refresh().then(() => this.$nextTick(() => { this.enableDragScroll(); const el = document.querySelector('.event-body'); if (el) el.scrollTop = 0; }));
   },
 }).mount("#app");
