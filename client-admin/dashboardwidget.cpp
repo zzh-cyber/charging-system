@@ -1,51 +1,355 @@
 #include "dashboardwidget.h"
+
 #include "netclient.h"
+#include "protocol.h"
+
 #include <QtCharts/QChart>
 #include <QtCharts/QChartView>
+#include <QtCharts/QDateTimeAxis>
 #include <QtCharts/QLineSeries>
 #include <QtCharts/QValueAxis>
-#include <QtWidgets>
-#include <QJsonDocument>
-#include <QNetworkAccessManager>
-#include <QNetworkReply>
-#include <QNetworkRequest>
-#include <QUrlQuery>
+
+#include <QButtonGroup>
+#include <QCoreApplication>
+#include <QDate>
+#include <QDateTime>
+#include <QEventLoop>
+#include <QFrame>
+#include <QHBoxLayout>
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QLabel>
+#include <QLocale>
+#include <QMessageBox>
+#include <QPainter>
+#include <QPushButton>
+#include <QRadioButton>
+#include <QTime>
+#include <QToolTip>
+#include <QVBoxLayout>
+
 #include <algorithm>
 #include <cmath>
 
-namespace {
-QString val(const QJsonObject&o,const QString&k,const QString&fallback="--") { const auto v=o.value(k); if(v.isString()&&!v.toString().isEmpty())return v.toString(); if(v.isDouble())return QString::number(v.toDouble()); return fallback; }
-QString pct(double n){return QString::number(n,'f',1)+"%";}
-QString goal(double actual,const QJsonValue&t){return t.isDouble()&&t.toDouble()>0?QString("完成 %1").arg(pct(actual*100/t.toDouble())):QStringLiteral("上期不足");}
-QString name(const QJsonObject&o,const char*a,const char*b){QString s=o.value(a).toString();return s.isEmpty()?o.value(b).toString("--"):s;}
+DashboardWidget::DashboardWidget(NetClient *netClient, QWidget *parent)
+    : QWidget(parent),
+      m_net(netClient),
+      m_todayRevenueLabel(nullptr),
+      m_monthRevenueLabel(nullptr),
+      m_totalRevenueLabel(nullptr),
+      m_lastUpdateLabel(nullptr),
+      m_loadingLabel(nullptr),
+      m_refreshButton(nullptr),
+      m_sevenDaysButton(nullptr),
+      m_thirtyDaysButton(nullptr),
+      m_chart(nullptr),
+      m_chartView(nullptr),
+      m_series(nullptr),
+      m_dateAxis(nullptr),
+      m_valueAxis(nullptr),
+      m_loading(false),
+      m_currentDays(7)
+{
+    initUi();
+    refreshData();
 }
 
-DashboardWidget::DashboardWidget(NetClient*n,QWidget*p):QWidget(p),m_net(n),m_http(new QNetworkAccessManager(this)),m_targetLabel(nullptr),m_stationLabel(nullptr),m_dispatchLabel(nullptr),m_alertLabel(nullptr),m_faultLabel(nullptr),m_structureLabel(nullptr),m_qualityLabel(nullptr),m_lastUpdateLabel(nullptr),m_loadingLabel(nullptr),m_refreshButton(nullptr),m_todayButton(nullptr),m_sevenDaysButton(nullptr),m_thirtyDaysButton(nullptr),m_chart(nullptr),m_chartView(nullptr),m_currentSeries(nullptr),m_previousSeries(nullptr),m_forecastSeries(nullptr),m_capacitySeries(nullptr),m_thresholdSeries(nullptr),m_hourAxis(nullptr),m_valueAxis(nullptr),m_loading(false),m_currentDays(1){std::fill(std::begin(m_kpiLabels),std::end(m_kpiLabels),nullptr);initUi();connect(m_http,&QNetworkAccessManager::finished,this,&DashboardWidget::onReplyFinished);refreshData();}
+void DashboardWidget::initUi()
+{
+    setObjectName(QStringLiteral("dashboardPage"));
+    auto *mainLayout = new QVBoxLayout(this);
+    mainLayout->setContentsMargins(26, 18, 26, 24);
+    mainLayout->setSpacing(16);
 
-QWidget*DashboardWidget::createKpiCard(const QString&t,const QString&d,QLabel**v,const char*tone){auto*f=new QFrame(this);f->setObjectName("kpiCard");f->setProperty("tone",tone);f->setMinimumHeight(110);auto*l=new QVBoxLayout(f);l->setContentsMargins(18,13,18,13);auto*a=new QLabel(t,f);a->setObjectName("kpiTitle");*v=new QLabel("--",f);(*v)->setObjectName("kpiValue");(*v)->setWordWrap(true);auto*b=new QLabel(d,f);b->setObjectName("kpiDescription");l->addWidget(a);l->addStretch();l->addWidget(*v);l->addWidget(b);return f;}
-QWidget*DashboardWidget::createPanel(const QString&t,QLabel**out){auto*f=new QFrame(this);f->setObjectName("dashboardPanel");f->setMinimumHeight(180);auto*l=new QVBoxLayout(f);l->setContentsMargins(18,15,18,15);auto*h=new QLabel(t,f);h->setObjectName("dashboardPanelTitle");*out=new QLabel("等待 ADS 数据…",f);(*out)->setObjectName("dashboardPanelText");(*out)->setWordWrap(true);(*out)->setTextInteractionFlags(Qt::TextSelectableByMouse);l->addWidget(h);l->addWidget(*out,1);return f;}
+    auto *toolbar = new QHBoxLayout;
+    auto *title = new QLabel(QStringLiteral("数据总览 / 销售业绩"), this);
+    title->setObjectName(QStringLiteral("dashboardHeading"));
+    m_loadingLabel = new QLabel(this);
+    m_loadingLabel->setObjectName(QStringLiteral("dashboardLoading"));
+    m_refreshButton = new QPushButton(QStringLiteral("刷新数据"), this);
+    m_refreshButton->setObjectName(QStringLiteral("dashboardRefresh"));
+    m_lastUpdateLabel = new QLabel(QStringLiteral("最后更新: --:--:--"), this);
+    m_lastUpdateLabel->setObjectName(QStringLiteral("dashboardUpdate"));
+    toolbar->addWidget(title);
+    toolbar->addStretch();
+    toolbar->addWidget(m_loadingLabel);
+    toolbar->addWidget(m_refreshButton);
+    toolbar->addWidget(m_lastUpdateLabel);
+    mainLayout->addLayout(toolbar);
 
-void DashboardWidget::initUi(){setObjectName("dashboardPage");auto*root=new QVBoxLayout(this);root->setContentsMargins(0,0,0,0);auto*scroll=new QScrollArea(this);scroll->setObjectName("dashboardScroll");scroll->setWidgetResizable(true);auto*content=new QWidget;content->setObjectName("dashboardContent");auto*main=new QVBoxLayout(content);main->setContentsMargins(26,18,26,24);main->setSpacing(14);
- auto*bar=new QHBoxLayout;auto*title=new QLabel("运营数据驾驶舱",content);title->setObjectName("dashboardHeading");m_loadingLabel=new QLabel(content);m_loadingLabel->setObjectName("dashboardLoading");m_refreshButton=new QPushButton("刷新数据",content);m_refreshButton->setObjectName("dashboardRefresh");m_lastUpdateLabel=new QLabel("ADS 数据时间：--",content);m_lastUpdateLabel->setObjectName("dashboardUpdate");bar->addWidget(title);bar->addStretch();bar->addWidget(m_loadingLabel);bar->addWidget(m_refreshButton);bar->addWidget(m_lastUpdateLabel);main->addLayout(bar);
- auto*ranges=new QHBoxLayout;auto*rt=new QLabel("统计窗口",content);rt->setObjectName("dashboardSectionTitle");auto*g=new QButtonGroup(this);m_todayButton=new QRadioButton("今日",content);m_sevenDaysButton=new QRadioButton("近 7 日",content);m_thirtyDaysButton=new QRadioButton("近 30 日",content);for(auto*b:{m_todayButton,m_sevenDaysButton,m_thirtyDaysButton})b->setObjectName("dashboardRange");g->addButton(m_todayButton,1);g->addButton(m_sevenDaysButton,7);g->addButton(m_thirtyDaysButton,30);m_todayButton->setChecked(true);ranges->addWidget(rt);ranges->addStretch();ranges->addWidget(m_todayButton);ranges->addWidget(m_sevenDaysButton);ranges->addWidget(m_thirtyDaysButton);main->addLayout(ranges);
- auto*cards=new QGridLayout;cards->setSpacing(12);QStringList ts={"充电量","营收","订单量","活跃站点","设备状态","峰值 / 预警"},ds={"窗口累计与上期对比","窗口累计与上期对比","ADS 有效订单","投入运营站点","空闲 / 充电 / 故障","峰值小时 / 拥堵预警"};const char*tones[]={"sage","sand","lavender","sage","sand","lavender"};for(int i=0;i<6;i++)cards->addWidget(createKpiCard(ts[i],ds[i],&m_kpiLabels[i],tones[i]),i/3,i%3);main->addLayout(cards);main->addWidget(createPanel("经营目标与数据窗口",&m_targetLabel));
- auto*cp=new QFrame(content);cp->setObjectName("dashboardPanel");auto*cl=new QVBoxLayout(cp);auto*ct=new QLabel("负荷实绩、上期对比与未来 24 小时预测",cp);ct->setObjectName("dashboardPanelTitle");cl->addWidget(ct);m_chart=new QChart;m_chart->setBackgroundBrush(Qt::NoBrush);auto add=[this](QLineSeries**s,const QString&n,const char*c){*s=new QLineSeries(this);(*s)->setName(n);(*s)->setColor(QColor(c));(*s)->setPointsVisible(true);m_chart->addSeries(*s);};add(&m_currentSeries,"本期实绩","#2F9D62");add(&m_previousSeries,"上期实绩","#8D79C6");add(&m_forecastSeries,"未来预测","#E19A32");add(&m_capacitySeries,"容量","#4B83C3");add(&m_thresholdSeries,"预警阈值","#D95C5C");m_hourAxis=new QValueAxis(this);m_hourAxis->setRange(0,23);m_hourAxis->setTickCount(7);m_hourAxis->setLabelFormat("%d");m_hourAxis->setTitleText("小时 / 预测偏移");m_valueAxis=new QValueAxis(this);m_valueAxis->setRange(0,1);m_valueAxis->setTitleText("负荷（kWh）");m_chart->addAxis(m_hourAxis,Qt::AlignBottom);m_chart->addAxis(m_valueAxis,Qt::AlignLeft);for(auto*s:{m_currentSeries,m_previousSeries,m_forecastSeries,m_capacitySeries,m_thresholdSeries}){s->attachAxis(m_hourAxis);s->attachAxis(m_valueAxis);connect(s,&QLineSeries::hovered,this,&DashboardWidget::onPointHovered);}m_chartView=new QChartView(m_chart,cp);m_chartView->setObjectName("dashboardChart");m_chartView->setRenderHint(QPainter::Antialiasing);m_chartView->setMinimumHeight(330);cl->addWidget(m_chartView);main->addWidget(cp);
- auto*grid=new QGridLayout;grid->setSpacing(14);grid->setColumnStretch(0,1);grid->setColumnStretch(1,1);grid->addWidget(createPanel("站点容量与预测 TOP 8",&m_stationLabel),0,0);grid->addWidget(createPanel("调度建议",&m_dispatchLabel),0,1);grid->addWidget(createPanel("智能预警与运营事件",&m_alertLabel),1,0);grid->addWidget(createPanel("故障桩明细（最近 8 条）",&m_faultLabel),1,1);grid->addWidget(createPanel("区域、时段与快慢充结构",&m_structureLabel),2,0);grid->addWidget(createPanel("数据质量监测",&m_qualityLabel),2,1);main->addLayout(grid);scroll->setWidget(content);root->addWidget(scroll);connect(m_refreshButton,&QPushButton::clicked,this,&DashboardWidget::refreshData);connect(g,&QButtonGroup::idClicked,this,&DashboardWidget::onRangeChanged);}
+    auto *cardsLayout = new QHBoxLayout;
+    cardsLayout->setSpacing(16);
+    auto *todayCard = createKpiCard(QStringLiteral("今日营收"), QStringLiteral("已结算金额"), &m_todayRevenueLabel);
+    auto *monthCard = createKpiCard(QStringLiteral("本月营收"), QStringLiteral("本月累计已结算"), &m_monthRevenueLabel);
+    auto *totalCard = createKpiCard(QStringLiteral("总营收"), QStringLiteral("历史累计已结算"), &m_totalRevenueLabel);
+    todayCard->setProperty("tone", "sage");
+    monthCard->setProperty("tone", "sand");
+    totalCard->setProperty("tone", "lavender");
+    cardsLayout->addWidget(todayCard);
+    cardsLayout->addWidget(monthCard);
+    cardsLayout->addWidget(totalCard);
+    mainLayout->addLayout(cardsLayout);
 
-void DashboardWidget::onRangeChanged(){m_currentDays=m_todayButton->isChecked()?1:(m_thirtyDaysButton->isChecked()?30:7);refreshData();}
-void DashboardWidget::setLoading(bool on){m_loading=on;m_refreshButton->setEnabled(!on);for(auto*b:{m_todayButton,m_sevenDaysButton,m_thirtyDaysButton})b->setEnabled(!on);m_loadingLabel->setText(on?"正在读取 ADS…":"");}
-void DashboardWidget::refreshData(){if(m_loading)return;setLoading(true);QUrl u(qEnvironmentVariable("DASHBOARD_API_URL","http://127.0.0.1:8081/api/dashboard"));QUrlQuery q(u);q.addQueryItem("period",QString::number(m_currentDays));u.setQuery(q);m_http->get(QNetworkRequest(u));}
-void DashboardWidget::onReplyFinished(QNetworkReply*r){setLoading(false);QByteArray body=r->readAll();auto err=r->error();QString why=r->errorString();r->deleteLater();if(err!=QNetworkReply::NoError){m_loadingLabel->setText("ADS 接口不可用："+why);return;}QJsonParseError pe;auto doc=QJsonDocument::fromJson(body,&pe);if(!doc.isObject()){m_loadingLabel->setText("ADS 返回格式错误："+pe.errorString());return;}applyDashboard(doc.object());}
+    auto *chartHeader = new QHBoxLayout;
+    auto *chartTitle = new QLabel(QStringLiteral("营收趋势"), this);
+    chartTitle->setObjectName(QStringLiteral("dashboardSectionTitle"));
+    m_sevenDaysButton = new QRadioButton(QStringLiteral("近 7 日"), this);
+    m_thirtyDaysButton = new QRadioButton(QStringLiteral("近 30 日"), this);
+    m_sevenDaysButton->setObjectName(QStringLiteral("dashboardRange"));
+    m_thirtyDaysButton->setObjectName(QStringLiteral("dashboardRange"));
+    m_sevenDaysButton->setMinimumWidth(82);
+    m_thirtyDaysButton->setMinimumWidth(96);
+    m_sevenDaysButton->setChecked(true);
+    auto *rangeGroup = new QButtonGroup(this);
+    rangeGroup->setExclusive(true);
+    rangeGroup->addButton(m_sevenDaysButton, 7);
+    rangeGroup->addButton(m_thirtyDaysButton, 30);
+    chartHeader->addWidget(chartTitle);
+    chartHeader->addStretch();
+    chartHeader->addWidget(m_sevenDaysButton);
+    chartHeader->addWidget(m_thirtyDaysButton);
+    mainLayout->addLayout(chartHeader);
 
-void DashboardWidget::applyDashboard(const QJsonObject&d){auto k=d.value("kpis").toObject(),t=d.value("targets").toObject();m_kpiLabels[0]->setText(numberText(numberValue(k,"today_kwh")," kWh")+'\n'+comparisonText(k,"today_kwh","yesterday_kwh"));m_kpiLabels[1]->setText(moneyText(numberValue(k,"today_revenue"))+'\n'+comparisonText(k,"today_revenue","yesterday_revenue"));m_kpiLabels[2]->setText(numberText(numberValue(k,"order_count")));m_kpiLabels[3]->setText(numberText(numberValue(k,"active_stations")));m_kpiLabels[4]->setText(QString("%1 / %2 / %3").arg(numberText(numberValue(k,"idle_piles")),numberText(numberValue(k,"busy_piles")),numberText(numberValue(k,"fault_piles"))));m_kpiLabels[5]->setText(QString("%1 / %2 条").arg(val(k,"peak_hour"),numberText(numberValue(k,"alert_count"))));double total=numberValue(k,"idle_piles")+numberValue(k,"busy_piles")+numberValue(k,"fault_piles"),available=total?(total-numberValue(k,"fault_piles"))*100/total:0;m_targetLabel->setText(QString("窗口：%1 ～ %2\n电量目标：%3（%4）    营收目标：%5（%6）\n可用率：%7 / 目标 %8").arg(val(d,"window_start"),val(d,"window_end"),numberText(numberValue(t,"charge_kwh_target")," kWh"),goal(numberValue(k,"today_kwh"),t.value("charge_kwh_target")),moneyText(numberValue(t,"revenue_target")),goal(numberValue(k,"today_revenue"),t.value("revenue_target")),pct(available),pct(numberValue(t,"availability_target"))));
- QVector<QJsonObject> ss;for(auto v:d.value("stations").toArray())ss<<v.toObject();std::sort(ss.begin(),ss.end(),[](auto&a,auto&b){return (a.value("total").toDouble()-a.value("idle").toDouble())/std::max(1.,a.value("total").toDouble())>(b.value("total").toDouble()-b.value("idle").toDouble())/std::max(1.,b.value("total").toDouble());});QString s;for(int i=0;i<std::min(8,int(ss.size()));i++){auto o=ss[i],f=o.value("forecast").toObject();double util=100*(o.value("total").toDouble()-o.value("idle").toDouble())/std::max(1.,o.value("total").toDouble());s+=QString("%1. %2  占用 %3 · 空闲 %4/%5 · 容量 %6kW\n   预测 1h/6h/24h：%7% / %8% / %9%\n").arg(i+1).arg(val(o,"name")).arg(pct(util)).arg(val(o,"idle")).arg(val(o,"total")).arg(val(o,"capacity_kw")).arg(val(f.value("h1").toObject(),"util")).arg(val(f.value("h6").toObject(),"util")).arg(val(f.value("h24").toObject(),"util"));}m_stationLabel->setText(s.isEmpty()?"暂无站点数据":s);
- QString x;for(auto v:d.value("dispatch").toArray()){auto o=v.toObject();x+=QString("%1 → %2\n距离 %3km · 空闲 %4 桩 · 改善 %5%\n%6\n\n").arg(name(o,"source_station_name","from_name"),name(o,"recommended_station_name","to_name"),val(o,"distance_km"),val(o,"recommended_idle_piles"),val(o,"expected_improvement"),val(o,"reason"));}m_dispatchLabel->setText(x.isEmpty()?"当前运行平稳，暂无调度建议":x.trimmed());
- x.clear();for(auto v:d.value("alerts").toArray()){auto o=v.toObject();x+=QString("[%1] %2 · %3\n预测 %4，占用 %5% · %6\n").arg(val(o,"severity"),name(o,"station_name","name"),val(o,"alert_type"),val(o,"predicted_time"),val(o,"predicted_occupancy"),val(o,"message"));}int events=d.value("overstay_records").toArray().size()+d.value("device_warnings").toArray().size()+d.value("active_tickets").toArray().size();if(events)x+=QString("\n其他运营事件：%1 条").arg(events);m_alertLabel->setText(x.isEmpty()?"✓ 当前暂无拥堵预警和运营事件":x.trimmed());
- x.clear();auto faults=d.value("faults").toArray();for(int i=0;i<std::min(8,int(faults.size()));i++){auto o=faults[i].toObject();x+=QString("%1 · %2 · %3\n%4  故障码：%5\n").arg(val(o,"code"),val(o,"station_name"),val(o,"status"),val(o,"fault_time"),val(o,"fault_code"));}m_faultLabel->setText(x.isEmpty()?"✓ 暂无故障桩":x.trimmed());
- auto ww=d.value("weekday_weekend").toObject();x=QString("工作日电量 %1 kWh · 周末 %2 kWh\n").arg(numberText(numberValue(ww,"weekday_kwh")),numberText(numberValue(ww,"weekend_kwh")));for(auto v:d.value("pile_types").toArray()){auto o=v.toObject();x+=QString("%1：空闲 %2 / 充电 %3 / 故障 %4，利用率 %5%\n").arg(val(o,"type"),val(o,"idle"),val(o,"busy"),val(o,"fault"),val(o,"util"));}x+="\n区域 TOP：";int i=0;for(auto v:d.value("regions").toArray()){if(i++==6)break;auto o=v.toObject();x+=QString("\n%1  %2 kWh · %3 · %4元/kWh").arg(val(o,"city"),numberText(numberValue(o,"kwh")),moneyText(numberValue(o,"amount")),val(o,"yuan_per_kwh"));}m_structureLabel->setText(x);
- auto q=d.value("quality").toObject();m_qualityLabel->setText(QString("ODS 原始行：%1    DWD 有效行：%2\n空开始时间：%3    负电量：%4\n重复订单：%5    孤儿站点：%6\n数据源：%7    新鲜度：%8").arg(val(q,"ods_rows"),val(q,"dwd_rows"),val(q,"null_start_time"),val(q,"negative_kwh"),val(q,"dup_order_no"),val(q,"orphan_station"),val(d,"data_source"),val(d,"freshness_status")));m_lastUpdateLabel->setText(QString("ADS：%1 · 刷新：%2").arg(val(d,"latest_data_time"),QTime::currentTime().toString("HH:mm:ss")));updateLoadChart(d);}
+    m_series = new QLineSeries(this);
+    m_series->setName(QStringLiteral("营收"));
+    m_series->setColor(QColor(QStringLiteral("#2B2B29")));
+    m_series->setPointsVisible(true);
+    m_series->setPointLabelsVisible(false);
 
-void DashboardWidget::updateLoadChart(const QJsonObject&d){for(auto*s:{m_currentSeries,m_previousSeries,m_forecastSeries,m_capacitySeries,m_thresholdSeries})s->clear();double max=1;auto append=[&](QLineSeries*s,QJsonArray a,const char*xk){for(auto v:a){auto o=v.toObject();double x=o.value(xk).toDouble()-(QString(xk)=="offset"?1:0),y=o.value("kwh").toDouble();s->append(x,y);max=std::max(max,y);}};auto now=d.value("load_today").toArray();append(m_currentSeries,now,"hour");append(m_previousSeries,d.value("yesterday_load").toArray(),"hour");append(m_forecastSeries,d.value("load_forecast_24h").toArray(),"offset");for(auto v:now){auto o=v.toObject();double h=o.value("hour").toDouble(),c=o.value("capacity_kw").toDouble(),w=o.value("warning_threshold_kw").toDouble();if(c){m_capacitySeries->append(h,c);max=std::max(max,c);}if(w){m_thresholdSeries->append(h,w);max=std::max(max,w);}}m_previousSeries->setVisible(!m_previousSeries->points().isEmpty());m_capacitySeries->setVisible(!m_capacitySeries->points().isEmpty());m_thresholdSeries->setVisible(!m_thresholdSeries->points().isEmpty());m_valueAxis->setRange(0,max*1.12);}
-double DashboardWidget::numberValue(const QJsonObject&o,const QString&k,double f){auto v=o.value(k);if(v.isDouble())return v.toDouble();bool ok=false;double n=v.toString().toDouble(&ok);return ok?n:f;}QString DashboardWidget::numberText(double n,const QString&u){if(!std::isfinite(n))return"--";return QLocale(QLocale::English).toString(n,'f',std::fmod(n,1.)?2:0)+u;}QString DashboardWidget::moneyText(double n){return"¥"+numberText(n);}QString DashboardWidget::comparisonText(const QJsonObject&o,const QString&c,const QString&p){if(o.value(p).isNull()||o.value(p).isUndefined())return"上期不足";double a=numberValue(o,c),b=numberValue(o,p);return b?QString("较上期 %1%2").arg(a>=b?"+":"",pct((a-b)*100/b)):"较上期 --";}
-void DashboardWidget::setDarkTheme(bool dark){QColor t=dark?QColor("#C4CCD3"):QColor("#62645E"),g=dark?QColor("#2B323A"):QColor("#E9E8E1"),a=dark?QColor("#59636C"):QColor("#C9C8C0");for(auto*x:{m_hourAxis,m_valueAxis}){x->setLinePen(QPen(a));x->setGridLinePen(QPen(g));x->setLabelsBrush(t);x->setTitleBrush(t);}m_chart->legend()->setLabelColor(t);m_chart->update();}
-void DashboardWidget::onPointHovered(const QPointF&p,bool on){if(!on){QToolTip::hideText();return;}QToolTip::showText(QCursor::pos(),QString("小时：%1\n负荷：%2 kWh").arg(p.x(),0,'f',0).arg(p.y(),0,'f',2),m_chartView);}
+    m_chart = new QChart;
+    m_chart->addSeries(m_series);
+    m_chart->legend()->hide();
+    m_chart->setAnimationOptions(QChart::SeriesAnimations);
+    m_chart->setBackgroundBrush(Qt::NoBrush);
+    m_chart->setPlotAreaBackgroundBrush(Qt::NoBrush);
+    m_chart->setPlotAreaBackgroundVisible(true);
+    m_chart->setBackgroundRoundness(14);
+    m_chart->setMargins(QMargins(8, 8, 8, 8));
+
+    m_dateAxis = new QDateTimeAxis(this);
+    m_dateAxis->setFormat(QStringLiteral("MM-dd"));
+    m_dateAxis->setTitleText(QStringLiteral("日期"));
+    m_dateAxis->setTickCount(7);
+    m_valueAxis = new QValueAxis(this);
+    m_valueAxis->setTitleText(QStringLiteral("营业额（元）"));
+    // 避免部分 Linux 字体无法显示 ¥ 导致刻度前出现问号；单位已在轴标题中说明。
+    m_valueAxis->setLabelFormat(QStringLiteral("%.2f"));
+    m_valueAxis->setRange(0.0, 1.0);
+    m_valueAxis->setTickCount(6);
+    const QPen axisPen(QColor(QStringLiteral("#C9C8C0")));
+    const QPen gridPen(QColor(QStringLiteral("#E9E8E1")));
+    m_dateAxis->setLinePen(axisPen);
+    m_dateAxis->setGridLinePen(gridPen);
+    m_dateAxis->setLabelsBrush(QColor(QStringLiteral("#777A73")));
+    m_dateAxis->setTitleBrush(QColor(QStringLiteral("#62645E")));
+    m_valueAxis->setLinePen(axisPen);
+    m_valueAxis->setGridLinePen(gridPen);
+    m_valueAxis->setLabelsBrush(QColor(QStringLiteral("#777A73")));
+    m_valueAxis->setTitleBrush(QColor(QStringLiteral("#62645E")));
+    m_chart->addAxis(m_dateAxis, Qt::AlignBottom);
+    m_chart->addAxis(m_valueAxis, Qt::AlignLeft);
+    m_series->attachAxis(m_dateAxis);
+    m_series->attachAxis(m_valueAxis);
+
+    m_chartView = new QChartView(m_chart, this);
+    m_chartView->setObjectName(QStringLiteral("dashboardChart"));
+    m_chartView->setRenderHint(QPainter::Antialiasing);
+    m_chartView->setMinimumHeight(380);
+    m_chartView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    mainLayout->addWidget(m_chartView, 1);
+
+    connect(m_refreshButton, &QPushButton::clicked,
+            this, &DashboardWidget::refreshData);
+    connect(rangeGroup, &QButtonGroup::idClicked,
+            this, &DashboardWidget::onRangeChanged);
+    connect(m_series, &QLineSeries::hovered,
+            this, &DashboardWidget::onPointHovered);
+}
+
+void DashboardWidget::setDarkTheme(bool dark)
+{
+    const QColor text = dark ? QColor("#C4CCD3") : QColor("#62645E");
+    const QColor grid = dark ? QColor("#2B323A") : QColor("#E9E8E1");
+    const QColor axis = dark ? QColor("#59636C") : QColor("#C9C8C0");
+    m_chart->setBackgroundBrush(dark ? QBrush(QColor("#171C22")) : QBrush(Qt::NoBrush));
+    m_chart->setPlotAreaBackgroundBrush(dark ? QBrush(QColor("#151A1F")) : QBrush(Qt::NoBrush));
+    m_dateAxis->setLinePen(QPen(axis)); m_valueAxis->setLinePen(QPen(axis));
+    m_dateAxis->setGridLinePen(QPen(grid)); m_valueAxis->setGridLinePen(QPen(grid));
+    m_dateAxis->setLabelsBrush(text); m_valueAxis->setLabelsBrush(text);
+    m_dateAxis->setTitleBrush(text); m_valueAxis->setTitleBrush(text);
+    m_series->setColor(dark ? QColor("#58B97B") : QColor("#2B2B29"));
+    m_chart->update();
+}
+
+QWidget *DashboardWidget::createKpiCard(const QString &title, const QString &description, QLabel **valueLabel)
+{
+    auto *card = new QFrame(this);
+    card->setObjectName(QStringLiteral("kpiCard"));
+    card->setMinimumHeight(120);
+    auto *layout = new QVBoxLayout(card);
+    layout->setContentsMargins(20, 16, 20, 16);
+    auto *titleLabel = new QLabel(title, card);
+    titleLabel->setObjectName("kpiTitle");
+    *valueLabel = new QLabel(QStringLiteral("--"), card);
+    (*valueLabel)->setObjectName("kpiValue");
+    auto *descLabel = new QLabel(description, card);
+    descLabel->setObjectName("kpiDescription");
+    layout->addWidget(titleLabel);
+    layout->addStretch();
+    layout->addWidget(*valueLabel);
+    layout->addWidget(descLabel);
+    return card;
+}
+
+void DashboardWidget::onRangeChanged()
+{
+    m_currentDays = m_thirtyDaysButton->isChecked() ? 30 : 7;
+    refreshData();
+}
+
+void DashboardWidget::refreshData()
+{
+    if (m_loading)
+        return;
+    if (!m_net) {
+        QMessageBox::warning(this, QStringLiteral("刷新失败"),
+                             QStringLiteral("网络客户端不可用"));
+        return;
+    }
+
+    m_loading = true;
+    m_refreshButton->setEnabled(false);
+    m_sevenDaysButton->setEnabled(false);
+    m_thirtyDaysButton->setEnabled(false);
+    m_loadingLabel->setText(QStringLiteral("加载中..."));
+    QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+
+    const int days = m_currentDays;
+    QJsonObject requestData;
+    requestData.insert(QStringLiteral("days"), days);
+    const QJsonObject response = m_net->request(
+        Protocol::makeRequest(Protocol::MsgType::AdminRevenueTrend, requestData));
+
+    m_loading = false;
+    m_refreshButton->setEnabled(true);
+    m_sevenDaysButton->setEnabled(true);
+    m_thirtyDaysButton->setEnabled(true);
+    m_loadingLabel->clear();
+
+    if (response.value(QStringLiteral("code")).toInt(-1) != Protocol::Ok) {
+        QString message = response.value(QStringLiteral("msg")).toString();
+        if (message.isEmpty())
+            message = response.value(QStringLiteral("message")).toString();
+        if (message.isEmpty())
+            message = QStringLiteral("营收数据请求失败，请稍后重试");
+        QMessageBox::warning(this, QStringLiteral("刷新失败"), message);
+        return;
+    }
+
+    const QJsonObject data = response.value(QStringLiteral("data")).toObject();
+    if (m_todayRevenueLabel)
+        m_todayRevenueLabel->setText(moneyText(numberValue(
+            data, {QStringLiteral("todayRevenue"), QStringLiteral("today_revenue")})));
+    if (m_monthRevenueLabel)
+        m_monthRevenueLabel->setText(moneyText(numberValue(
+            data, {QStringLiteral("monthRevenue"), QStringLiteral("month_revenue")})));
+    if (m_totalRevenueLabel)
+        m_totalRevenueLabel->setText(moneyText(numberValue(
+            data, {QStringLiteral("totalRevenue"), QStringLiteral("total_revenue")})));
+    updateChart(data, days);
+    if (m_lastUpdateLabel)
+        m_lastUpdateLabel->setText(
+            QStringLiteral("最后更新: %1").arg(
+                QTime::currentTime().toString(QStringLiteral("HH:mm:ss"))));
+}
+
+double DashboardWidget::numberValue(const QJsonObject &object,
+                                    const QStringList &keys)
+{
+    for (const QString &key : keys) {
+        const QJsonValue value = object.value(key);
+        if (value.isDouble())
+            return value.toDouble();
+        if (value.isString()) {
+            bool ok = false;
+            const double result = value.toString().toDouble(&ok);
+            if (ok)
+                return result;
+        }
+    }
+    return 0.0;
+}
+
+QString DashboardWidget::moneyText(double amount)
+{
+    if (!std::isfinite(amount) || amount < 0.0)
+        amount = 0.0;
+    const QLocale locale(QLocale::English, QLocale::UnitedStates);
+    return QStringLiteral("¥%1").arg(locale.toString(amount, 'f', 2));
+}
+
+void DashboardWidget::updateChart(const QJsonObject &data, int days)
+{
+    QJsonArray trend = data.value(QStringLiteral("trend")).toArray();
+    if (trend.isEmpty())
+        trend = data.value(QStringLiteral("list")).toArray();
+    if (trend.isEmpty())
+        trend = data.value(QStringLiteral("items")).toArray();
+
+    QHash<QDate, double> revenueByDate;
+    for (const QJsonValue &value : trend) {
+        const QJsonObject item = value.toObject();
+        const QString dateString = item.value(QStringLiteral("date")).toString().trimmed();
+        QDate date = QDate::fromString(dateString, QStringLiteral("yyyy-MM-dd"));
+        if (!date.isValid())
+            date = QDate::fromString(dateString, Qt::ISODate);
+        if (!date.isValid())
+            date = QDateTime::fromString(dateString, Qt::ISODate).date();
+        if (!date.isValid())
+            continue;
+        double revenue = numberValue(
+            item, {QStringLiteral("revenue"), QStringLiteral("amount"),
+                   QStringLiteral("value")});
+        if (!std::isfinite(revenue) || revenue < 0.0)
+            revenue = 0.0;
+        revenueByDate.insert(date, revenue);
+    }
+
+    const QDate endDate = QDate::currentDate();
+    const QDate startDate = endDate.addDays(1 - days);
+    QList<QPointF> points;
+    points.reserve(days);
+    double maximum = 0.0;
+    for (int offset = 0; offset < days; ++offset) {
+        const QDate date = startDate.addDays(offset);
+        const double revenue = revenueByDate.value(date, 0.0);
+        maximum = std::max(maximum, revenue);
+        points.append(QPointF(
+            QDateTime(date, QTime(0, 0)).toMSecsSinceEpoch(), revenue));
+    }
+
+    m_series->clear();
+    m_series->replace(points);
+    m_dateAxis->setRange(QDateTime(startDate, QTime(0, 0)),
+                         QDateTime(endDate, QTime(23, 59, 59)));
+    m_dateAxis->setFormat(QStringLiteral("MM-dd"));
+    m_dateAxis->setTickCount(days == 30 ? 6 : 7);
+    const double upperBound = maximum > 0.0 ? maximum * 1.15 : 1.0;
+    m_valueAxis->setRange(0.0, upperBound);
+}
+
+void DashboardWidget::onPointHovered(const QPointF &point, bool state)
+{
+    if (!state) {
+        QToolTip::hideText();
+        return;
+    }
+    const QDate date = QDateTime::fromMSecsSinceEpoch(
+        qRound64(point.x())).date();
+    QToolTip::showText(
+        QCursor::pos(),
+        QStringLiteral("日期：%1\n金额：%2")
+            .arg(date.toString(QStringLiteral("yyyy-MM-dd")),
+                 moneyText(point.y())),
+        m_chartView);
+}
